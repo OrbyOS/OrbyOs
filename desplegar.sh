@@ -46,6 +46,7 @@ for ajuste in RADAR_CLAVES_COMPARTIDAS=0 RADAR_MOTOR=api RADAR_REGISTRO_ABIERTO=
 done
 # El nombre de la app (sale en la landing y en toda la app). Solo si aún no se ha puesto otro a mano.
 grep -q '^APP_NOMBRE=' .env || echo "APP_NOMBRE=Orby" >> .env
+grep -q '^RADAR_URL_GITHUB=' .env || echo "RADAR_URL_GITHUB=https://github.com/OrbyOS/OrbyOs" >> .env
 grep -q '^RADAR_URL_SOLICITAR=' .env || echo "RADAR_URL_SOLICITAR=/#solicitar" >> .env   # el formulario de la propia landing
 grep -q '^RADAR_URL_PUBLICA=' .env && sed -i "s|^RADAR_URL_PUBLICA=.*|RADAR_URL_PUBLICA=https://$DOMINIO|" .env || \
   echo "RADAR_URL_PUBLICA=https://$DOMINIO" >> .env

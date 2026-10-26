@@ -539,3 +539,9 @@ html[data-demo] [data-privado], html[data-demo] .privado { filter: blur(6px); us
 @media (max-width: 720px) { .sl-lista li { grid-template-columns: 1fr; } }
 .fm-empuje { color: var(--marca, #3D7BFF); }
 .nt-lectura { padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--marca, #3D7BFF) 9%, transparent); }
+
+/* Muñecos en render 3D: despierto o dormido (y el parpadeo, un instante con los ojos cerrados) */
+.robot .r-dormido { opacity: 0; }
+[data-estado="dormido"] .r-despierto, .parpadea .r-despierto { opacity: 0; }
+[data-estado="dormido"] .r-dormido, .parpadea .r-dormido { opacity: 1; }
+[data-estado="trabajando"] .robot .r-todo, .robot[data-estado="trabajando"] .r-todo { animation-duration: 1.6s; }

@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="radar/static/marca/logo-orby-oscuro.png">
+    <img src="radar/static/marca/logo-orby-claro.png" alt="Orby" width="420">
+  </picture>
+</p>
+
 # Orby
 
 Un equipo de agentes de IA que lleva el contenido de una marca personal: investiga qué funciona en su nicho, planifica

@@ -127,13 +127,16 @@ def test_la_landing_sale_en_la_raiz_sin_sesion(app_aislada, monkeypatch):
     _registrar(app_aislada, "duena@ejemplo.com")
     anonimo = TestClient(app)
     r = anonimo.get("/", follow_redirects=False)
-    assert r.status_code == 200 and "Dirigido por Orby." in r.text and "Solicitar implementación" in r.text
+    assert r.status_code == 200 and "Conoce a Orby." in r.text and "Solicitar implementación" in r.text
+    assert "data-orby3d" in r.text and "/static/landing3d.js" in r.text  # Orby en 3D en la portada
+    assert "Ver en GitHub" in r.text  # el segundo botón de la portada lleva al repositorio
     assert "data-escaparate" in r.text and "/static/escaparate/sala.json" in r.text  # la oficina de verdad, con datos de ejemplo
-    for seccion in ("orby", "problema", "como", "equipo", "implementacion", "preguntas", "solicitar"):
+    for seccion in ("producto", "equipo", "como", "control", "implementacion", "preguntas", "solicitar"):
         assert f'id="{seccion}"' in r.text, seccion
     assert "A medida" in r.text  # el precio, hasta que se ponga uno
     for agente in ("Lupi", "Plani", "Escri", "Monti", "Publi", "Chati"):
         assert f"<h3>{agente}</h3>" in r.text, agente
+    assert "/static/marca/agentes/analista.webp" in r.text  # los renders 3D del equipo
     # Sin la ruta /solicitar, el botón lleva al enlace configurado (o al registro).
     monkeypatch.setitem(plantillas.env.globals, "ruta_existe", lambda ruta, metodo="POST": False)
     sin_ruta = anonimo.get("/").text

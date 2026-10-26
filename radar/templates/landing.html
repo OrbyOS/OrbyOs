@@ -1,28 +1,29 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icono %}
-{% block titulo %}{{ APP }} · El director de contenido con IA para tu negocio{% endblock %}
+{% block titulo %}{{ APP }} · Tu director de contenido con IA{% endblock %}
 {% block cabecera %}
 <script>/* La landing (y su oficina) siempre en oscuro: es el escaparate. */ document.documentElement.dataset.tono = "oscuro";</script>
-<link rel="stylesheet" href="/static/sala.css?v=73"><link rel="stylesheet" href="/static/landing.css?v=5">{% endblock %}
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<link rel="stylesheet" href="/static/sala.css?v=73"><link rel="stylesheet" href="/static/landing.css?v=7">{% endblock %}
 {% block clase_body %}landing{% endblock %}
 {% block cuerpo %}
-{# Página de venta de Orby. Orby (el director) es la imagen del producto; la oficina, la prueba de que el equipo
-   existe. El software libre es un argumento de confianza, no el protagonista. Nada de cifras, clientes ni testimonios
-   inventados: lo que falte, marcado como pendiente. #}
+{# Página de venta de Orby. Orby (el director, en 3D de verdad) es la imagen del producto; la oficina, la prueba de que el
+   equipo existe. El software libre es un argumento de confianza, no el protagonista. Nada de cifras, clientes ni
+   testimonios inventados: lo que falte va marcado como PENDIENTE. #}
 {% set equipo = [
-  ("analista", "Lupi", "Investigación", "Mide cada post de tu nicho contra lo normal de su cuenta, detecta lo que está despegando y te dice qué ganchos funcionan."),
-  ("estratega", "Plani", "Estrategia", "Decide qué grabar cada día, en qué formato y para qué etapa del embudo. Sin repetir y sin improvisar."),
-  ("guionista", "Escri", "Guiones", "Convierte cada idea en una estructura o un guion con tu voz. Ninguna cifra sale sin su prueba."),
-  ("editor", "Monti", "Edición", "Corta, subtitula y monta con tu identidad visual. De una grabación saca varios reels."),
-  ("publicador", "Publi", "Publicación", "Programa cada pieza en su mejor hueco y en cada red, con su texto y su enlace de seguimiento."),
-  ("comunidad", "Chati", "Comunidad", "Envía la guía a quien comenta tu palabra clave y te deja listas las respuestas a cada mensaje.")] %}
+  ("analista", "Lupi", "Investiga", "Lee tu nicho cada día y detecta lo que despega antes que nadie."),
+  ("estratega", "Plani", "Planifica", "Decide qué grabar, en qué formato y para qué etapa del embudo."),
+  ("guionista", "Escri", "Escribe", "Convierte cada idea en una estructura con tu voz. Sin cifras inventadas."),
+  ("editor", "Monti", "Edita", "Corta, subtitula y monta con tu identidad. De una grabación, varios reels."),
+  ("publicador", "Publi", "Publica", "Cada pieza en su mejor hora y en cada red, con su enlace de seguimiento."),
+  ("comunidad", "Chati", "Responde", "Envía la guía a quien comenta y te deja listas las respuestas.")] %}
 {% set con_formulario = ruta_existe("/solicitar") %}
 {% set solicitar = "#solicitar" if con_formulario else URL_SOLICITAR %}
 
 <header class="ln-nav">
   <a class="ln-logo" href="/"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
   <nav class="ln-enlaces" aria-label="Secciones">
-    <a href="#orby">Orby</a><a href="#como">Cómo funciona</a><a href="#equipo">El equipo</a><a href="#implementacion">Implementación</a><a href="#preguntas">Preguntas</a>
+    <a href="#producto">Producto</a><a href="#equipo">Equipo</a><a href="#como">Cómo funciona</a><a href="#implementacion">Implementación</a><a href="#preguntas">Preguntas</a>
   </nav>
   <div class="ln-nav-acciones">
     <a class="ln-entrar" href="/entrar">Entrar</a>
@@ -31,25 +32,34 @@
 </header>
 
 <main>
-  {# ---------------------------------------------------------------- 1. portada: la promesa y la oficina entera #}
+  {# ---------------------------------------------------------------- 1. Orby, en 3D #}
   <section class="ln-hero">
     <div class="ln-hero-texto">
-      <p class="ln-pastilla"><span class="ln-pastilla-cara" data-robot="jefa" data-robot-cabeza></span>El director de contenido con IA para marcas personales</p>
-      <h1>Tu equipo de contenido.<br><span>Dirigido por Orby.</span></h1>
-      <p class="ln-entradilla">Orby y seis agentes especializados investigan tu nicho, planifican, escriben, editan, publican y atienden tus mensajes. Tú grabas unos minutos y das el visto bueno.</p>
-      <div class="ln-ctas">
+      <p class="ln-antetitulo ln-entra">Tu director de contenido con IA</p>
+      <h1 class="ln-entra" style="--d:.08s">Conoce a Orby.</h1>
+      <p class="ln-entradilla ln-entra" style="--d:.16s">Investiga, planifica, escribe, edita, publica y responde. Tú grabas unos minutos y das el visto bueno.</p>
+      <div class="ln-ctas ln-entra" style="--d:.24s">
         <a class="ln-btn ln-btn-primario" href="{{ solicitar }}">Solicitar implementación</a>
-        <a class="ln-btn ln-btn-cristal" href="#como">Ver cómo funciona</a>
+        {% if URL_GITHUB %}<a class="ln-btn ln-btn-cristal" href="{{ URL_GITHUB }}" target="_blank" rel="noopener">{{ icono("externo") }} Ver en GitHub</a>
+        {% else %}<span class="ln-btn ln-btn-cristal ln-pronto" title="El repositorio se publica muy pronto">Ver en GitHub <small>pronto</small></span>{% endif %}
       </div>
-      <ul class="ln-sellos">
-        <li>Nada se publica sin tu visto bueno</li>
-        <li>Escrito con tu voz</li>
-        <li>Tus datos, en tu servidor</li>
-      </ul>
     </div>
+    <div class="ln-escenario" aria-hidden="true">
+      <div class="ln-halo"></div>
+      <canvas class="ln-orby3d" data-orby3d></canvas>
+      <img class="ln-orby-respaldo" src="/static/marca/agentes/jefa.webp?v=1" alt="" width="896" height="1072">
+      <div class="ln-suelo"></div>
+    </div>
+  </section>
 
-    {# La oficina de verdad (sala.js) en modo escaparate: datos de ejemplo y actividad simulada. #}
-    <figure class="ln-producto">
+  {# ---------------------------------------------------------------- 2. el producto: la oficina #}
+  <section class="ln-seccion ln-ancha" id="producto">
+    <div class="ln-cabeza ln-centrada" data-revela>
+      <p class="ln-antetitulo">El producto</p>
+      <h2>Un equipo entero.<br>Trabajando mientras grabas.</h2>
+      <p>Cada agente en su puesto, pasándose el trabajo en directo. Tú lo ves todo desde una sola pantalla.</p>
+    </div>
+    <figure class="ln-producto" data-revela>
       <div class="ln-ventana">
         <div class="ln-ventana-barra" aria-hidden="true"><i></i><i></i><i></i><span>{{ APP | lower }} · Hoy</span></div>
         <section class="sala ln-sala" data-sala data-escaparate data-vivo="/static/escaparate/sala.json" data-app="{{ APP }}" aria-label="La oficina de {{ APP }}, con datos de ejemplo">
@@ -80,117 +90,79 @@
           <div class="sala-ticker" hidden><ul></ul></div>
         </section>
       </div>
-      <figcaption>La oficina de {{ APP }}: cada agente en su puesto, trabajando en directo. Datos de ejemplo.</figcaption>
+      <figcaption>La oficina de {{ APP }}, en directo. Datos de ejemplo.</figcaption>
     </figure>
   </section>
 
-  {# ---------------------------------------------------------------- 2. Orby, la cara del producto #}
-  <section class="ln-seccion ln-orby" id="orby">
-    <div class="ln-orby-retrato">
-      <img src="/static/marca/director.webp" alt="Orby, el director de contenido" width="1145" height="1374" loading="lazy">
-    </div>
-    <div class="ln-orby-texto">
-      <p class="ln-antetitulo">Conoce a Orby</p>
-      <h2>Tu director de contenido.<br>Siempre al día.</h2>
-      <p>Orby coordina al equipo, conoce tu negocio a fondo y cada mañana te dice qué es lo importante. Le hablas como a una persona: «¿qué grabo hoy?», «¿qué ha funcionado esta semana?».</p>
-      <ul class="ln-lista">
-        <li><b>El resumen de cada mañana,</b> con lo primero que hay que hacer y cómo vas con tu objetivo.</li>
-        <li><b>Una sola cola de aprobaciones</b> para todo lo que el equipo quiere publicar o cambiar.</li>
-        <li><b>Te avisa de lo que falta</b> para que el equipo trabaje sin suponer nada de tu negocio.</li>
-        <li><b>En la app y en Telegram,</b> para aprobar desde el móvil.</li>
-      </ul>
-    </div>
-  </section>
-
-  {# ---------------------------------------------------------------- 3. el problema #}
-  <section class="ln-seccion" id="problema">
-    <div class="ln-cabeza ln-centrada">
-      <p class="ln-antetitulo">El problema</p>
-      <h2>Publicar con constancia no debería ser tu segundo trabajo.</h2>
-    </div>
-    <div class="ln-problemas">
-      <div class="ln-problema"><span class="ln-problema-num">01</span><h3>Ideas sin dirección</h3><p>Publicas lo que se te ocurre o lo que hace todo el mundo, y no se nota en las ventas.</p></div>
-      <div class="ln-problema"><span class="ln-problema-num">02</span><h3>Producción sin fin</h3><p>Guion, grabación, edición, subtítulos, textos y publicación en cada red. Todas las semanas.</p></div>
-      <div class="ln-problema"><span class="ln-problema-num">03</span><h3>Oportunidades que se enfrían</h3><p>Comentarios y mensajes con intención de compra que se contestan tarde, o nunca.</p></div>
-    </div>
-  </section>
-
-  {# ---------------------------------------------------------------- 4. cómo funciona #}
-  <section class="ln-seccion" id="como">
-    <div class="ln-cabeza ln-centrada">
-      <p class="ln-antetitulo">Cómo funciona</p>
-      <h2>Tú pones la cara.<br>El equipo, todo lo demás.</h2>
-    </div>
-    <ol class="ln-tres">
-      <li><span class="ln-tres-num">1</span><h3>Graba</h3><p>Orby te dice qué grabar y te deja los puntos clave. Hablas unos minutos, sin leer y sin repetir tomas.</p></li>
-      <li><span class="ln-tres-num">2</span><h3>Aprueba</h3><p>Planes, guiones, vídeos y respuestas llegan a una sola cola. Apruebas o pides cambios con una nota.</p></li>
-      <li><span class="ln-tres-num">3</span><h3>Publica y aprende</h3><p>El equipo edita, publica en cada red a su hora, atiende los mensajes y ajusta lo siguiente con lo que funciona.</p></li>
-    </ol>
-  </section>
-
-  {# ---------------------------------------------------------------- 5. el equipo #}
+  {# ---------------------------------------------------------------- 3. el equipo #}
   <section class="ln-seccion" id="equipo">
-    <div class="ln-equipo-cabeza">
-      <div class="ln-cabeza">
-        <p class="ln-antetitulo">El equipo</p>
-        <h2>Seis especialistas.<br>Un director.</h2>
-        <p>Cada agente domina una parte del trabajo y se la pasa al siguiente. Todos leen el mismo Kit de marca: tu voz, tus pruebas, tus ofertas y lo que nunca dirías.</p>
-      </div>
-      <div class="ln-orbita-caja" aria-hidden="true">
-        <div class="ln-orbita">
-          <span class="ln-anillo ln-anillo-1"></span><span class="ln-anillo ln-anillo-2"></span>
-          <span class="ln-director" data-robot="jefa"></span>
-          {% for clave, nombre, rol, texto in equipo %}<span class="ln-satelite ln-s{{ loop.index }}"><span data-robot="{{ clave }}"></span><small>{{ nombre }}</small></span>{% endfor %}
-        </div>
-      </div>
+    <div class="ln-cabeza ln-centrada" data-revela>
+      <p class="ln-antetitulo">El equipo</p>
+      <h2>Seis especialistas.<br>Un director.</h2>
+      <p>Cada uno domina una parte del trabajo y se la pasa al siguiente. Orby los coordina y todos leen lo mismo: tu voz, tus pruebas, tus ofertas y lo que nunca dirías.</p>
     </div>
     <div class="ln-equipo">
-      {% for clave, nombre, rol, texto in equipo %}
-      <article class="ln-agente">
-        <span class="ln-agente-robot" data-robot="{{ clave }}"></span>
-        <div><p class="ln-rol">{{ rol }}</p><h3>{{ nombre }}</h3><p>{{ texto }}</p></div>
+      {% for clave, nombre, verbo, texto in equipo %}
+      <article class="ln-agente" data-revela style="--c: {{ {'analista':'#22D3EE','estratega':'#FBBF24','guionista':'#F472B6','editor':'#34D399','publicador':'#A78BFA','comunidad':'#FB7185'}[clave] }}; --d: {{ loop.index0 * 0.06 }}s">
+        <img class="ln-agente-render" src="/static/marca/agentes/{{ clave }}.webp?v=1" alt="{{ nombre }}" width="896" height="1072" loading="lazy">
+        <p class="ln-verbo">{{ verbo }}</p>
+        <h3>{{ nombre }}</h3>
+        <p>{{ texto }}</p>
       </article>
       {% endfor %}
     </div>
   </section>
 
-  {# ---------------------------------------------------------------- 6. control y confianza #}
+  {# ---------------------------------------------------------------- 4. cómo funciona #}
+  <section class="ln-seccion" id="como">
+    <div class="ln-cabeza ln-centrada" data-revela>
+      <p class="ln-antetitulo">Cómo funciona</p>
+      <h2>Tú pones la cara.<br>Ellos, todo lo demás.</h2>
+    </div>
+    <ol class="ln-tres">
+      <li data-revela><span class="ln-tres-num">01</span><h3>Graba</h3><p>Orby te dice qué grabar hoy y te deja los puntos clave. Hablas unos minutos. Sin leer. Sin repetir tomas.</p></li>
+      <li data-revela style="--d:.08s"><span class="ln-tres-num">02</span><h3>Aprueba</h3><p>Planes, guiones, vídeos y respuestas llegan a una sola cola. Un toque para aprobar, una nota para cambiar.</p></li>
+      <li data-revela style="--d:.16s"><span class="ln-tres-num">03</span><h3>Crece</h3><p>El equipo edita, publica a la mejor hora, atiende cada mensaje y aprende de lo que funciona.</p></li>
+    </ol>
+  </section>
+
+  {# ---------------------------------------------------------------- 5. control #}
   <section class="ln-seccion" id="control">
-    <div class="ln-cabeza ln-centrada">
+    <div class="ln-cabeza ln-centrada" data-revela>
       <p class="ln-antetitulo">Control</p>
-      <h2>Diseñado para que tú tengas la última palabra.</h2>
+      <h2>La última palabra<br>siempre es tuya.</h2>
     </div>
     <div class="ln-garantias">
-      <div><h3>Autonomía a tu ritmo</h3><p>Cada agente empieza revisándolo todo contigo. Cuando confíes en cómo trabaja, le das más margen.</p></div>
-      <div><h3>Cero cifras inventadas</h3><p>Un validador en código comprueba que cada número tenga su fuente antes de que lo veas.</p></div>
-      <div><h3>Original, no copiado</h3><p>Rehace lo que ya funciona en tu nicho con tu tema, tu ángulo y tu voz.</p></div>
-      <div><h3>Sin ataduras</h3><p>El software es libre y de código abierto. Corre en tu servidor: tus datos y tu contenido son tuyos.</p></div>
+      <div data-revela><h3>Nada sale sin ti</h3><p>Cada agente empieza revisándolo todo contigo. La autonomía se la das tú, cuando quieras y a quien quieras.</p></div>
+      <div data-revela style="--d:.06s"><h3>Cero cifras inventadas</h3><p>Un validador en código comprueba que cada número tenga su fuente antes de que llegue a ti.</p></div>
+      <div data-revela style="--d:.12s"><h3>Tu voz, no la de una IA</h3><p>Todo sale de tu Kit de marca: tus frases, tus opiniones y lo que nunca dirías.</p></div>
+      <div data-revela style="--d:.18s"><h3>Tuyo de verdad</h3><p>Software libre y de código abierto, en tu servidor. Tus datos y tu contenido no salen de ahí.</p></div>
     </div>
   </section>
 
-  {# PENDIENTE: pruebas reales —casos de clientes con su permiso, capturas o resultados—. No se inventa nada:
-     cuando haya un caso real, va aquí, entre el control y la implementación. #}
+  {# PENDIENTE: aquí van las pruebas reales —casos de clientes con su permiso, capturas o resultados—. No se inventa nada:
+     cuando haya un caso real, va en esta sección. #}
 
-  {# ---------------------------------------------------------------- 7. implementación y precio #}
+  {# ---------------------------------------------------------------- 6. implementación y precio #}
   <section class="ln-seccion" id="implementacion">
-    <div class="ln-cabeza ln-centrada">
+    <div class="ln-cabeza ln-centrada" data-revela>
       <p class="ln-antetitulo">Implementación</p>
       <h2>Llave en mano.</h2>
-      <p>Te dejamos a Orby y a su equipo trabajando en tu negocio, con tu voz, tu marca y tus canales.</p>
+      <p>Dejamos a Orby y a su equipo trabajando en tu negocio: con tu voz, tu marca y tus canales.</p>
     </div>
     <div class="ln-planes">
-      <div class="ln-plan ln-plan-destacado">
+      <div class="ln-plan ln-plan-destacado" data-revela>
         <p class="ln-rol">Qué incluye</p>
         <h3>De la primera llamada al primer «Graba hoy»</h3>
         <ul>
           <li>De 2 a 3 llamadas de onboarding contigo.</li>
           <li>Tu Kit de marca: voz, pruebas, ofertas, límites y las cuentas de tu nicho que hay que seguir.</li>
-          <li>Tu identidad visual: paleta, tipografía, logo y movimiento de los textos en tus vídeos.</li>
+          <li>Tu identidad visual: paleta, tipografía, logo y movimiento de los textos de tus vídeos.</li>
           <li>Instalación y conexión de tus redes, tu publicación y tus mensajes.</li>
           <li>El equipo trabajando desde el primer día, con tu visto bueno en cada paso.</li>
         </ul>
       </div>
-      <div class="ln-plan ln-precio">
+      <div class="ln-plan ln-precio" data-revela style="--d:.08s">
         <p class="ln-rol">Inversión</p>
         {# PENDIENTE: el precio de la implementación (o «desde X €»). Hasta entonces, «a medida». #}
         <h3>A medida</h3>
@@ -201,24 +173,24 @@
     </div>
   </section>
 
-  {# ---------------------------------------------------------------- 8. preguntas #}
+  {# ---------------------------------------------------------------- 7. preguntas #}
   <section class="ln-seccion ln-estrecha" id="preguntas">
-    <div class="ln-cabeza ln-centrada"><p class="ln-antetitulo">Preguntas</p><h2>Preguntas frecuentes</h2></div>
-    <div class="ln-faq">
+    <div class="ln-cabeza ln-centrada" data-revela><p class="ln-antetitulo">Preguntas</p><h2>Lo que nos preguntan.</h2></div>
+    <div class="ln-faq" data-revela>
       <details><summary>¿Publica algo sin que yo lo vea?</summary><p>No. Cada agente empieza en «Revisar todo»: planes, guiones, vídeos y respuestas esperan tu visto bueno. Solo si tú lo decides, alguno gana autonomía.</p></details>
-      <details><summary>¿Cuánto tiempo me lleva a la semana?</summary><p>Lo que tardes en grabar y en revisar lo que te propone el equipo. Investigar, escribir, editar, publicar y contestar es cosa del equipo.</p></details>
-      <details><summary>¿Va a sonar a mí o a una IA?</summary><p>A ti. Todo sale de tu Kit de marca, que montamos con tus llamadas: tus frases, tus opiniones, tus pruebas y lo que nunca dirías. Si corriges algo a menudo, el equipo lo convierte en una regla.</p></details>
+      <details><summary>¿Cuánto tiempo me lleva a la semana?</summary><p>Lo que tardes en grabar y en revisar lo que te propone el equipo. Investigar, escribir, editar, publicar y contestar es cosa suya.</p></details>
+      <details><summary>¿Va a sonar a mí o a una IA?</summary><p>A ti. Todo sale de tu Kit de marca, que montamos con tus llamadas. Y si corriges algo a menudo, el equipo lo convierte en una regla.</p></details>
       <details><summary>¿En qué redes publica?</summary><p>Instagram, TikTok, YouTube y LinkedIn, cada pieza en su hueco y con su texto para cada red.</p></details>
-      <details><summary>¿Tengo que saber de tecnología?</summary><p>No. En la implementación lo dejamos todo funcionando: tú grabas, revisas y apruebas.</p></details>
+      <details><summary>¿Tengo que saber de tecnología?</summary><p>No. En la implementación lo dejamos todo funcionando. Tú grabas, revisas y apruebas.</p></details>
       <details><summary>¿Qué pasa con mis datos?</summary><p>El software es libre y de código abierto, y corre en tu servidor. Tu contenido, tu Kit de marca y tus contactos son tuyos.</p></details>
     </div>
   </section>
 
-  {# ---------------------------------------------------------------- 9. solicitar #}
+  {# ---------------------------------------------------------------- 8. solicitar #}
   <section class="ln-cierre" id="solicitar">
-    <span class="ln-cierre-robot" data-robot="jefa"></span>
-    <h2>Pon a Orby a trabajar en tu negocio.</h2>
-    <p>Cuéntanos qué vendes y dónde publicas. Te escribimos para ver si encaja y preparar la primera llamada.</p>
+    <img class="ln-cierre-render" src="/static/marca/agentes/jefa.webp?v=1" alt="" width="896" height="1072" loading="lazy" data-revela>
+    <h2 data-revela>Pon a Orby<br>a trabajar.</h2>
+    <p data-revela>Cuéntanos qué vendes y dónde publicas. Te escribimos para ver si encaja y preparar la primera llamada.</p>
     {% if con_formulario %}
       {% set resultado = request.query_params.get("solicitud") %}
       {% if resultado == "gracias" %}
@@ -226,7 +198,7 @@
       {% else %}
       {% if resultado == "faltan" %}<div class="ln-aviso">Faltan datos: pon tu nombre y un correo válido.</div>
       {% elif resultado == "espera" %}<div class="ln-aviso">Ya nos han llegado varias solicitudes desde aquí. Inténtalo de nuevo dentro de un rato.</div>{% endif %}
-      <form class="ln-form" method="post" action="/solicitar">
+      <form class="ln-form" method="post" action="/solicitar" data-revela>
         <label><span>Nombre</span><input name="nombre" autocomplete="name" required maxlength="120"></label>
         <label><span>Correo</span><input type="email" name="email" autocomplete="email" required maxlength="200"></label>
         <label><span>Tu negocio <small>Qué vendes y a quién</small></span><input name="negocio" required maxlength="200" placeholder="Mentoría de ventas para coaches"></label>
@@ -246,9 +218,23 @@
 
 <footer class="ln-pie">
   <span class="ln-logo"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</span>
-  <span>El director de contenido con IA.</span>
+  <span>Tu director de contenido con IA.</span>
   {% if URL_GITHUB %}<a href="{{ URL_GITHUB }}" target="_blank" rel="noopener">Código abierto en GitHub</a>{% endif %}
   <a href="/entrar">Entrar</a>
 </footer>
 {% endblock %}
-{% block scripts %}<script src="/static/sala.js?v=73" defer></script>{% endblock %}
+{% block scripts %}
+<script src="/static/sala.js?v=73" defer></script>
+<script type="module" src="/static/landing3d.js?v=4"></script>
+<script>
+  // Cada bloque aparece al entrar en pantalla.
+  (function () {
+    var bloques = document.querySelectorAll("[data-revela]");
+    if (!("IntersectionObserver" in window)) { bloques.forEach(function (b) { b.classList.add("visto"); }); return; }
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("visto"); io.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -10% 0px", threshold: 0.12 });
+    bloques.forEach(function (b) { io.observe(b); });
+  })();
+</script>
+{% endblock %}
