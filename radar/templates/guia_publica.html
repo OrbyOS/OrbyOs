@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}{{ guia.titulo }} · {{ marca }}{% endblock %}
+{% block clase_body %}guia-publica{% endblock %}
+{% block cuerpo %}
+<main class="gp">
+  <p class="gp-marca">{{ marca }}</p>
+  <h1>{{ guia.titulo }}</h1>
+  <div class="gp-texto">
+    {% for b in bloques %}
+      {% if b.tipo == "titulo" %}<h2>{{ b.texto }}</h2>
+      {% elif b.tipo == "lista" %}<ul>{% for p in b.puntos %}<li>{{ p }}</li>{% endfor %}</ul>
+      {% else %}<p>{{ b.texto }}</p>{% endif %}
+    {% endfor %}
+  </div>
+  {% if guia.pedir_email %}
+  <section class="gp-form">
+    {% if enviado %}
+    <p><b>¡Hecho!</b> Te escribiremos a tu correo.</p>
+    {% else %}
+    <h2>¿Quieres más como esto?</h2>
+    <form method="post" action="/g/{{ guia.token }}">
+      <input type="hidden" name="utm" value="{{ utm }}">
+      <label class="c"><span>Nombre</span><input name="nombre" autocomplete="name"></label>
+      <label class="c"><span>Correo</span><input name="email" type="email" required autocomplete="email"></label>
+      <label class="kit-check"><input type="checkbox" name="acepto" value="1" required> <span>Acepto que {{ marca }} me escriba por correo. Puedo darme de baja cuando quiera.</span></label>
+      {% if request.query_params.get("error") %}<p class="kit-falta">Revisa el correo y marca la casilla.</p>{% endif %}
+      <button class="btn btn-primario" type="submit">Enviar</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

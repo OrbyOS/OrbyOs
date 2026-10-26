@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icono %}
+{% block clase_body %}en-app{% endblock %}
+{% block atributos_body %}style="--c: {{ (EQUIPO_VISTA.get(vista or "") or {}).get("color", "#8b9cff") }}"{% endblock %}
+{% block cuerpo %}
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-cabeza">
+      <a class="logo" href="/app"><span class="logo-director" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
+      <button class="menu-plegar" type="button" data-menu-plegar title="Esconder el menú" aria-label="Esconder el menú">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="3"/><path d="M8 3.5v13M13.5 8 11.5 10l2 2"/></svg></button>
+    </div>
+
+    {% if negocio %}
+    <div class="selector selector-fijo">
+      <span class="avatar avatar-peque" data-privado>{{ negocio.nombre[:1] | upper }}</span>
+      <span class="selector-nombre" data-privado>{{ negocio.nombre }}</span>
+    </div>
+
+    {% set n_pend = pendientes_de(negocio.id) %}
+    <nav class="nav">
+      <a href="{{ base_n }}/hoy" class="{{ 'activo' if vista == 'hoy' }}">{{ icono("sol") }} Hoy</a>
+      <a href="{{ base_n }}/estrategia" class="{{ 'activo' if vista == 'estrategia' }}">{{ icono("chispa") }} Graba hoy</a>
+      <a href="{{ base_n }}/guiones" class="{{ 'activo' if vista == 'guiones' }}">{{ icono("ficha") }} {{ "Guiones" if modo_de(negocio.id) == "guion" else "Estructuras" }}</a>
+      <a href="{{ base_n }}/produccion" class="{{ 'activo' if vista == 'produccion' }}">{{ icono("edicion") }} Producción</a>
+      <a href="{{ base_n }}/publicacion" class="{{ 'activo' if vista == 'publicacion' }}">{{ icono("externo") }} Publicación</a>
+      <a href="{{ base_n }}/comunidad" class="{{ 'activo' if vista == 'comunidad' }}">{{ icono("cuenta") }} Comunidad</a>
+      <a href="{{ base_n }}/resultados" class="{{ 'activo' if vista == 'resultados' }}">{{ icono("resumen") }} Resultados</a>
+      <a href="{{ base_n }}/investigacion" class="{{ 'activo' if vista == 'investigacion' }}">{{ icono("contenido") }} Investigación</a>
+      <div class="nav-separador"></div>
+      <a href="{{ base_n }}/aprobaciones" class="{{ 'activo' if vista == 'aprobaciones' }}">{{ icono("check") }} Aprobaciones{% if n_pend %} <span class="nav-contador">{{ n_pend }}</span>{% endif %}</a>
+      {% set en_config = vista in ("onboarding", "kit", "conectores") %}
+      <details class="nav-grupo" {{ 'open' if en_config }}>
+        <summary class="{{ 'dentro' if en_config }}">{{ icono("ajustes") }} Onboarding<span class="nav-flecha" aria-hidden="true"></span></summary>
+        <a href="{{ base_n }}/onboarding" class="nav-sub {{ 'activo' if vista == 'onboarding' }}">{{ icono("check") }} Datos y llamadas</a>
+        <a href="{{ base_n }}/kit" class="nav-sub {{ 'activo' if vista == 'kit' }}">{{ icono("chispa") }} Kit de marca</a>
+        <a href="{{ base_n }}/conectores" class="nav-sub {{ 'activo' if vista == 'conectores' }}">{{ icono("enchufe") }} Conectores</a>
+      </details>
+    </nav>
+    {% endif %}
+
+    <div class="sidebar-pie">
+      {% if usuario.es_admin %}<a class="pie-enlace {{ 'activo' if ruta == '/admin' }}" href="/admin">{{ icono("admin") }} Administración</a>{% endif %}
+      <a class="cuenta-mini {{ 'activo' if ruta == '/cuenta' }}" href="/cuenta">
+        <span class="avatar avatar-peque" data-privado>{{ (usuario.nombre or usuario.email)[:1] | upper }}</span>
+        <span data-privado><strong>{{ usuario.nombre or usuario.email.split("@")[0] }}</strong><small>{{ usuario.email }}</small></span>
+      </a>
+      <div class="pie-fila">
+        {% include "_tema.html" %}
+        <button class="btn-icono demo-boton" type="button" data-demo-boton aria-pressed="false" title="Modo demo: oculta los nombres de personas, cuentas y clientes para grabar la app (las cifras se quedan)">{{ icono("pantalla") }}</button>
+        <form method="post" action="/salir"><button class="btn-icono" type="submit" title="Salir">{{ icono("salir") }}</button></form>
+      </div>
+    </div>
+  </aside>
+
+  <button class="menu-abrir" type="button" data-menu-abrir title="Mostrar el menú" aria-label="Mostrar el menú">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="3"/><path d="M8 3.5v13M11.5 8l2 2-2 2"/></svg></button>
+  <main class="contenido vista-{{ vista or 'otra' }}">
+    {% if request.query_params.get("aviso") %}
+    <div class="aviso aviso-azul aviso-flotante"><div>{{ request.query_params.get("aviso") }}</div></div>
+    {% endif %}
+    {% block contenido %}{% endblock %}
+  </main>
+  {% if negocio %}{% include "_vega.html" %}{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Modo demo: difumina nombres de personas, cuentas y clientes en cualquier pantalla (las cifras se quedan).
+  // Lo marcado con data-privado, y además cualquier @usuario o correo que salga en un texto.
+  (function () {
+    var raiz = document.documentElement, boton = document.querySelector("[data-demo-boton]");
+    var PATRON = /(@[A-Za-z0-9._]{2,30}|[\w.+-]+@[\w-]+\.[\w.]+)/g;
+    function marcar() {
+      var zona = document.querySelector(".contenido") || document.body;
+      var w = document.createTreeWalker(zona, NodeFilter.SHOW_TEXT, { acceptNode: function (n) {
+        var p = n.parentNode;
+        if (!p || /^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(p.nodeName) || p.closest("[data-privado], .privado")) return NodeFilter.FILTER_REJECT;
+        PATRON.lastIndex = 0;
+        return PATRON.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      } });
+      var nodos = [];
+      while (w.nextNode()) nodos.push(w.currentNode);
+      nodos.forEach(function (n) {
+        var f = document.createDocumentFragment(), partes = n.nodeValue.split(PATRON);
+        partes.forEach(function (t, i) {
+          if (!t) return;
+          if (i % 2) { var s = document.createElement("span"); s.className = "privado"; s.textContent = t; f.appendChild(s); }
+          else f.appendChild(document.createTextNode(t));
+        });
+        n.parentNode.replaceChild(f, n);
+      });
+    }
+    function poner(activo) {
+      if (activo) { raiz.dataset.demo = ""; marcar(); } else delete raiz.dataset.demo;
+      if (boton) boton.setAttribute("aria-pressed", activo ? "true" : "false");
+      try { localStorage.setItem("demo", activo ? "1" : "0"); } catch (e) {}
+    }
+    if (raiz.hasAttribute("data-demo")) poner(true);
+    if (boton) boton.addEventListener("click", function () { poner(!raiz.hasAttribute("data-demo")); });
+  })();
+</script>
+<script>
+  // Mientras hay un análisis o una edición en marcha, la página se recarga sola al cambiar de paso.
+  (function () {
+    // El menú de la izquierda se esconde para ver la sala a lo ancho; se recuerda en este navegador.
+    function menu(plegado) {
+      if (plegado) document.documentElement.dataset.menu = "plegado"; else delete document.documentElement.dataset.menu;
+      try { localStorage.setItem("menu", plegado ? "plegado" : "abierto"); } catch (e) {}
+    }
+    document.querySelectorAll("[data-menu-plegar]").forEach(function (b) { b.addEventListener("click", function () { menu(true); }); });
+    document.querySelectorAll("[data-menu-abrir]").forEach(function (b) { b.addEventListener("click", function () { menu(false); }); });
+    // Un enlace a una parte plegada (#telegram) la abre.
+    if (location.hash) {
+      var destino = document.querySelector(location.hash.replace(/[^#\w-]/g, ""));
+      var plegable = destino && destino.closest("details");
+      if (plegable) plegable.open = true;
+    }
+    var tarjeta = document.querySelector("[data-estado-url]");
+    if (tarjeta) {
+      var firma = null;
+      setInterval(function () {
+        fetch(tarjeta.dataset.estadoUrl, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+          var nueva = d.estado + "|" + (d.hechas || []).join(",");
+          if (firma === null) { firma = nueva; return; }
+          if (nueva !== firma) location.reload();
+        }).catch(function () {});
+      }, 5000);
+    }
+    // Ficha y onboarding: «Añadir otro» competidor copia la última fila, vacía.
+    document.querySelectorAll("[data-anadir-competidor]").forEach(function (boton) {
+      boton.addEventListener("click", function () {
+        var filas = boton.parentNode.querySelector(".competidores-filas");
+        var nueva = filas.lastElementChild.cloneNode(true);
+        nueva.querySelectorAll("input").forEach(function (i) { i.value = ""; });
+        filas.appendChild(nueva);
+        nueva.querySelector("input").focus();
+      });
+    });
+    document.querySelectorAll("[data-edicion-url]").forEach(function (el) {
+      var paso = el.querySelector("[data-paso]");
+      var t = setInterval(function () {
+        fetch(el.dataset.edicionUrl, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+          if (paso && d.paso) paso.textContent = d.paso;
+          if (d.estado === "listo" || d.estado === "error") { clearInterval(t); location.reload(); }
+        }).catch(function () {});
+      }, 3000);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Publicación · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Publicación</h1>
+    <p class="sub">Cada vídeo aprobado sale en tus redes en su siguiente hueco, con un enlace de seguimiento y sin publicarse nunca dos veces. Instagram lo publicas tú, para poder poner audio en tendencia: a su hora te lo dejamos listo aquí.</p>
+  </div>
+</header>
+
+{% set rp = reels_prueba_de(negocio.id) %}
+{% if rp.activa and not rp.comprobado %}
+<div class="aviso aviso-azul">{{ icono("alerta") }}<div><b>Reels de prueba:</b> hasta que confirmes que el primero no salió en tu perfil (solo lo ven quienes no te siguen), Publi manda uno solo cada vez.
+  <form class="pb-fuera" method="post" action="/negocios/{{ negocio.id }}/publicacion/reels-prueba/fuera-del-perfil"><button class="btn btn-secundario btn-peque" type="submit">No salió en mi perfil</button></form></div></div>
+{% endif %}
+
+{% if te_toca %}
+<section class="panel pb-toca">
+  <div class="panel-cabecera"><div><h2>{{ icono("alerta") }} Te toca publicarlo</h2><p class="tenue">Descarga el vídeo, copia el texto y publícalo desde el móvil. Después, márcalo como publicado.</p></div></div>
+  <ul class="kit-lista">
+    {% for p in te_toca %}
+    <li>
+      <div><strong>{{ p.red_nombre }} · {{ p.programado | replace("T", " ") }}</strong>
+        <p class="ap-texto pb-copiar" data-copiar>{{ p.texto }}</p></div>
+      <div class="pb-acciones">
+        <a class="btn btn-fantasma btn-peque" href="/ediciones/{{ p.edicion_id }}/video?descargar=1">{{ icono("descargar") }} Vídeo</a>
+        <button class="btn btn-fantasma btn-peque" type="button" data-boton-copiar>Copiar texto</button>
+        <form method="post" action="/negocios/{{ negocio.id }}/publicacion/p/{{ p.id }}/publicada" class="kit-linea">
+          <input name="url" placeholder="Enlace del post (opcional)" aria-label="Enlace del post">
+          <button class="btn btn-primario btn-peque" type="submit">Ya está publicado</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if pendientes %}
+<h2 class="pr-titulo">Listos para publicar</h2>
+<div class="pb-videos">
+  {% for v in pendientes %}
+  <form class="panel pb-video" method="post" action="/negocios/{{ negocio.id }}/publicacion/{{ v.id }}/programar">
+    <div class="panel-cabecera">
+      <div><span class="kit-etiqueta">Versión {{ v.toma.version }}{% if v.guion and v.guion.palabra_clave %} · {{ v.guion.palabra_clave }}{% endif %}</span><h2>{{ v.titulo }}</h2></div>
+      <a class="btn-icono" href="/ediciones/{{ v.id }}/video?descargar=1" title="Descargar">{{ icono("descargar") }}</a>
+    </div>
+    <div class="panel-cuerpo pb-redes">
+      {% for r in v.faltan %}
+      <div class="pb-red">
+        <label class="kit-check"><input type="checkbox" name="redes" value="{{ r }}" checked> <b>{{ REDES[r] }}</b>
+          <span class="tenue">{% if v.huecos[r] %}· {{ v.huecos[r].strftime("%d/%m %H:%M") }}{% else %}· sin huecos{% endif %}{% if r == "instagram" and not plan.instagram.autopublicar %} · lo publicas tú{% endif %}</span></label>
+        <textarea name="texto_{{ r }}" rows="3" aria-label="Texto para {{ REDES[r] }}">{{ v.textos[r] }}</textarea>
+      </div>
+      {% endfor %}
+      <label class="c"><span>A una hora concreta <small>Si lo dejas vacío, en el siguiente hueco de cada red</small></span><input type="datetime-local" name="cuando"></label>
+    </div>
+    <div class="form-pie">
+      {% if rp.activa %}<button class="btn btn-fantasma" type="submit" formaction="/negocios/{{ negocio.id }}/publicacion/{{ v.id }}/reels-prueba" title="Variantes del vídeo para quienes no te siguen: {{ rp.al_dia }} al día, de {{ rp.desde }} a {{ rp.hasta }}. Esperan tu OK en Aprobaciones">Reels de prueba</button>{% endif %}
+      <button class="btn btn-secundario" type="submit" name="ensayo" value="1" title="Te dice qué saldría en cada red, a qué hora y si hay algún problema, sin mandar nada">Ensayo</button>
+      <button class="btn btn-primario" type="submit">{{ icono("check") }} Programar</button></div>
+  </form>
+  {% endfor %}
+</div>
+{% elif not videos %}
+<section class="panel"><div class="vacio"><p>Cuando apruebes un vídeo en <a href="{{ base_n }}/produccion">Producción</a>, aparecerá aquí para publicarlo.</p></div></section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Calendario</h2><p class="tenue">Las próximas dos semanas.</p></div></div>
+  {% if calendario %}
+  <div class="pb-calendario">
+    {% for dia, lista in calendario %}
+    <div class="pb-dia"><h3>{{ dia[8:10] }}/{{ dia[5:7] }}</h3>
+      <ul class="kit-lista">
+        {% for p in lista %}
+        <li><div><strong>{{ p.programado[11:16] }} · {{ p.red_nombre }}</strong><p class="kit-meta">{{ p.estado_nombre }}{% if p.url %} · <a href="{{ p.url }}" target="_blank" rel="noopener">ver</a>{% endif %}{% if p.error %} · <span class="kit-falta">{{ p.error }}</span>{% endif %}</p></div>
+          {% if p.estado in ["programada", "tu_publicas", "fallida"] %}<form method="post" action="/negocios/{{ negocio.id }}/publicacion/p/{{ p.id }}/cancelar"><button class="btn-texto" type="submit">Cancelar</button></form>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="vacio"><p>Nada programado todavía.</p></div>
+  {% endif %}
+</section>
+
+<section class="panel" id="conexion">
+  <div class="panel-cabecera"><div><h2>Zernio <span class="cx-estado {{ 'on' if conectado }}">{{ "Conectado" if conectado else "Sin conectar" }}</span></h2>
+    <p class="tenue">{% if conectado %}Publi publica en tus redes a través de Zernio.{% else %}Hasta que conectes Zernio, Publi no puede programar nada.{% endif %} La clave y tus cuentas se gestionan en Conectores.</p></div>
+    <a class="btn btn-secundario btn-peque" href="{{ base_n }}/conectores#zernio">{{ icono("enchufe") }} Conectores</a></div>
+</section>
+
+<section class="panel" id="plan">
+  <div class="panel-cabecera"><div><h2>Cuándo se publica</h2><p class="tenue">Días y horas de cada red. Publi coge el siguiente hueco libre.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/publicacion/plan">
+    <div class="panel-cuerpo pb-plan">
+      {% for r, nombre in REDES.items() %}{% set p = plan[r] %}
+      <div class="pb-plan-red">
+        <label class="kit-check"><input type="checkbox" name="{{ r }}_activa" value="1" {{ 'checked' if p.activa }}> <b>{{ nombre }}</b></label>
+        <div class="pb-dias">{% for d in DIAS %}<label><input type="checkbox" name="{{ r }}_dias" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 in p.dias }}><span>{{ d }}</span></label>{% endfor %}</div>
+        <input name="{{ r }}_horas" value="{{ p.horas | join(', ') }}" aria-label="Horas de {{ nombre }}" placeholder="13:30, 20:00">
+        {% if r == "instagram" %}<label class="kit-check"><input type="checkbox" name="instagram_autopublicar" value="1" {{ 'checked' if p.autopublicar }}> <span>Que se publique solo (sin audio en tendencia)</span></label>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+
+<script>
+document.querySelectorAll("[data-boton-copiar]").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var t = b.closest("li").querySelector("[data-copiar]").innerText;
+    navigator.clipboard.writeText(t).then(function () { b.textContent = "Copiado"; });
+  });
+});
+</script>
+{% endblock %}

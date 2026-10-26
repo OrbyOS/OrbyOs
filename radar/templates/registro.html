@@ -1,0 +1,23 @@
+{% extends "publico.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Crear cuenta · {{ APP }}{% endblock %}
+{% block contenido %}
+<section class="auth">
+  <div class="auth-director" aria-hidden="true">
+    <img src="/static/marca/director.webp" alt="" width="1145" height="1374">
+    <p>Tu equipo de contenido.<br><span>Investiga, escribe, edita y publica contigo.</span></p>
+  </div>
+  <form class="auth-tarjeta" method="post" action="/registro">
+    <h1>{{ "Te damos la bienvenida a " ~ APP if primera else "Nueva cuenta" }}</h1>
+    <p class="sub">{% if primera %}Crea tu cuenta: será la de administración de esta instalación.{% elif por_admin %}Da de alta a otra persona en esta instalación.{% else %}Crea tu cuenta y pon a trabajar a tu equipo de contenido.{% endif %}</p>
+    {% if error %}<div class="aviso aviso-error">{{ icono("alerta") }}<div>{{ error }}</div></div>{% endif %}
+    
+    <label class="c">Tu nombre<input name="nombre" value="{{ nombre or '' }}" autocomplete="name" autofocus></label>
+    <label class="c">Correo<input type="email" name="email" value="{{ email or '' }}" autocomplete="email" required></label>
+    <label class="c">Contraseña <small>Mínimo 8 caracteres</small><input type="password" name="clave" minlength="8" autocomplete="new-password" required></label>
+    <button class="btn btn-primario btn-ancho" type="submit">Crear la cuenta</button>
+    {% if not por_admin %}<p class="auth-pie">¿Ya tienes cuenta? <a href="/entrar">Entrar</a></p>{% endif %}
+  </form>
+</section>
+{% endblock %}
+

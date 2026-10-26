@@ -1,0 +1,157 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Producción · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Producción</h1>
+    <p class="sub">Sube todas tus tomas de golpe. Cada una se empareja sola con su guion, se edita en cola y te llega para revisar. Si algo no te gusta, deja notas en el momento exacto del vídeo y Monti hace la versión siguiente.</p>
+  </div>
+</header>
+
+<section class="panel">
+  <form method="post" action="/negocios/{{ negocio.id }}/produccion/subir" enctype="multipart/form-data">
+    <div class="panel-cabecera"><div><h2>Subir tomas</h2><p class="tenue">MP4 o MOV, en vertical. Haz las tomas que quieras en una grabación: vale la última completa.</p></div></div>
+    <div class="panel-cuerpo pr-subida">
+      <input type="file" name="archivos" accept="video/mp4,video/quicktime,.mov,.mp4,.m4v" multiple required>
+      <label class="kit-check"><input type="checkbox" name="sin_guion" value="1"> <span>No tienen guion: edítalas tal cual</span></label>
+    </div>
+    <div class="form-pie">{% if espacio %}<span class="pr-espacio {{ 'lleno' if espacio.por_ciento >= 80 }}">Espacio: {{ espacio.usado_gb | string | replace(".", ",") }} de {{ espacio.cuota_gb | string | replace(".", ",") }} GB · los vídeos publicados se borran solos a los 30 días</span>{% endif %}<button class="btn btn-primario" type="submit">{{ icono("subir") }} Subir y editar</button></div>
+  </form>
+</section>
+
+{% set emparejar = tomas | selectattr("etapa", "equalto", "emparejar") | list %}
+{% set en_marcha = tomas | selectattr("etapa", "in", ["en_cola", "cortando", "plan", "montando"]) | list %}
+{% set para_ti = tomas | selectattr("etapa", "equalto", "revisar") | list %}
+{% set con_error = tomas | selectattr("etapa", "equalto", "error") | list %}
+{% set aprobados = tomas | selectattr("etapa", "equalto", "aprobado") | list %}
+
+{% if emparejar %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>¿De qué guion es?</h2><p class="tenue">No está claro a qué guion corresponden: confírmalo para que entren en la cola.</p></div></div>
+  <ul class="kit-lista">
+    {% for t in emparejar %}{% set s = t.toma.sugerencia or {} %}{% set sug = guiones.get(s.guion_id) %}
+    <li id="t{{ t.id }}">
+      <div><strong>{{ t.titulo }}</strong>
+        <p class="kit-meta">{% if sug %}Suena a «{{ piezas[sug.pieza_id].titulo }}» ({{ (s.parecido * 100) | round | int }} %){% else %}No se parece a ningún guion aprobado{% endif %}</p></div>
+      <form class="inv-acciones" method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/guion">
+        <select name="guion_id" aria-label="Guion">
+          {% for g in candidatos %}<option value="{{ g.id }}" {{ 'selected' if sug and g.id == sug.id }}>{{ piezas[g.pieza_id].titulo[:60] }}</option>{% endfor %}
+          <option value="0" {{ 'selected' if not sug }}>Sin guion: edítalo tal cual</option>
+        </select>
+        <button class="btn btn-primario btn-peque" type="submit">Confirmar</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if en_marcha %}
+<section class="panel" {% if trabajando %}data-estado-url="/negocios/{{ negocio.id }}/produccion/estado"{% endif %}>
+  <div class="panel-cabecera"><div><h2><i class="hero-vivo"></i>Editándose</h2><p class="tenue">Una toma detrás de otra; primero las que hay que grabar antes.</p></div></div>
+  <ul class="kit-lista">
+    {% for t in en_marcha %}
+    <li><div><strong>{{ t.titulo }}</strong><p class="kit-meta">{{ t.etapa_nombre }}{% if t.paso and t.paso != t.etapa_nombre %} · {{ t.paso }}{% endif %}{% if t.toma.version > 1 %} · versión {{ t.toma.version }}{% endif %}</p></div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if para_ti %}
+<h2 class="pr-titulo">Listo para ti</h2>
+<div class="pr-videos">
+  {% for t in para_ti %}{% set g = guiones.get(t.toma.guion_id) %}{% set lp = t.datos.limpieza or {} %}
+  <article class="panel pr-video" id="t{{ t.id }}" data-toma>
+    {% if lp.final_borrado %}<div class="pr-borrado">El vídeo ya se borró del servidor (se publicó hace más de 30 días)</div>
+    {% else %}<video src="/ediciones/{{ t.id }}/video" controls playsinline preload="metadata" data-video></video>{% endif %}
+    <div class="panel-cuerpo">
+      <span class="kit-etiqueta">Versión {{ t.toma.version }}{% if t.toma.version > 1 %}, con tus notas{% endif %}{% if g and g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}</span>
+      <h2>{{ t.titulo }}</h2>
+      {% if t.resultado and t.resultado.duracion_final %}<p class="kit-meta">{{ t.resultado.duracion_final }} s</p>{% endif %}
+      {% if t.resultado and t.resultado.avisos %}<ul class="avisos">{% for a in t.resultado.avisos[:4] %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+      {% set planos = planos_de(t) %}
+      {% if planos %}
+      <details class="pr-planos"><summary>Así queda cada plano <span class="tenue">({{ planos | length }})</span></summary>
+        <ol>{% for p in planos %}
+          <li><span class="pr-plano-t">{{ "%d:%02d" | format(p.inicio // 60, p.inicio % 60) }}</span>
+            <div><p class="pr-plano-dice">{{ p.dice or "—" }}</p>
+              <p class="pr-plano-rasgos">{% if p.gancho %}<span class="fuerte">Gancho traído de más adelante</span>{% endif %}<span>{{ p.como }}</span><span>{{ p.encuadre }}</span>{% if p.entrada %}<span>{{ p.entrada }}</span>{% endif %}{% if p.sacudida %}<span>Sacudida</span>{% endif %}{% if p.corte_silencio %}<span>Corte de silencio</span>{% endif %}{% if p.grafico %}<span class="fuerte">{{ p.grafico }}</span>{% endif %}</p>
+              {% if p.motivo %}<p class="tenue pr-plano-motivo">{{ p.motivo }}</p>{% endif %}</div></li>{% endfor %}
+        </ol></details>
+      {% endif %}
+      {% set vs = versiones(t.id) %}{% if vs %}<p class="kit-meta">Anteriores: {% for v in vs %}<a href="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/v{{ v }}.mp4" target="_blank">v{{ v }}</a>{{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+      {% if lp.bruto_borrado %}<p class="tenue pr-sin-bruto">La toma original ya se borró: para otra versión, vuelve a subirla.</p>
+      {% elif not lp.final_borrado %}
+      <details class="pr-cambios">
+        <summary>Necesita cambios</summary>
+        <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/cambios" data-form-notas>
+          <input type="hidden" name="notas" value="[]">
+          <p class="tenue">Para el vídeo donde algo falla y escribe qué cambiar: la nota se queda en ese segundo.</p>
+          <div class="kit-linea"><input data-nota-texto placeholder="Corta esta pausa" aria-label="Nota en este momento"><button class="btn btn-secundario btn-peque" type="button" data-nota-poner>Nota aquí</button></div>
+          <ul class="pr-notas" data-notas></ul>
+          <label class="c"><span>Notas generales</span><textarea name="general" rows="2" placeholder="Sin música · el gancho más rápido"></textarea></label>
+          <button class="btn btn-primario btn-peque" type="submit">Mandar a Monti</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+    <div class="form-pie">
+      {% if not lp.final_borrado %}<a class="btn btn-fantasma btn-peque" href="/ediciones/{{ t.id }}/video?descargar=1">{{ icono("descargar") }} Descargar</a>{% endif %}
+      <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/aprobar"><button class="btn btn-primario btn-peque" type="submit">{{ icono("check") }} Se ve bien</button></form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if con_error %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Se han parado</h2></div></div>
+  <ul class="kit-lista">{% for t in con_error %}<li><div><strong>{{ t.titulo }}</strong><p class="kit-meta kit-falta">{{ t.paso }}</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/reintentar"><button class="btn btn-secundario btn-peque" type="submit">Reintentar</button></form></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if aprobados %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Aprobados</h2><p class="tenue">Listos para publicar.</p></div></div>
+  <ul class="kit-lista">{% for t in aprobados %}<li><div><strong>{{ t.titulo }}</strong><p class="kit-meta">Versión {{ t.toma.version }}{% if t.toma.aprobado_por %} · aprobado por {{ t.toma.aprobado_por }}{% endif %}</p></div>
+    {% if (t.datos.limpieza or {}).final_borrado %}<span class="tenue">El vídeo ya se borró del servidor (se publicó hace más de 30 días)</span>{% else %}<a class="btn-icono" href="/ediciones/{{ t.id }}/video?descargar=1" title="Descargar">{{ icono("descargar") }}</a>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if not tomas %}
+<section class="panel"><div class="vacio"><p>Graba tus guiones aprobados y sube las tomas aquí.</p></div></section>
+{% endif %}
+
+<script>
+document.querySelectorAll("[data-toma]").forEach(function (caja) {
+  var video = caja.querySelector("[data-video]"), form = caja.querySelector("[data-form-notas]");
+  if (!video || !form) return;
+  var notas = [], lista = form.querySelector("[data-notas]"), oculto = form.querySelector("input[name=notas]");
+  var texto = form.querySelector("[data-nota-texto]");
+  function pintar() {
+    lista.innerHTML = "";
+    notas.forEach(function (n, i) {
+      var li = document.createElement("li");
+      var b = document.createElement("button"); b.type = "button"; b.className = "pr-segundo"; b.textContent = n.segundo.toFixed(1) + " s";
+      b.addEventListener("click", function () { video.currentTime = n.segundo; });
+      var span = document.createElement("span"); span.textContent = n.texto;
+      var x = document.createElement("button"); x.type = "button"; x.className = "btn-texto"; x.textContent = "Quitar";
+      x.addEventListener("click", function () { notas.splice(i, 1); pintar(); });
+      li.append(b, span, x); lista.appendChild(li);
+    });
+    oculto.value = JSON.stringify(notas);
+  }
+  form.querySelector("[data-nota-poner]").addEventListener("click", function () {
+    if (!texto.value.trim()) { texto.focus(); return; }
+    notas.push({ segundo: Math.round(video.currentTime * 10) / 10, texto: texto.value.trim() });
+    notas.sort(function (a, b) { return a.segundo - b.segundo; });
+    texto.value = ""; video.pause(); pintar();
+  });
+  texto.addEventListener("focus", function () { video.pause(); });
+});
+</script>
+{% endblock %}

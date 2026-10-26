@@ -1,0 +1,15 @@
+{
+  "titulo": {"texto": "Tres tareas que te comen la semana", "resalte": "te comen la semana", "insignia": "3 tareas"},
+  "escenas": [
+    {"texto": "Si vives de tu marca personal, hay tres tareas que te comen la semana. La tercera es la que hace que casi todos lo dejen.",
+     "objetos": ["lupa", "libreta", "claqueta"]},
+    {"etiqueta": "1 · Buscar ideas", "cinta": "Horas de scroll", "objetos": ["lupa", "movil"],
+     "texto": "Una: buscar qué funciona. Horas mirando cuentas de tu sector para saber de qué hablar esta semana."},
+    {"etiqueta": "2 · Escribir", "cinta": "Cada semana", "objetos": ["libreta", "taza"],
+     "texto": "Dos: escribir. Un gancho que pare el dedo, un guion que se entienda y el texto del post."},
+    {"etiqueta": "3 · Editar", "cinta": "La que más cuesta", "objetos": ["claqueta", "portatil"],
+     "texto": "Y tres: editar. Cortar silencios, poner subtítulos, buscar imágenes. Una hora por vídeo, como poco."},
+    {"etiqueta": "Los que aguantan", "objetos": ["calendario"],
+     "texto": "Los que aguantan no trabajan más horas. Se lo dan hecho a un equipo. Guárdalo para el día que pienses en dejarlo."}
+  ]
+}

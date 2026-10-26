@@ -1,0 +1,149 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% from "_estructura.html" import estructura, duracion, AYUDA_FORMATO with context %}
+{% block titulo %}{{ pieza.titulo }} · {{ "Guiones" if g.validacion.modo == "guion" else "Estructuras" }} · {{ APP }}{% endblock %}
+{% block contenido %}
+{% set es_guion = g.validacion.modo == "guion" %}
+<p><a class="tenue" href="{{ base_n }}/guiones">{{ icono("atras") }} {{ "Guiones" if es_guion else "Estructuras" }}</a></p>
+<header class="vertical-cabecera">
+  <div>
+    <span class="kit-etiqueta">{{ pieza.tipo_nombre }} · {{ carriles.get(pieza.carril, pieza.carril) }} · {{ pieza.etapa | upper }} · {{ g.estado_nombre }}</span>
+    <h1>{{ pieza.titulo }}</h1>
+    {% if pieza.angulo %}<p class="sub">{{ pieza.angulo }}</p>{% endif %}
+  </div>
+</header>
+
+{% if g.estado == "bloqueado" %}
+<div class="aviso aviso-error">{{ icono("alerta") }}<div><b>No pasa el validador:</b> {{ g.validacion.fallos | join(" ") }}</div></div>
+{% endif %}
+{% if g.validacion.avisos %}
+<div class="aviso">{{ icono("alerta") }}<div>{{ g.validacion.avisos | join(" ") }}</div></div>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera">
+    <div>
+      <h2>{{ "El guion" if es_guion else "La estructura" }}</h2>
+      <p class="tenue">{{ duracion(g.validacion) }} · Llamada a la acción: {{ CTAS.get(g.cta, "—") }}{% if g.palabra_clave %} · Palabra clave: <b>{{ g.palabra_clave }}</b>{% endif %}{% if g.gancho_fuente %} · De dónde sale el tema: {{ g.gancho_fuente }}{% endif %}</p>
+    </div>
+    {% if g.estado == "aprobado" %}<button class="btn btn-primario btn-peque" type="button" data-abrir-prompter>{{ icono("pantalla") }} Grabar</button>{% endif %}
+  </div>
+  <div class="panel-cuerpo">
+    {% if pieza.datos.referencia %}<p class="gh-ref">{{ icono("prueba") }} <a href="{{ pieza.datos.url }}" target="_blank" rel="noopener">{{ pieza.datos.referencia }}</a></p>{% endif %}
+    <div class="gn-texto" id="texto-guion">{{ estructura(g.texto) }}</div>
+    {% if g.hashtags %}<p class="tenue">{{ g.hashtags | join(" ") }}</p>{% endif %}
+  </div>
+  <div class="form-pie">
+    {% if g.estado == "pendiente" %}<a class="btn btn-secundario" href="{{ base_n }}/aprobaciones#ap-{{ g.aprobacion_id }}">Aprobar o pedir cambios</a>{% endif %}
+    {% if g.estado == "aprobado" and pieza.estado != "grabada" %}
+    <form method="post" action="/negocios/{{ negocio.id }}/guiones/{{ g.id }}/grabado"><button class="btn btn-secundario" type="submit">{{ icono("check") }} Marcar como grabado</button></form>
+    {% endif %}
+  </div>
+</section>
+
+{% if es_guion and g.ganchos %}
+<section class="panel" id="ganchos">
+  <div class="panel-cabecera"><div><h2>Los ganchos</h2><p class="tenue">Escri escribe tres y el código los puntúa. El guion empieza con el mejor; los otros te sirven para probar.</p></div></div>
+  <ul class="kit-lista gn-ganchos">{% for o in g.ganchos %}
+    <li class="{{ 'gn-mejor' if loop.first }}"><span class="gn-nota">{{ o.nota }}</span><div>
+      <strong>«{{ o.gancho }}»</strong>
+      <p class="kit-meta">{{ nombre_formula(o.formula) }}{% if o.veredicto %} · {{ o.veredicto }}{% endif %}{% if loop.first %} · el que abre el guion{% endif %}</p>
+      {% if o.en_pantalla %}<p class="gn-pantalla"><span>En pantalla</span>{{ o.en_pantalla }}</p>{% endif %}
+      {% if o.peor %}<p class="tenue">Lo que le resta: {{ o.peor }}</p>{% endif %}</div></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Notas de grabación</h2></div></div>
+  <div class="panel-cuerpo">
+    <ul class="ap-lista">
+      <li>Formato: {{ pieza.formato }}.</li>
+      <li>En vertical (9:16), mirando al objetivo y en un sitio sin ruido.</li>
+      {% if es_guion %}<li>Di el gancho lo primero. Haz las tomas que quieras: vale la última completa.</li>
+      {% else %}<li>Habla libre siguiendo los bloques: no hace falta leer. Cuenta tu ejemplo en cada uno; de lo que digas, Monti saca los reels y sus ganchos.</li>{% endif %}
+    </ul>
+  </div>
+</section>
+
+{% if g.afirmaciones %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Afirmaciones</h2><p class="tenue">Cada dato {{ "del guion" if es_guion else "de la estructura" }}, con su fuente. PASS: se puede decir · FIX: hay que matizarlo · CUT: fuera.</p></div></div>
+  <ul class="kit-lista">{% for a in g.afirmaciones %}<li><div><span class="kit-etiqueta">{{ a.veredicto }}</span><strong>{{ a.texto }}</strong><p class="kit-meta">{{ a.fuente or "Sin fuente" }}</p></div></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if g.textos and (g.textos.values() | select | list) %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Texto del post en cada red</h2></div></div>
+  <div class="panel-cuerpo gn-textos">
+    {% for k, n in PLATAFORMAS_TEXTO.items() if g.textos.get(k) %}<div><span class="kit-etiqueta">{{ n }}</span><p class="ap-texto">{{ g.textos[k] }}</p></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if g.textos and g.textos.carrusel %}
+<section class="panel" id="carrusel">
+  <div class="panel-cabecera"><div><h2>Carrusel</h2><p class="tenue">{{ g.textos.carrusel | length }} diapositivas con la misma idea.</p></div></div>
+  <ol class="gn-carrusel">{% for d in g.textos.carrusel %}<li><span>{{ loop.index }}</span><b>{{ d.titular }}</b>{% if d.texto %}<p>{{ d.texto }}</p>{% endif %}</li>{% endfor %}</ol>
+</section>
+{% endif %}
+{% if g.textos and g.textos.post_texto %}
+<section class="panel" id="post-texto">
+  <div class="panel-cabecera"><div><h2>Post de texto</h2><p class="tenue">Para X, Threads o LinkedIn: se sostiene solo.</p></div></div>
+  <div class="panel-cuerpo"><p class="ap-texto">{{ g.textos.post_texto }}</p></div>
+</section>
+{% endif %}
+
+<section class="panel" id="editar">
+  <div class="panel-cabecera"><div><h2>Corregirlo tú</h2><p class="tenue">Tu versión se guarda aprobada. Si cambias mucho, Escri te propondrá la regla que ha aprendido.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/guiones/{{ g.id }}/editar">
+    <div class="panel-cuerpo campos">
+      {% if es_guion %}<label class="c ancho"><span>Guion <small>Solo lo que dices</small></span><textarea name="texto" rows="10">{{ g.texto }}</textarea></label>
+      {% else %}<label class="c ancho"><span>Estructura <small>«Idea: …», cada bloque numerado («1. tema») con sus puntos («- …») y «Tu ejemplo: …», y «Cierre: …»</small></span><textarea name="texto" rows="14" placeholder="{{ AYUDA_FORMATO }}">{{ g.texto }}</textarea></label>{% endif %}
+      {% if g.cta in ["comentar", "mensaje"] %}<label class="c"><span>Palabra clave</span><input name="palabra_clave" value="{{ g.palabra_clave }}"></label>{% endif %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar mi versión</button></div>
+  </form>
+  {% if ia %}
+  <form method="post" action="/negocios/{{ negocio.id }}/guiones/{{ g.id }}/reintentar" class="panel-cuerpo kit-linea">
+    <input name="nota" placeholder="O pide que lo reescriba: «más corto, con un ejemplo de una alumna»" aria-label="Nota">
+    <button class="btn btn-secundario" type="submit">Reescribir</button>
+  </form>
+  {% endif %}
+</section>
+
+<div class="prompter" hidden data-prompter>
+  <div class="prompter-texto" data-prompter-texto>{{ estructura(g.texto, "es-estructura es-prompter") }}</div>
+  <p class="prompter-ayuda">Espacio: empezar o parar · ↑ ↓ velocidad · + − tamaño · M espejo · R arriba · Esc salir</p>
+</div>
+<script>
+(function () {
+  var caja = document.querySelector("[data-prompter]"), texto = document.querySelector("[data-prompter-texto]");
+  var abrir = document.querySelector("[data-abrir-prompter]");
+  if (!caja || !abrir) return;
+  var velocidad = 1.2, tam = 46, andando = false, ultimo = null;
+  function paso(t) {
+    if (!andando) return;
+    if (ultimo !== null) caja.scrollTop += velocidad * (t - ultimo) / 16;
+    ultimo = t; requestAnimationFrame(paso);
+  }
+  function cerrar() { andando = false; caja.hidden = true; document.body.style.overflow = ""; }
+  abrir.addEventListener("click", function () {
+    caja.hidden = false; caja.scrollTop = 0; texto.style.fontSize = tam + "px"; document.body.style.overflow = "hidden";
+  });
+  document.addEventListener("keydown", function (e) {
+    if (caja.hidden) return;
+    if (e.key === " ") { e.preventDefault(); andando = !andando; ultimo = null; if (andando) requestAnimationFrame(paso); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); velocidad = Math.min(6, velocidad + 0.3); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); velocidad = Math.max(0.3, velocidad - 0.3); }
+    else if (e.key === "+" || e.key === "=") { tam = Math.min(96, tam + 4); texto.style.fontSize = tam + "px"; }
+    else if (e.key === "-") { tam = Math.max(24, tam - 4); texto.style.fontSize = tam + "px"; }
+    else if (e.key === "m" || e.key === "M") { texto.classList.toggle("prompter-espejo"); }
+    else if (e.key === "r" || e.key === "R") { caja.scrollTop = 0; }
+    else if (e.key === "Escape") { cerrar(); }
+  });
+  caja.addEventListener("click", function () { andando = !andando; ultimo = null; if (andando) requestAnimationFrame(paso); });
+})();
+</script>
+{% endblock %}

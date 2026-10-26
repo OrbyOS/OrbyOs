@@ -1,0 +1,39 @@
+# La dirección pública, con https automático. Sin dominio propio vale <ip-con-guiones>.sslip.io.
+(app) {
+	encode gzip
+	# Las tomas y las llamadas de onboarding en vídeo pesan mucho.
+	request_body {
+		max_size 2GB
+	}
+	reverse_proxy radar:8000 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
+
+{$RADAR_DOMINIO} {
+	import app
+}
+
+# www lleva a la dirección sin www.
+www.{$RADAR_DOMINIO} {
+	redir https://{$RADAR_DOMINIO}{uri} permanent
+}
+
+# Al cambiar de dirección, la antigua sigue viva: lo que se visita en el navegador lleva a la nueva, y lo que llega
+# de otros servicios (los avisos de ManyChat a /m/…, Telegram, cualquier POST) se sigue atendiendo aquí mismo, porque
+# una redirección los rompería. Sin dirección antigua, este bloque solo responde en localhost, que no se usa.
+{$RADAR_DOMINIO_ANTIGUO:localhost} {
+	@navegador {
+		method GET HEAD
+		not path /m/*
+	}
+	handle @navegador {
+		redir https://{$RADAR_DOMINIO}{uri} permanent
+	}
+	handle {
+		import app
+	}
+}

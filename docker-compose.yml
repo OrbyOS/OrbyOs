@@ -1,0 +1,60 @@
+# Radar en un servidor: ./desplegar.sh <IP> desde tu ordenador, o «docker compose up -d» en el servidor.
+# Caddy pone el https solo (certificado de Let's Encrypt) para la dirección de RADAR_DOMINIO en el .env.
+services:
+  radar:
+    build: {context: ., target: web}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    env_file: .env
+    environment:
+      RADAR_DATA_DIR: /datos
+      TZ: Europe/Madrid             # la hora de los planes, del piloto y de Publi es la de España (con tzdata)
+      RADAR_ENV_FILE: /datos/.env   # lo que pegues en Conectores y Ajustes se guarda aquí
+      RADAR_COOKIE_SEGURA: "1"
+      RADAR_COLA_RENDERS: /datos/cola_renders   # los reels «De editor» los renderiza el servicio «renders»
+    expose:
+      - "8000"
+    volumes:
+      - ./datos:/datos
+
+  # Renderiza los reels del motor (Remotion) de uno en uno. Mismo /datos que la web: los encargos llevan rutas
+  # absolutas. Limitado para que la web siga respondiendo mientras renderiza.
+  renders:
+    build: {context: ., target: renders}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    env_file: .env
+    environment:
+      RADAR_DATA_DIR: /datos
+      TZ: Europe/Madrid
+    volumes:
+      - ./datos:/datos
+    cpus: 1.5
+    mem_limit: 2500m
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    depends_on:
+      - radar
+    environment:
+      RADAR_DOMINIO: ${RADAR_DOMINIO:?Pon RADAR_DOMINIO en el .env}
+      RADAR_DOMINIO_ANTIGUO: ${RADAR_DOMINIO_ANTIGUO:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_datos:
+  caddy_config:

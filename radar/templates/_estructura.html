@@ -1,0 +1,25 @@
+{# Una estructura de Escri: la idea, los bloques con sus puntos y su ejemplo, y el cierre. Si el texto aún es un guion
+   antiguo (sin bloques), sale en párrafos como antes. #}
+{% macro estructura(texto, clase="es-estructura") -%}
+{% set e = leer_estructura(texto) %}
+{% if e.bloques %}
+<div class="{{ clase }}">
+  {% if e.idea %}<p class="es-idea"><span>Idea</span>{{ e.idea }}</p>{% endif %}
+  <ol class="es-bloques">{% for b in e.bloques %}
+    <li><h3>{{ b.tema }}</h3>
+      {% if b.puntos %}<ul>{% for p in b.puntos %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+      {% if b.ejemplo %}<p class="es-ejemplo"><span>Tu ejemplo</span>{{ b.ejemplo }}</p>{% endif %}</li>{% endfor %}
+  </ol>
+  {% if e.cierre %}<p class="es-cierre"><span>Cierre</span>{{ e.cierre }}</p>{% endif %}
+</div>
+{% else %}
+<div class="{{ clase }}">{% for parrafo in (texto or "").split("\n") if parrafo.strip() %}<p>{{ parrafo }}</p>{% endfor %}</div>
+{% endif %}
+{%- endmacro %}
+
+{# «4 bloques · unos 4 min» (o, en un guion antiguo, las palabras y los segundos). #}
+{% macro duracion(v) -%}
+{% if v.bloques %}{{ v.bloques }} bloque{{ "s" if v.bloques != 1 }} · unos {{ ((v.segundos or v.bloques * 60) / 60) | round | int }} min{% else %}{{ v.palabras or 0 }} palabras, unos {{ v.segundos or 0 }} s{% endif %}
+{%- endmacro %}
+
+{% set AYUDA_FORMATO = "Idea: de qué va, en una frase\n\n1. Tema del bloque\n- punto\n- punto\nTu ejemplo: ¿qué te pasó a ti?\n\n2. Otro bloque\n- punto\nTu ejemplo: …\n\nCierre: lo que pides al final" %}

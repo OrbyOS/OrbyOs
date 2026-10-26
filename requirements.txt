@@ -1,0 +1,13 @@
+anthropic>=1.0
+fastapi
+uvicorn
+jinja2
+python-multipart
+httpx
+beautifulsoup4
+python-dotenv
+pytest
+faster-whisper
+pillow
+mediapipe
+tzdata

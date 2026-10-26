@@ -1,0 +1,66 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% from "_estructura.html" import duracion, AYUDA_FORMATO with context %}
+{% block titulo %}{{ "Guiones" if modo_de(negocio.id) == "guion" else "Estructuras" }} · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% macro fila(g) -%}
+{% set p = piezas.get(g.pieza_id) or {} %}
+<li>
+  <div>
+    <span class="kit-etiqueta">{{ p.tipo_nombre or "" }}{% if g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}</span>
+    <a href="{{ base_n }}/guiones/{{ g.id }}"><strong>{{ p.titulo or ("Guion" if g.validacion.modo == "guion" else "Estructura") }}</strong></a>
+    <p class="kit-meta">v{{ g.version }} · {{ duracion(g.validacion) }} · {{ "tuyo" if g.autor == "tú" else "de Escri" }}{% if p.estado == "grabada" %} · grabado{% endif %}</p>
+    {% if g.estado == "bloqueado" %}<p class="kit-falta inv-aviso">{{ g.validacion.fallos | join(" ") }}</p>{% endif %}
+  </div>
+  <a class="btn btn-fantasma btn-peque" href="{{ base_n }}/guiones/{{ g.id }}">Abrir</a>
+</li>
+{%- endmacro %}
+
+{% block contenido %}
+{% set es_guion = modo_de(negocio.id) == "guion" %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>{{ "Guiones" if es_guion else "Estructuras" }}</h1>
+    {% if es_guion %}<p class="sub">Cada pieza aprobada de «Graba hoy» se convierte en un guion con tu voz: tres ganchos puntuados, el mejor delante. Un validador en código revisa la duración, las frases prohibidas, la llamada a la acción, la palabra clave y que toda cifra tenga fuente: si no pasa, no te llega.</p>
+    {% else %}<p class="sub">Cada pieza aprobada de «Graba hoy» se convierte en una estructura: la idea, de 3 a 6 bloques con sus puntos y tu ejemplo, y el cierre. Grabas 3-5 minutos hablando libre y Monti saca los reels. Un validador en código revisa la llamada a la acción, la palabra clave, las frases prohibidas y que toda cifra tenga fuente.</p>{% endif %}
+  </div>
+</header>
+
+<section class="panel" {% if estado_guionista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/guiones/estado"{% endif %}>
+  <div class="panel-cabecera">
+    <div>
+      <h2>{% if estado_guionista.trabajando %}<i class="hero-vivo"></i>Escribiendo{% elif sin_guion %}{{ sin_guion | length }} pieza{{ "s" if sin_guion | length != 1 }} aprobada{{ "s" if sin_guion | length != 1 }} sin {{ "guion" if es_guion else "estructura" }}{% else %}Todo al día{% endif %}</h2>
+      <p class="tenue">{% if sin_guion %}{{ sin_guion | map(attribute="titulo") | join(" · ") }}{% else %}Aprueba un plan en <a href="{{ base_n }}/estrategia">Graba hoy</a> o pide {{ "un guion" if es_guion else "una estructura" }} abajo.{% endif %}</p>
+    </div>
+    {% if sin_guion %}<form method="post" action="/negocios/{{ negocio.id }}/guiones/escribir"><button class="btn btn-primario btn-peque" type="submit" {% if not ia or estado_guionista.trabajando %}disabled{% endif %}>{{ icono("chispa") }} Escribir {{ "los guiones" if es_guion else "las estructuras" }}</button></form>{% endif %}
+  </div>
+  {% if estado_guionista.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_guionista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
+</section>
+
+{% set listos = guiones | selectattr("estado", "equalto", "aprobado") | list %}
+{% set esperando = guiones | selectattr("estado", "equalto", "pendiente") | list %}
+{% set bloqueados = guiones | selectattr("estado", "equalto", "bloqueado") | list %}
+{% if esperando %}<section class="panel"><div class="panel-cabecera"><div><h2>Esperando tu aprobación</h2><p class="tenue">También están en <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>.</p></div></div><ul class="kit-lista">{% for g in esperando %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
+{% if listos %}<section class="panel"><div class="panel-cabecera"><div><h2>Listos para grabar</h2></div></div><ul class="kit-lista">{% for g in listos %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
+{% if bloqueados %}<section class="panel"><div class="panel-cabecera"><div><h2>No pasan el validador</h2><p class="tenue">Escri lo ha corregido dos veces y sigue sin pasar. Ábrelo para reescribirlo con una nota o corregirlo tú.</p></div></div><ul class="kit-lista">{% for g in bloqueados %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
+
+<section class="panel" id="nuevo">
+  <div class="panel-cabecera"><div><h2>{{ "Nuevo guion" if es_guion else "Nueva estructura" }}</h2><p class="tenue">Si se la pides a la IA, primero busca un post probado sobre ese tema y lo convierte en bloques para tu negocio; si no lo hay, la hace original.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/guiones/nuevo">
+    <div class="panel-cuerpo campos">
+      <label class="c ancho"><span>De qué va</span><input name="tema" placeholder="Por qué tus llamadas de venta no cierran" required></label>
+      <details class="ancho gn-yo"><summary>Lo escribo yo</summary>
+        <div class="campos">
+          {% if es_guion %}<label class="c ancho"><span>Guion <small>Solo lo que dices</small></span><textarea name="texto" rows="6"></textarea></label>
+          {% else %}<label class="c ancho"><span>Estructura <small>«Idea: …», cada bloque numerado («1. tema») con sus puntos («- …») y «Tu ejemplo: …», y «Cierre: …»</small></span><textarea name="texto" rows="12" placeholder="{{ AYUDA_FORMATO }}"></textarea></label>{% endif %}
+          <label class="c"><span>Llamada a la acción</span><select name="cta">{% for k, n in CTAS.items() %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></label>
+          <label class="c"><span>Palabra clave <small>4-9 letras</small></span><input name="palabra_clave" placeholder="GUIA"></label>
+          <label class="c ancho"><span>Hashtags <small>De 3 a 5</small></span><input name="hashtags" placeholder="#marcapersonal #ventas #coaching"></label>
+          <button class="btn btn-secundario" name="modo" value="yo" type="submit">Guardar {{ "mi guion" if es_guion else "mi estructura" }}</button>
+        </div>
+      </details>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" name="modo" value="ia" type="submit" {% if not ia %}disabled{% endif %}>{{ icono("chispa") }} Pídeselo a la IA</button></div>
+  </form>
+</section>
+{% endblock %}

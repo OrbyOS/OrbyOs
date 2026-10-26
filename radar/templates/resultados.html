@@ -1,0 +1,130 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% macro num(v) %}{{ ("%g" | format(v)) | replace(".", ",") }}{% endmacro %}
+{% block titulo %}Resultados · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% set ESTADOS_RITMO = {"cumplido": "Cumplido", "en_camino": "En camino", "en_riesgo": "En riesgo", "por_detras": "Por detrás"} %}
+{% set TIPOS_PM = {"despegue": "Despegó", "flop": "No funcionó", "record": "Tu récord"} %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Resultados</h1>
+    <p class="sub">Cada post se mide contra tu normal, no contra cuentas diez veces más grandes. Con eso, el equipo sabe qué ganchos, carriles y horas te funcionan y ajusta lo que propone.</p>
+  </div>
+</header>
+
+<section class="panel" id="objetivo">
+  <div class="panel-cabecera">
+    <div><span class="kit-etiqueta">Objetivo de la semana</span>
+      <h2>{{ ritmo.nombre }}: {{ num(ritmo.hecho) }} de {{ num(ritmo.meta) }}</h2>
+      <p class="tenue">A estas alturas tocarían {{ num(ritmo.esperado) }}{% if ritmo.proyeccion is not none %}. A este ritmo acabarás la semana en {{ num(ritmo.proyeccion) }}{% endif %}.</p></div>
+    <span class="rs-ritmo rs-{{ ritmo.estado }}">{{ ESTADOS_RITMO[ritmo.estado] }}</span>
+  </div>
+  <form class="panel-cuerpo kit-linea" method="post" action="/negocios/{{ negocio.id }}/resultados/objetivo">
+    <select name="metrica" aria-label="Métrica">{% for k, n in OBJETIVOS.items() %}<option value="{{ k }}" {{ 'selected' if objetivo.metrica == k }}>{{ n }}</option>{% endfor %}</select>
+    <input name="valor" type="number" min="0" step="1" value="{{ objetivo.valor | int }}" aria-label="Meta" class="rs-meta">
+    <button class="btn btn-secundario" type="submit">Guardar</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Tus posts</h2><p class="tenue">× = visualizaciones frente a la mediana de tus últimos {{ 30 }} posts en esa red. Envíos = compartidos y guardados por visualización.</p></div></div>
+  {% if posts %}
+  <div class="tabla-envoltorio"><table class="rs-tabla">
+    <thead><tr><th>Post</th><th>Red</th><th>Visualizaciones</th><th>×</th><th>1.er día</th><th>Envíos</th><th>Seg./mil</th><th>Salto 3 s</th></tr></thead>
+    <tbody>{% for p in posts %}<tr>
+      <td>{% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.titulo[:60] }}</a>{% else %}{{ p.titulo[:60] }}{% endif %}<br><span class="kit-meta">{{ p.programado[:10] }} · foto de {{ p.momento }}</span></td>
+      <td>{{ p.red }}</td><td>{{ p.vistas | cifra }}</td>
+      <td class="{{ 'rs-sube' if p.x >= 2 else ('rs-baja' if p.x < 0.6 else '') }}"><b>×{{ num(p.x) }}</b></td>
+      <td>{{ "×" ~ num(p.primer_dia_x) if p.primer_dia_x else "—" }}</td>
+      <td>{{ num((p.envios * 100) | round(1)) }} %</td>
+      <td>{{ p.seguidores_mil if p.seguidores_mil is not none else "—" }}</td>
+      <td>{{ ((p.salto * 100) | round | int) ~ " %" if p.salto else "—" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <div class="vacio"><p>Cuando se publiquen tus vídeos, sus números aparecerán aquí: a la hora, a las 24 h, 72 h, 7 días y 30 días.</p></div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera">
+    <div><h2>Qué funciona</h2><p class="tenue">Cada rasgo frente a tu normal. Con menos de {{ MIN_N }} posts no hay veredicto: falta saberlo.</p></div>
+    <nav class="rs-pestanas">{% for k, n in [("x", "Visualizaciones"), ("envios", "Envíos"), ("seguidores_mil", "Seguidores")] %}<a href="?resultado={{ k }}" class="{{ 'activo' if resultado == k }}">{{ n }}</a>{% endfor %}</nav>
+  </div>
+  {% if funciona %}
+  <div class="panel-cuerpo rs-dimensiones">
+    {% for dim, filas in funciona.items() if filas | length > 1 %}
+    {% set con_datos = filas | rejectattr("hueco") | list %}{% set sin_datos = filas | selectattr("hueco") | list %}
+    <div><h3>{{ DIMENSIONES[dim] }}</h3>
+      <ul class="rs-filas">{% for f in con_datos %}<li>
+        <span>{{ f.valor }}</span>
+        <span class="rs-v rs-{{ f.veredicto }}">{{ "+" if f.subida > 0 }}{{ f.subida }} % · {{ VEREDICTOS[f.veredicto] }}</span><span class="tenue">{{ f.n }} posts · {{ num(f.bajo) }}-{{ num(f.alto) }}</span>
+      </li>{% endfor %}</ul>
+      {% if sin_datos %}<p class="tenue rs-faltan">Faltan datos ({{ MIN_N }} posts por valor): {{ sin_datos | map(attribute="valor") | join(", ") }}.</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="vacio"><p>Aún no hay posts medidos.</p></div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Cuándo publicar</h2><p class="tenue">{% if horas.mejor %}Tu mejor franja: <b>{{ horas.mejor }}</b>.{% else %}Hacen falta al menos 3 posts en una franja para nombrarla la mejor.{% endif %} Las franjas con pocos posts se acercan a tu normal para que un golpe de suerte no cuente como regla.</p></div></div>
+  {% if horas.celdas %}
+  <ul class="kit-lista">{% for k, v in (horas.celdas.items() | sort(attribute="1.x", reverse=true))[:8] %}<li><div><strong>{{ k }}</strong><p class="kit-meta">×{{ num(v.x) }} · {{ v.n }} post{{ "s" if v.n != 1 }}</p></div></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+{% if postmortems %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Post-mortems</h2><p class="tenue">De cada post que despega, que no funciona o que bate tu récord.</p></div></div>
+  {% for pm in postmortems %}
+  <details class="cm-guia"><summary><b>{{ TIPOS_PM[pm.tipo] }}</b> · {{ pm.datos.titulo }} <span class="tenue">· ×{{ num(pm.x) }}</span></summary>
+    {% if pm.datos.primeros_segundos %}<p><b>Primeros 3 segundos:</b> {{ pm.datos.primeros_segundos }}</p>{% endif %}
+    {% if pm.datos.causas %}<ol class="ap-lista">{% for c in pm.datos.causas %}<li>{{ c }}</li>{% endfor %}</ol>{% endif %}
+    {% if pm.datos.donde %}<p><b>Dónde:</b> {{ pm.datos.donde }}</p>{% endif %}
+    {% if pm.datos.siguiente %}<p><b>Siguiente:</b> {{ pm.datos.siguiente }}</p>{% endif %}
+  </details>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Leads y ventas</h2><p class="tenue">Cada persona cuenta para el primer post que la trajo (por su utm_content).</p></div></div>
+  <div class="panel-cuerpo">
+    <dl class="rs-embudo">{% for k, n in [("clic", "Clics"), ("lead", "Leads"), ("llamada", "Llamadas"), ("venta", "Ventas")] %}<div><dt>{{ embudo.totales[k] }}</dt><dd>{{ n }}</dd></div>{% endfor %}<div><dt>{{ embudo.totales.importe | round | int }} €</dt><dd>Facturado</dd></div></dl>
+    {% if embudo.por_post %}
+    <ul class="kit-lista">{% for utm, f in embudo.por_post.items() %}<li><div><strong>{{ utm }}</strong><p class="kit-meta">{{ f.clic }} clics · {{ f.lead }} leads · {{ f.llamada }} llamadas · {{ f.venta }} ventas{% if f.importe %} · {{ f.importe | round | int }} €{% endif %}</p></div></li>{% endfor %}</ul>
+    {% endif %}
+    <details class="rs-web"><summary>Conectar tu web</summary>
+      <p class="tenue">Cuando alguien haga clic, deje sus datos, reserve una llamada o compre, tu web (o Make, Zapier, tu pasarela de pago…) manda un POST a esta dirección con el <code>utm_content</code> del enlace por el que llegó:</p>
+      <pre class="rs-codigo">POST {{ url_publica or "https://tu-app" }}/w/{{ token_web }}
+{"tipo": "lead", "utm_content": "cierre_1", "visitante": "id-del-visitante", "importe": 0}</pre>
+      <p class="tenue">Tipos: clic, lead, llamada, venta (con su importe en €).</p>
+    </details>
+  </div>
+</section>
+
+{% if competencia %}
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Frente a tu competencia</h2><p class="tenue">Visualizaciones del post típico (mediana) de cada cuenta que sigue Lupi.</p></div></div>
+  <ul class="kit-lista">{% for c in competencia %}<li><div><strong>{{ "Tú" if c.propia else c.cuenta }}</strong><p class="kit-meta">{{ c.plataforma | capitalize }} · {{ c.mediana | cifra }} visualizaciones · {{ c.n }} posts</p></div></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="panel" id="informe">
+  <div class="panel-cabecera">
+    <div><h2>Informe semanal</h2><p class="tenue">{% if informe_semana %}Semana del {{ informe_semana.semana }}.{% else %}Todavía no hay ninguno.{% endif %}</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/resultados/informe"><button class="btn btn-secundario btn-peque" type="submit">Preparar el de la semana pasada</button></form>
+  </div>
+  {% if informe_semana %}
+  <div class="panel-cuerpo rs-informe">
+    {% if informe_semana.titular %}<p class="rs-titular">{{ informe_semana.titular }}</p>{% endif %}
+    <p>{{ informe_semana.posts }} posts · {{ informe_semana.vistas | cifra }} visualizaciones · {{ informe_semana.embudo.lead }} leads · objetivo: {{ ESTADOS_RITMO[informe_semana.ritmo.estado] | lower }}</p>
+    {% if informe_semana.mejor %}<p><b>Mejor:</b> {{ informe_semana.mejor.titulo }} (×{{ num(informe_semana.mejor.x) }})</p>{% endif %}
+    {% if informe_semana.peor and informe_semana.peor != informe_semana.mejor %}<p><b>Más flojo:</b> {{ informe_semana.peor.titulo }} (×{{ num(informe_semana.peor.x) }})</p>{% endif %}
+    {% if informe_semana.focos %}<p><b>Focos para esta semana:</b></p><ol class="ap-lista">{% for f in informe_semana.focos %}<li>{{ f }}</li>{% endfor %}</ol>{% endif %}
+    {% if informe_semana.huecos %}<p class="tenue"><b>Faltan datos:</b> {{ informe_semana.huecos | join(" · ") }}</p>{% endif %}
+    <p class="tenue">Gasto de la semana: Claude {{ informe_semana.gasto.claude }} $ · Apify {{ informe_semana.gasto.apify }} $</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

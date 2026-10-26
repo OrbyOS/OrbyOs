@@ -1,0 +1,213 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Conectores · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{# Un campo de clave de la instalación: las secretas no se vuelven a enseñar, solo si están puestas. #}
+{% macro campo(c) -%}
+<label class="c"><span>{{ c.etiqueta }}{% if c.secreta and c.puesta %} <small class="ac-puesta">✓ puesta</small>{% endif %} <small>{{ c.ayuda }}</small></span>
+  {% if c.secreta and c.puesta %}{{ cambiar(c.var, c.etiqueta) }}
+  {% elif c.secreta %}<input name="{{ c.var }}" type="password" autocomplete="off" placeholder="Pégala aquí">
+  {% else %}<input name="{{ c.var }}" value="{{ c.valor }}">{% endif %}</label>
+{%- endmacro %}
+{# Con una clave ya puesta: un botón «Cambiar clave» que despliega el campo para pegar la nueva. #}
+{% macro cambiar(nombre, etiqueta, placeholder="Pega la nueva clave") -%}
+<details class="cx-cambiar"><summary class="btn btn-secundario btn-peque">Cambiar clave</summary>
+  <input name="{{ nombre }}" type="password" autocomplete="off" aria-label="Nueva {{ etiqueta | lower }}" placeholder="{{ placeholder }}"></details>
+{%- endmacro %}
+{% macro estado(conectado, si="Conectado", no="Sin conectar") -%}
+<span class="cx-estado {{ 'on' if conectado }}">{{ si if conectado else no }}</span>
+{%- endmacro %}
+
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Conectores</h1>
+    <p class="sub">Todas las conexiones con otros servicios, en un solo sitio. Cada negocio conecta sus propias claves y paga su propio gasto. Una vez guardadas no se vuelven a enseñar: solo verás si están puestas.</p>
+  </div>
+</header>
+
+{# Las claves de ESTE negocio: Claude, Apify y YouTube. Las usa todo su equipo y el gasto es suyo. #}
+{% set ayudas = {
+  "ANTHROPIC_API_KEY": ("claude", "El cerebro de todo el equipo: sin ella no puede escribir ni decidir nada.", "console.anthropic.com → API Keys (pagas por uso)."),
+  "APIFY_TOKEN": ("apify", "Con ella, Lupi lee los reels y TikToks de tu nicho y de tu cuenta.", "apify.com → Settings → API & Integrations."),
+  "YOUTUBE_API_KEY": ("youtube", "Con ella, Lupi lee los vídeos y Shorts de YouTube.", "Google Cloud → YouTube Data API v3 → Credenciales.")} %}
+<section class="panel" id="claves">
+  <div class="panel-cabecera"><div><h2>Claves de este negocio</h2>
+    <p class="tenue">Las usa todo lo que hace tu equipo. Antes de guardarlas comprobamos que funcionan. Deja un campo vacío para no tocar lo que ya hay.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/conectores/claves">
+    <button class="cx-intro" type="submit" tabindex="-1" aria-hidden="true">Guardar</button>{# Intro guarda, no quita #}
+    <div class="panel-cuerpo cx-claves">
+      {% for var, (ancla, para, donde) in ayudas.items() %}{% set c = claves_negocio[var] %}
+      <div class="cx-clave" id="{{ ancla }}">
+        <div class="cx-clave-info">
+          <h3>{{ c.etiqueta }}
+            {% if c.propia %}<span class="cx-estado on">✓ Tu clave{% if c.final %} · termina en …{{ c.final }}{% endif %}</span>
+            {% elif c.instalacion %}<span class="cx-estado">Usa la de la instalación</span>
+            {% else %}<span class="cx-estado falta">Falta: conéctala para que el equipo trabaje</span>{% endif %}</h3>
+          <p class="tenue">{{ para }}</p>
+          <p class="cx-donde">Dónde sacarla: {{ donde }}</p>
+        </div>
+        <div class="cx-clave-campo">
+          {% if c.propia %}
+          {{ cambiar(var, c.etiqueta) }}
+          <button class="btn-texto cx-quitar" type="submit" name="quitar" value="{{ var }}" onclick="return confirm('¿Quitar tu {{ c.etiqueta | lower }}? El equipo dejará de usarla.');">Quitar</button>
+          {% else %}
+          <input name="{{ var }}" type="password" autocomplete="off" aria-label="{{ c.etiqueta }}" placeholder="Pégala aquí">
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar y comprobar</button></div>
+  </form>
+</section>
+
+{% if usuario.es_admin %}
+{# Lo de la instalación, solo para quien administra. #}
+<section class="panel" id="instalacion">
+  <div class="panel-cabecera"><div><h2>De la instalación <span class="hy-etiqueta">Administración</span></h2>
+    <p class="tenue">{% if claves_compartidas %}Las usan los negocios que no han puesto la suya.{% else %}Este servidor está abierto a más gente: cada negocio usa sus propias claves, y estas no se reparten.{% endif %} {% if ia %}Ahora el equipo funciona con {{ MOTORES[motor] | lower }}.{% endif %}{% if claves_compartidas and motor == "claude_code" and not claude_code %} No encuentro Claude Code en este ordenador: instálalo (code.claude.com) y vuelve.{% endif %}</p></div></div>
+  <form method="post" action="/admin/claves">
+    <input type="hidden" name="volver" value="/negocios/{{ negocio.id }}/conectores">
+    <div class="panel-cuerpo campos">
+      {% if claves_compartidas %}
+      <label class="c ancho"><span>{{ instalacion.RADAR_MOTOR.etiqueta }} <small>{{ instalacion.RADAR_MOTOR.ayuda }}</small></span>
+        <select name="RADAR_MOTOR">{% for k, n in MOTORES.items() %}<option value="{{ k }}" {{ 'selected' if motor == k }}>{{ n }}</option>{% endfor %}</select></label>
+      {% endif %}
+      {{ campo(instalacion.ANTHROPIC_API_KEY) }}
+      {% if claves_compartidas %}{{ campo(instalacion.CLAUDE_CODE_OAUTH_TOKEN) }}{% endif %}
+      {{ campo(instalacion.APIFY_TOKEN) }}
+      {{ campo(instalacion.YOUTUBE_API_KEY) }}
+    </div>
+    <div class="form-pie"><button class="btn btn-secundario" type="submit">Guardar</button></div>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel" id="zernio">
+  <div class="panel-cabecera"><div><h2>Zernio {{ estado(zernio_conectado) }}</h2>
+    <p class="tenue">Con él, Publi publica en tus redes. Las 2 primeras cuentas son gratis. Crea la clave en Zernio → Settings → API (empieza por sk_).</p></div></div>
+  {% if cuentas_redes %}
+  <ul class="kit-lista">
+    {% for c in cuentas_redes %}
+    <li><div><strong>{{ c.nombre }}</strong>{% if not c.activa %} <span class="tenue">· apagada en tu plan</span>{% endif %}
+      <p class="kit-meta">{% if c.estado == "conectada" %}Conectada como @{{ c.cuenta.usuario }}{% elif c.estado == "reconectar" %}<span class="kit-falta">@{{ c.cuenta.usuario }} hay que reconectarla en Zernio</span>{% else %}Sin conectar en Zernio{% endif %}</p></div></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/publicacion/zernio">
+    <div class="panel-cuerpo campos">
+      {% if zernio_propia %}
+      <div class="c"><span>Clave de este negocio <span class="cx-estado on">✓ Tu clave{% if zernio_final %} · termina en …{{ zernio_final }}{% endif %}</span></span>{{ cambiar("clave", "clave de Zernio", "sk_...") }}</div>
+      {% else %}
+      <label class="c"><span>Clave de este negocio {% if zernio_conectado and claves_compartidas %}<small>Ahora se usa la de la instalación</small>{% endif %}</span><input name="clave" type="password" autocomplete="off" placeholder="sk_..."></label>
+      {% endif %}
+      <label class="c"><span>Perfil <small>Opcional: si en Zernio tienes varias marcas</small></span><input name="perfil" value="{{ zernio_perfil }}"></label>
+    </div>
+    <div class="form-pie">{% if zernio_comprobado %}<span class="tenue pb-comprobado">Comprobado el {{ zernio_comprobado | fecha }}</span>{% endif %}<button class="btn btn-primario" type="submit">Guardar y comprobar</button></div>
+  </form>
+  {% if usuario.es_admin and claves_compartidas %}
+  <details class="cx-instalacion"><summary>Una clave de Zernio para todos los negocios</summary>
+    <form method="post" action="/admin/claves" class="panel-cuerpo kit-linea">
+      <input type="hidden" name="volver" value="/negocios/{{ negocio.id }}/conectores">
+      <input name="ZERNIO_API_KEY" type="password" autocomplete="off" placeholder="{{ 'Pega la nueva para cambiarla' if instalacion.ZERNIO_API_KEY.puesta else 'sk_...' }}" aria-label="Clave de Zernio para todos los negocios">
+      <button class="btn btn-secundario" type="submit">Guardar</button>
+    </form></details>
+  {% endif %}
+</section>
+
+<section class="panel" id="manychat">
+  <div class="panel-cabecera"><div><h2>ManyChat {{ estado(manychat.conectado) }}</h2>
+    <p class="tenue">{% if manychat.conectado %}Conectado{% if manychat.cuenta.nombre %} con {{ manychat.cuenta.nombre }}{% endif %}{% if manychat.comprobado %} · comprobado el {{ manychat.comprobado | fecha }}{% endif %}. {% if manychat.con_clave_propia %}Este negocio usa su propia clave.{% elif claves_compartidas %}Usa la clave de la instalación.{% endif %}{% else %}Con él, Chati lee tus DMs de Instagram y responde a la palabra clave. Hace falta ManyChat Pro con tu Instagram conectado (ManyChat → Settings → API).{% endif %}</p></div></div>
+  {% if manychat.conectado and manychat.direccion %}
+  <div class="panel-cuerpo cm-manychat">
+    <p class="tenue">ManyChat no le pasa a {{ APP }} el texto de los comentarios, así que hace falta una automatización para los DMs y otra por cada palabra clave. Todas mandan una «External Request» (POST) a la misma dirección, cada una con su cuerpo.</p>
+    <label class="c ancho"><span>Dirección de la «petición externa» <small>La misma en todas las automatizaciones</small></span>
+      <span class="cm-copiar"><input id="manychat-direccion" value="{{ manychat.direccion }}" readonly><button class="btn btn-secundario btn-peque" type="button" data-copiar="manychat-direccion">Copiar</button></span></label>
+    <div class="cm-autos">
+      <div class="cm-auto">
+        <div class="cm-auto-cab"><b>Equipo · DMs</b><span class="tenue">Disparador: la respuesta por defecto de Instagram</span></div>
+        <span class="cm-copiar"><textarea id="manychat-cuerpo-dm" rows="4" readonly>{{ manychat.cuerpo | tojson(indent=2) }}</textarea><button class="btn btn-secundario btn-peque" type="button" data-copiar="manychat-cuerpo-dm">Copiar</button></span>
+      </div>
+      {% for c in manychat.comentarios or [] %}
+      <div class="cm-auto">
+        <div class="cm-auto-cab"><b>{{ c.nombre }}</b><span class="tenue">Disparador: un comentario con la palabra «{{ c.palabra }}»</span></div>
+        <span class="cm-copiar"><textarea id="manychat-cuerpo-{{ loop.index }}" rows="4" readonly>{{ c.cuerpo | tojson(indent=2) }}</textarea><button class="btn btn-secundario btn-peque" type="button" data-copiar="manychat-cuerpo-{{ loop.index }}">Copiar</button></span>
+      </div>
+      {% else %}
+      <p class="tenue">Cuando crees una palabra clave en <a href="{{ base_n }}/comunidad">Comunidad</a>, aquí saldrá su automatización «Equipo · PALABRA».</p>
+      {% endfor %}
+    </div>
+    <ol class="cm-pasos">
+      <li>En ManyChat, crea <b>Equipo · DMs</b> y una <b>Equipo · PALABRA</b> por cada palabra clave, con el disparador que pone en cada una.</li>
+      <li>En cada una, «External Request» POST a la dirección de arriba, con su cuerpo. Después, si <code>equipo_responder</code> es «si», manda <code>equipo_respuesta</code>.</li>
+      <li>Pulsa «Comprobar ahora» en <a href="{{ base_n }}/comunidad#automatizaciones">Comunidad → DMs automáticos</a>: si no sale ningún aviso, está listo.</li>
+    </ol>
+  </div>
+  {% endif %}
+  {% if manychat.con_clave_propia %}
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/manychat" class="panel-cuerpo cx-cambio-linea">
+    <span class="cx-estado on">✓ Tu clave{% if manychat_final %} · termina en …{{ manychat_final }}{% endif %}</span>
+    <details class="cx-cambiar"><summary class="btn btn-secundario btn-peque">Cambiar clave</summary>
+      <span class="kit-linea"><input name="clave" type="password" autocomplete="off" placeholder="Pega la nueva clave" aria-label="Nueva clave de ManyChat"><button class="btn btn-primario btn-peque" type="submit">Guardar</button></span></details>
+  </form>
+  {% else %}
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/manychat" class="panel-cuerpo kit-linea">
+    <input name="clave" type="password" autocomplete="off" placeholder="Clave de la API de ManyChat de este negocio" aria-label="Clave de ManyChat">
+    <button class="btn btn-primario" type="submit">Conectar</button>
+  </form>
+  {% endif %}
+  {% if usuario.es_admin and claves_compartidas %}
+  <details class="cx-instalacion"><summary>Una clave de ManyChat para todos los negocios</summary>
+    <form method="post" action="/admin/claves" class="panel-cuerpo kit-linea">
+      <input type="hidden" name="volver" value="/negocios/{{ negocio.id }}/conectores">
+      <input name="MANYCHAT_API_KEY" type="password" autocomplete="off" placeholder="{{ 'Pega la nueva para cambiarla' if instalacion.MANYCHAT_API_KEY.puesta else 'Pégala aquí' }}" aria-label="Clave de ManyChat para todos los negocios">
+      <button class="btn btn-secundario" type="submit">Guardar</button>
+    </form></details>
+  {% endif %}
+</section>
+
+<section class="panel" id="telegram">
+  <div class="panel-cabecera"><div><h2>Telegram {{ estado(tg_chat) }} <span class="hy-etiqueta">Opcional</span></h2>
+    <p class="tenue">{% if tg_chat %}Conectado con @{{ tg_bot }}. Te llegan el resumen de la mañana, cada aprobación con sus botones y las alertas. La hora del resumen y el silencio se ajustan en <a href="{{ base_n }}/hoy#avisos">Hoy</a>.{% elif tg_bot %}Falta un paso: abre tu bot y pulsa Iniciar.{% else %}Si quieres que el equipo te escriba al móvil mientras llega la app: crea un bot en Telegram con @BotFather (escríbele /newbot) y pega aquí el token que te da.{% endif %}</p></div>
+    {% if tg_chat %}<form method="post" action="/negocios/{{ negocio.id }}/hoy/resumen"><button class="btn btn-secundario btn-peque" type="submit">Mandarme el resumen ahora</button></form>{% endif %}</div>
+  {% if not tg_bot %}
+  <form method="post" action="/negocios/{{ negocio.id }}/hoy/telegram" class="panel-cuerpo kit-linea">
+    <input name="token" type="password" autocomplete="off" placeholder="123456789:AA…" aria-label="Token del bot">
+    <button class="btn btn-primario" type="submit">Guardar</button>
+  </form>
+  {% elif not tg_chat %}
+  <div class="panel-cuerpo hy-pasos">
+    <a class="btn btn-primario" href="{{ tg_enlace }}" target="_blank" rel="noopener">1. Abrir mi bot</a>
+    <form method="post" action="/negocios/{{ negocio.id }}/hoy/telegram/comprobar"><button class="btn btn-secundario" type="submit">2. Ya he pulsado Iniciar</button></form>
+  </div>
+  {% endif %}
+  {% if tg_bot %}<form method="post" action="/negocios/{{ negocio.id }}/hoy/telegram/quitar" class="form-pie"><button class="btn-texto" type="submit">Desconectar Telegram</button></form>{% endif %}
+</section>
+
+<section class="panel zona-peligro" id="eliminar">
+  <div class="panel-cabecera">
+    <div><h2>Eliminar este negocio</h2>
+      <p class="tenue">Se borra todo lo del negocio: su ficha, su Kit de marca, sus guiones, sus vídeos y sus resultados. No se puede deshacer.</p></div>
+  </div>
+  <form class="panel-cuerpo eliminar-form" method="post" action="/negocios/{{ negocio.id }}/eliminar"
+        onsubmit="return confirm('¿Seguro que quieres eliminar «{{ negocio.nombre | replace("'", "") }}»? No se puede deshacer.');">
+    <label class="c"><span>Escribe <b>{{ negocio.nombre }}</b> para confirmar</span>
+      <input name="confirmar" autocomplete="off" required placeholder="{{ negocio.nombre }}"></label>
+    <button class="btn btn-peligro" type="submit">Eliminar definitivamente</button>
+  </form>
+</section>
+
+<script>
+  // Copiar la dirección de ManyChat con un clic.
+  document.querySelectorAll("[data-copiar]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var campo = document.getElementById(b.dataset.copiar);
+      campo.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(campo.value) : Promise.reject()).catch(function () { document.execCommand("copy"); });
+      b.textContent = "Copiada ✓";
+      setTimeout(function () { b.textContent = "Copiar"; }, 1600);
+    });
+  });
+</script>
+{% endblock %}

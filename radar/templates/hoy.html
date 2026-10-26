@@ -1,0 +1,138 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block cabecera %}<link rel="stylesheet" href="/static/sala.css?v=73">{% endblock %}
+{% block titulo %}Hoy · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block contenido %}
+<h1 class="sr-only">Hoy</h1>
+{# Orby: lo único que harías hoy si solo pudieras hacer una cosa, y cómo vas con el objetivo de la semana. #}
+{% set ritmo = r.ritmo or {} %}
+{% if r.primero or ritmo.meta %}
+<div class="hy-primero">
+  <span class="hy-primero-cara" data-robot="jefa" data-robot-cabeza></span>
+  <div>
+    {% if r.primero %}<p><b>Lo primero de hoy:</b> {{ r.primero }}</p>{% endif %}
+    {% if ritmo.meta %}{% set unid = {"leads": "leads", "seguidores": "seguidores nuevos", "llamadas": "llamadas", "ventas": "€ en ventas"} %}
+    {% set como = {"cumplido": "cumplido", "en_camino": "vas bien", "en_riesgo": "vas justo", "por_detras": "vas por detrás"} %}
+    <p class="hy-ritmo hy-{{ ritmo.estado }}">Objetivo de la semana: <b>{{ "%g" | format(ritmo.hecho) }} de {{ "%g" | format(ritmo.meta) }}</b> {{ unid.get(ritmo.metrica, "") }} · {{ como.get(ritmo.estado, "") }}</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<section class="sala" data-sala data-vivo="/negocios/{{ negocio.id }}/hoy/vivo" data-app="{{ APP }}">
+  <div class="sala-barra">
+    <h2><i class="sala-vivo"></i>Tu equipo, en directo</h2>
+    <div class="sala-desbloqueo" hidden>
+      <button class="bola" type="button" aria-haspopup="true">
+        <span class="bola-orbe"><i></i><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="bola-anillo-fondo" cx="22" cy="22" r="20"/><circle class="bola-anillo-valor" cx="22" cy="22" r="20" pathLength="100"/></svg></span>
+        <span class="bola-texto"><b>Enciende a tu equipo</b><small><span data-pasos-cuenta>0/0</span> pasos hechos</small></span>
+      </button>
+      <div class="pasos" role="dialog" aria-label="Primeros pasos">
+        <p>Cada paso enciende la luz de un cuarto. Cuando estén todos, el equipo trabaja solo.</p>
+        <ol class="pasos-lista"></ol>
+      </div>
+    </div>
+    <span class="sala-hueco"></span>
+    <button class="sala-boton" type="button" data-sala-general>← Vista general</button>
+    <span class="sala-chip" data-sala-piloto>Piloto automático</span>
+    <button class="sala-boton" type="button" data-sala-demo>Simular actividad</button>
+    <button class="sala-boton" type="button" data-sala-pantalla>Pantalla completa</button>
+  </div>
+  <div class="sala-escena">
+    <div class="sala-fondo" aria-hidden="true"><i class="aurora a1"></i><i class="aurora a2"></i><i class="aurora a3"></i>
+      <i class="horizonte"></i><i class="anillo-fondo-1"></i><i class="anillo-fondo-2"></i><i class="constelacion"></i></div>
+    <svg class="sala-mundo" aria-hidden="true"></svg>
+    <div class="sala-polvo" aria-hidden="true"></div>
+    <div class="sala-rotulos"></div>
+    <button class="sala-salir" type="button" data-sala-salir>Salir de pantalla completa</button>
+    <section class="planta" hidden aria-label="Planta del agente">
+      <div class="planta-fondo" aria-hidden="true"></div>
+      <div class="planta-escena">
+        <div class="planta-muneco" aria-hidden="true"><div class="planta-robot"></div><div class="planta-plataforma"></div></div>
+        <div class="planta-datos">
+          <span class="planta-piso"></span>
+          <h3 class="panel-nombre"></h3><p class="panel-rol"></p>
+          <p class="panel-estado"></p>
+          <div class="planta-kpis"></div>
+          <div class="panel-despertar" hidden><span></span><a href="#">Hacerlo ahora</a></div>
+          <p class="panel-hace"></p>
+          <ul class="panel-lista"></ul>
+          <div class="panel-botones"><button class="panel-accion" type="button" hidden></button><a class="panel-ir" href="#">Abrir su página</a></div>
+        </div>
+      </div>
+      <button class="planta-bajar" type="button">↓ Volver a la oficina</button>
+    </section>
+    <div class="ascensor" aria-hidden="true"><div class="ascensor-indicador"><i>▲</i><b>0</b></div></div>
+  </div>
+  <div class="mando">
+    <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="sala-degradado" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#8ea6ff" stop-opacity="0.55"/><stop offset="1" stop-color="#8ea6ff" stop-opacity="0"/></linearGradient></defs></svg>
+    <header class="mando-cabeza"><h3>Del nicho al lead</h3><span>Últimos 14 días · en vivo</span>
+      <a class="mando-aprobar" href="/negocios/{{ negocio.id }}/aprobaciones"><b data-m="aprobar">0</b> esperan tu OK →</a></header>
+    <ol class="mando-embudo"></ol>
+    <h4 class="mando-sub">Tu contenido</h4>
+    <div class="mando-cifras">
+      <div class="mando-tarjeta mando-ancha"><small>Visualizaciones</small><b data-m="vistas">0</b>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none"><polygon class="curva-area" points=""/><polyline class="curva-linea" points=""/></svg></div>
+      <div class="mando-tarjeta"><small>× sobre tu normal</small><b data-m="x">×0</b><span>media de tus últimos posts</span></div>
+      <div class="mando-tarjeta"><small>Visualizaciones por post</small><b data-m="por-post">0</b><span data-m="publicados">0 publicados</span></div>
+      <div class="mando-tarjeta"><small>Envíos y guardados</small><b data-m="envios">0</b><span>por cada 1.000 visualizaciones</span></div>
+      <div class="mando-tarjeta"><small>Comentarios</small><b data-m="comentarios">0</b><span data-m="posts">0 posts medidos</span></div>
+      <div class="mando-tarjeta mando-ancha mando-mejor"><small>Tu mejor post</small><b data-m="mejor-titulo">Aún sin posts medidos</b><span data-m="mejor-datos">Cuando publiques, aquí verás el que más ha funcionado</span></div>
+      <div class="mando-tarjeta mando-ancha mando-funciona"><small>Lo que mejor te funciona</small><b data-m="funciona">Faltan datos</b><span data-m="funciona-datos">Con unos cuantos posts más, el equipo lo sabrá</span></div>
+      <div class="mando-tarjeta mando-redes"><small>Por red</small><div data-m="redes"><span>Sin publicaciones</span></div></div>
+      <div class="mando-tarjeta mando-objetivo">
+        <svg class="anillo" viewBox="0 0 40 40"><circle class="anillo-fondo" cx="20" cy="20" r="15.9"/><circle class="anillo-valor" cx="20" cy="20" r="15.9" pathLength="100"/></svg>
+        <div><small data-m="objetivo-nombre">Objetivo</small><b data-m="objetivo">0 / 0</b></div></div>
+    </div>
+  </div>
+  <div class="sala-ticker"><ul></ul></div>
+</section>
+
+{% if r.alertas %}
+<section class="panel hy-alertas">
+  <div class="panel-cabecera"><div><h2>{{ icono("alerta") }} Hay que arreglar</h2></div></div>
+  <ul class="kit-lista">{% for a in r.alertas %}<li><div><strong>{{ a.texto }}</strong></div></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="panel" id="piloto">
+  <div class="panel-cabecera"><div><h2>Piloto automático {% if piloto.activo %}<span class="rs-ritmo rs-en_camino">Encendido</span>{% endif %}</h2>
+    <p class="tenue">El equipo trabaja solo con este horario mientras {{ APP }} esté abierto. Lo que sale en público sigue pasando por tus aprobaciones, salvo los agentes que pongas en piloto en el <a href="{{ base_n }}/kit#autonomia">Kit de marca</a>.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/hoy/piloto">
+    <div class="panel-cuerpo campos">
+      <label class="c ancho kit-check"><input type="checkbox" name="activo" value="1" {{ 'checked' if piloto.activo }}> <span><b>Encender el piloto automático</b></span></label>
+      <label class="c"><span>Escanear cuentas a las</span><input type="time" name="hora_escaneo" value="{{ piloto.hora_escaneo }}"></label>
+      <label class="c"><span>Preparar «Graba hoy» a las</span><input type="time" name="hora_plan" value="{{ piloto.hora_plan }}"></label>
+      <label class="c"><span>Día de grabación <small>Ese día planifica la semana entera</small></span>
+        <select name="dia_grabacion">{% for v, n in [(-1, "Ninguno"), (0, "Lunes"), (1, "Martes"), (2, "Miércoles"), (3, "Jueves"), (4, "Viernes"), (5, "Sábado"), (6, "Domingo")] %}<option value="{{ v }}" {{ 'selected' if piloto.dia_grabacion == v }}>{{ n }}</option>{% endfor %}</select></label>
+      <div class="c ancho hy-tareas">{% for t, (nombre, cuando, _ia) in TAREAS.items() %}
+        <label class="kit-check"><input type="checkbox" name="tarea_{{ t }}" value="1" {{ 'checked' if piloto.tareas[t] }}> <span><b>{{ nombre }}</b> <small class="tenue">· {{ cuando }}</small></span></label>{% endfor %}</div>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+  {% if registro_piloto %}
+  <ul class="kit-lista">{% for r in registro_piloto %}<li><div><strong>{{ r.tarea }}</strong><p class="kit-meta">{{ r.cuando | fecha }} · {{ r.resultado }}</p></div></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<details class="panel hy-opcional" {{ 'open' if tg_bot and not tg_chat }}>
+  <summary class="panel-cabecera"><div><h2>Avisos en Telegram <span class="hy-etiqueta">Opcional</span></h2>
+    <p class="tenue">{% if tg_chat %}Conectado: te llegan el resumen de la mañana y cada aprobación con sus botones.{% else %}Si quieres, el equipo te escribe por Telegram mientras llega la app del móvil. No hace falta para que trabaje.{% endif %}</p></div></summary>
+<div id="telegram" class="panel-cuerpo">
+  <p class="tenue">{% if tg_chat %}Conectado con @{{ tg_bot }}.{% else %}Sin conectar.{% endif %} El bot se conecta en <a href="{{ base_n }}/conectores#telegram">Conectores</a>.</p>
+  {% if tg_chat %}<form method="post" action="/negocios/{{ negocio.id }}/hoy/resumen"><button class="btn btn-secundario btn-peque" type="submit">Mandarme el resumen ahora</button></form>{% endif %}
+</div>
+<div id="avisos" class="hy-avisos">
+  <div class="panel-cabecera"><div><h2>Avisos</h2><p class="tenue">{% if silencio %}Ahora estás en horas de silencio: solo te escribo si es urgente.{% else %}Durante las horas de silencio solo te escribo si es urgente (por ejemplo, una cuenta desconectada).{% endif %}</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/hoy/avisos">
+    <div class="panel-cuerpo campos">
+      <label class="c"><span>Resumen de la mañana a las</span><input type="time" name="hora_resumen" value="{{ avisos.hora_resumen }}"></label>
+      <label class="c kit-check"><input type="checkbox" name="avisar_aprobaciones" value="1" {{ 'checked' if avisos.avisar_aprobaciones }}> <span>Avisarme de cada aprobación nueva</span></label>
+      <label class="c"><span>Silencio desde</span><input type="time" name="silencio_inicio" value="{{ avisos.silencio_inicio }}"></label>
+      <label class="c"><span>hasta</span><input type="time" name="silencio_fin" value="{{ avisos.silencio_fin }}"></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</div>
+</details>
+<script src="/static/sala.js?v=73" defer></script>
+{% endblock %}

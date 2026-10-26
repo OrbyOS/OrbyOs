@@ -1,0 +1,181 @@
+{% macro icono(nombre) -%}
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+{%- if nombre == "equipo" -%}<rect x="9" y="3" width="6" height="5" rx="1.3"/><rect x="2.5" y="16" width="6" height="5" rx="1.3"/><rect x="15.5" y="16" width="6" height="5" rx="1.3"/><path d="M12 8v4M5.5 16v-2.2a1.8 1.8 0 0 1 1.8-1.8h9.4a1.8 1.8 0 0 1 1.8 1.8V16"/>
+{%- elif nombre == "agente" -%}<circle cx="12" cy="8.5" r="3.6"/><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0"/>
+{%- elif nombre == "resumen" -%}<path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 4v4h6V4zM4 20h6v-3H4z"/>
+{%- elif nombre == "contenido" -%}<rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 9.5v5l4-2.5z"/>
+{%- elif nombre == "funnel" -%}<path d="M3 4h18l-7 9v6l-4 2v-8z"/>
+{%- elif nombre == "edicion" -%}<path d="M4 7h11M4 12h7M4 17h11"/><path d="M17 10l4 2-4 2z"/>
+{%- elif nombre == "ficha" -%}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>
+{%- elif nombre == "ventas" -%}<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>
+{%- elif nombre == "admin" -%}<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>
+{%- elif nombre == "cuenta" -%}<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
+{%- elif nombre == "salir" -%}<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>
+{%- elif nombre == "negocios" -%}<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+{%- elif nombre == "mas" -%}<path d="M12 5v14M5 12h14"/>
+{%- elif nombre == "sol" -%}<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+{%- elif nombre == "luna" -%}<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+{%- elif nombre == "pantalla" -%}<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>
+{%- elif nombre == "flecha" -%}<path d="M9 6l6 6-6 6"/>
+{%- elif nombre == "flecha-der" -%}<path d="M5 12h14M13 6l6 6-6 6"/>
+{%- elif nombre == "atras" -%}<path d="M15 6l-6 6 6 6"/>
+{%- elif nombre == "alerta" -%}<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+{%- elif nombre == "chispa" -%}<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>
+{%- elif nombre == "externo" -%}<path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>
+{%- elif nombre == "actualizar" -%}<path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4"/>
+{%- elif nombre == "subir" -%}<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>
+{%- elif nombre == "descargar" -%}<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>
+{%- elif nombre == "check" -%}<path d="M5 12.5l4.5 4.5L19 7"/>
+{%- elif nombre == "prueba" -%}<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+{%- elif nombre == "papelera" -%}<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>
+{%- elif nombre == "ajustes" -%}<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+{%- elif nombre == "enchufe" -%}<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>
+{%- elif nombre == "candado" -%}<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}
+
+{% macro estado(e) -%}
+{% set nombres = {"ok": "Datos reales", "parcial": "Parcial", "sin_datos": "Sin datos", "error": "Error",
+                  "listo": "Listo", "en_curso": "En curso", "en_cola": "En cola"} %}
+<span class="badge badge-{{ e }}">{{ nombres.get(e, e) }}</span>
+{%- endmacro %}
+
+{% macro enlace(url, texto="Ver") -%}
+{% if url %}<a href="{{ url if url.startswith('http') else 'https://' ~ url }}" target="_blank" rel="noopener">{{ texto }}</a>{% endif %}
+{%- endmacro %}
+
+{% macro campo(etiqueta, valor) -%}
+{% if valor %}<div class="campo"><span class="campo-etiqueta">{{ etiqueta }}</span><span class="campo-valor">{{ valor }}</span></div>{% endif %}
+{%- endmacro %}
+
+{% macro etapa_chip(e) -%}
+{% if e %}<span class="etapa etapa-{{ e | lower }}" title="{{ ETAPAS[e].para_que }}">{{ e }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro avisos(lista, usuario) -%}
+{% set visibles = avisos_para(lista, usuario) %}
+{% if visibles %}
+<details class="avisos-plegables">
+  <summary>{{ icono("alerta") }} {{ visibles | length }} nota{{ "s" if visibles | length != 1 }} sobre los datos</summary>
+  <ul class="avisos">{% for a in visibles %}<li>{{ a }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{%- endmacro %}
+
+{% macro lectura(texto, etiqueta="") -%}
+{% if texto %}
+{% set corto, resto = texto | resumir %}
+<div class="lectura">
+  {% if etiqueta %}<span class="lectura-etiqueta">{{ etiqueta }}</span>{% endif %}
+  <p>{{ corto }}</p>
+  {% if resto %}<details><summary>Seguir leyendo</summary><p>{{ resto }}</p></details>{% endif %}
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro tarjeta_video(e, formato="vertical") -%}
+<a class="video {{ formato }}" href="{{ e.url }}" target="_blank" rel="noopener" {% if e.motivo %}title="{{ e.etapa }}: {{ e.motivo }}"{% endif %}>
+  <div class="video-imagen">
+    {% if e.imagen %}<img src="{{ e.imagen }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+    <span class="video-red red-{{ (e.plataforma or '') | lower }}">{{ e.plataforma }}{% if e.mercado %} · {{ e.mercado }}{% endif %}</span>
+    {% if e.ratio %}<span class="video-ratio" title="Veces que supera la mediana de su cuenta o de la búsqueda">×{{ e.ratio }}</span>{% endif %}
+    {% if e.plataforma == "LinkedIn" %}<span class="video-vistas">{{ e.interaccion | cifra }} interacciones</span>
+    {% elif e.vistas %}<span class="video-vistas">{{ e.vistas | cifra }} visualizaciones</span>{% endif %}
+  </div>
+  <div class="video-pie">
+    <div class="video-cuenta"><strong>{{ e.nombre if e.plataforma == "LinkedIn" and e.nombre else "@" ~ (e.cuenta or e.canal) }}</strong>{{ etapa_chip(e.etapa) }}</div>
+    <span class="clamp-2">{{ e.titulo or e.texto }}</span>
+    {% if e.motivo %}<span class="video-motivo clamp-2">{{ e.motivo }}</span>{% endif %}
+  </div>
+</a>
+{%- endmacro %}
+
+{% macro mini_ref(e) -%}
+{% if e %}
+<a class="mini-ref" href="{{ e.url }}" target="_blank" rel="noopener">
+  {% if e.imagen %}<img src="{{ e.imagen }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+  <span><b>Prueba:</b> @{{ e.cuenta or e.canal }} · {{ e.plataforma }} · {{ (e.interaccion if e.plataforma == "LinkedIn" else e.vistas) | cifra }}{% if e.ratio %} · ×{{ e.ratio }}{% endif %}</span>
+</a>
+{% endif %}
+{%- endmacro %}
+
+{% macro cabecera_vertical(titulo, subtitulo, vertical, negocio, informe, cupo, vista) -%}
+<header class="vertical-cabecera">
+  <div>
+    <h1>{{ titulo }}</h1>
+    <p class="sub">{{ subtitulo }}</p>
+  </div>
+  {% if informe and vertical %}
+  <div class="vertical-acciones">
+    <span class="tenue">Datos del {{ informe.creado | fecha }}</span>
+    {% if informe.estado != "en_curso" and cupo %}
+    <form method="post" action="/negocios/{{ negocio.id }}/actualizar/{{ vertical }}">
+      <input type="hidden" name="vista" value="{{ vista }}">
+      <button class="btn btn-secundario btn-peque" type="submit" {% if cupo.actualizaciones <= 0 %}disabled title="Has llegado al límite de tu plan"{% endif %}>{{ icono("actualizar") }} Actualizar</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</header>
+{%- endmacro %}
+
+{% macro progreso(informe, negocio) -%}
+{% if informe and informe.estado == "en_curso" %}
+<div class="progreso-tarjeta" data-estado-url="/negocios/{{ negocio.id }}/estado">
+  <div class="progreso-cabecera">
+    <span class="girando"></span>
+    <div>
+      <strong>{% if informe.trabajo in VERTICALES %}Actualizando {{ VERTICALES[informe.trabajo][0] | lower }}{% else %}Analizando tu mercado{% endif %}</strong>
+      <span class="tenue">Tarda unos minutos. Puedes cerrar la página: el análisis sigue y lo verás al volver.</span>
+    </div>
+  </div>
+  <ol class="pasos-progreso">
+    {% for clave, nombre, clase in progreso_de(informe) %}
+      <li class="{{ clase }}">{% if clase == "hecho" %}{{ icono("check") }}{% endif %}{{ nombre }}</li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro matriz(e) -%}
+{# Matriz audiencia del negocio × ticket de su oferta, con el cuadrante del negocio resaltado. Describe, no recomienda.
+   Sin oferta con precio, el negocio no cae en ningún cuadrante y se dice debajo, en lugar de dejarla vacía. #}
+{% set aud, cuad = e.audiencia or {}, e.cuadrante or {} %}
+<div class="matriz">
+  <span class="matriz-titulo-y">Ticket de la oferta ↑</span>
+  <div class="matriz-cuerpo">
+    <div class="matriz-filas"><span>Alto</span><span>Bajo o medio</span></div>
+    <div class="matriz-rejilla">
+      {% for clave in ["pequena_alto", "grande_alto", "pequena_bajo", "grande_bajo"] %}
+        {% set partes = clave.split("_") %}
+        {% set c = CUADRANTES[(partes[0], partes[1])] %}
+        <div class="matriz-q {{ 'activo' if cuad.clave == clave }}">
+          <strong>{{ c.nombre }}</strong><span>{{ c.ejemplo }}</span>
+          {% if cuad.clave == clave %}<em class="matriz-tu">Tú{% if aud.cero %} · empiezas de cero{% elif aud.seguidores %} · {{ aud.seguidores | cifra }}{% endif %}</em>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% if cuad.fuera %}
+  <div class="matriz-fuera"><em class="matriz-tu">Tú</em><span><b>{{ cuad.nombre }}</b>{% if aud.seguidores and not aud.cero %} · {{ aud.seguidores | cifra }} seguidores{% endif %}</span></div>
+  {% endif %}
+  <div class="matriz-eje-x"><span>Desde cero</span><b>Audiencia actual →</b><span>Audiencia grande</span></div>
+</div>
+{%- endmacro %}
+
+{% macro barras_etapas(reparto, comparar=None) -%}
+<div class="barras-etapas">
+  {% for etapa in ["TOFU", "MOFU", "BOFU"] %}
+  {% set r = (reparto or {}).get(etapa) or {} %}
+  <div class="barra-etapa">
+    <span class="etapa etapa-{{ etapa | lower }}">{{ etapa }}</span>
+    <div class="barra"><i class="relleno-{{ etapa | lower }}" style="width: {{ r.porcentaje or 0 }}%"></i>
+      {% if comparar %}{% set c = comparar.get(etapa) or {} %}<b class="marca" style="left: {{ c.porcentaje or 0 }}%" title="Mercado: {{ c.porcentaje or 0 }} %"></b>{% endif %}
+    </div>
+    <span class="barra-valor">{{ r.porcentaje or 0 }} %</span>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}

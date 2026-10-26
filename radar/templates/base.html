@@ -1,0 +1,59 @@
+{% from "_ui.html" import icono %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ APP }}{% endblock %}</title>
+  <meta name="description" content="{{ APP }} analiza tu nicho y te enseña qué contenido, funnels y ofertas funcionan para que hagas crecer tu negocio online.">
+  <script>
+    // Aplica el tema guardado antes de pintar, para que no parpadee.
+    (function () {
+      try {
+        // Sin elegir, la app va en oscuro. data-tono dice el tono que se ve de verdad (también con «como el sistema»).
+        var t = localStorage.getItem("tema") || "oscuro", r = document.documentElement;
+        if (t === "claro" || t === "oscuro") r.dataset.theme = t;
+        r.dataset.tono = t === "sistema" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "oscuro" : "claro") : t;
+        if (localStorage.getItem("menu") === "plegado") document.documentElement.dataset.menu = "plegado";
+        if (localStorage.getItem("demo") === "1") r.dataset.demo = "";  // modo demo: nombres ocultos para grabar la app
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 21l5-5 4 4 6-8' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/estilo.css?v=45">
+  <link rel="stylesheet" href="/static/acabado.css?v=5">
+  <link rel="stylesheet" href="/static/cristal.css?v=30">
+  {% block cabecera %}{% endblock %}
+</head>
+<body class="{% block clase_body %}{% endblock %}" {% block atributos_body %}{% endblock %}>
+{% block cuerpo %}{% endblock %}
+<script>
+  (function () {
+    var raiz = document.documentElement;
+    var botones = document.querySelectorAll(".tema button");
+    function marcar(t) {
+      botones.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.tema === t ? "true" : "false"); });
+    }
+    var actual = "oscuro", oscuroSistema = matchMedia("(prefers-color-scheme: dark)");
+    try { actual = localStorage.getItem("tema") || "oscuro"; } catch (e) {}
+    function tono() { raiz.dataset.tono = actual === "sistema" ? (oscuroSistema.matches ? "oscuro" : "claro") : actual; }
+    marcar(actual);
+    botones.forEach(function (b) {
+      b.addEventListener("click", function () {
+        actual = b.dataset.tema;
+        if (actual === "sistema") delete raiz.dataset.theme; else raiz.dataset.theme = actual;
+        try { localStorage.setItem("tema", actual); } catch (e) {}
+        marcar(actual);
+        tono();
+      });
+    });
+    if (oscuroSistema.addEventListener) oscuroSistema.addEventListener("change", tono);
+  })();
+</script>
+<script src="/static/personajes.js?v=5"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Montaje de un reel",
+  "description": "Lo que decide el editor (Claude en la skill o en el SaaS) para un vídeo: qué tramos se quedan, con qué encuadre y qué gráfico lleva cada plano. Los tiempos son segundos del bruto. Las palabras con sus tiempos no se escriben aquí: salen de transcripcion.json.",
+  "type": "object",
+  "required": [
+    "bruto",
+    "kit",
+    "planos"
+  ],
+  "properties": {
+    "bruto": {
+      "type": "string",
+      "description": "Ruta del vídeo original."
+    },
+    "kit": {
+      "type": "string",
+      "description": "Nombre del kit visual del cliente (kits/<kit>.json)."
+    },
+    "correcciones": {
+      "type": "object",
+      "description": "Palabras mal transcritas: {\"tiempo en s con 2 decimales\": \"palabra correcta\"}.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "velocidad": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1.2,
+      "description": "Velocidad de todo el reel. Si falta, el motor pone x1,1 cuando la voz va a menos de 3,3 palabras/s (ya sin silencios) y x1 si no."
+    },
+    "planos": {
+      "type": "array",
+      "minItems": 1,
+      "description": "En el orden del discurso: nunca se reordena. Un plano nuevo en cada cambio de encuadre.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "src",
+          "modo"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "src": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[inicio, fin] en segundos del bruto."
+          },
+          "modo": {
+            "type": "string",
+            "enum": [
+              "real",
+              "recorte"
+            ],
+            "description": "real: el vídeo tal cual. recorte: la persona sobre el fondo del kit."
+          },
+          "zoom": {
+            "type": "number",
+            "minimum": 1.0,
+            "maximum": 1.6,
+            "description": "1 = plano abierto; 1.2-1.35 = cerrado; 1.5 = muy cerrado (choque)."
+          },
+          "y": {
+            "type": "number",
+            "description": "Desplazamiento vertical en px (solo recortes sin titular; con titular lo calcula el motor)."
+          },
+          "entrada": {
+            "type": "string",
+            "enum": [
+              "corte",
+              "latigo",
+              "tiras",
+              "revela"
+            ],
+            "default": "corte"
+          },
+          "sacudida": {
+            "type": "number",
+            "description": "Segundo del bruto en que la cámara da un golpe (una por reel)."
+          },
+          "subtitulos": {
+            "type": "boolean",
+            "description": "Por defecto: sí en planos reales sin titular, no en recortes."
+          },
+          "grafico": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "palabra",
+                  "en"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "titular"
+                  },
+                  "palabra": {
+                    "type": "string",
+                    "maxLength": 12,
+                    "description": "Una palabra (o dos cortas) que resume la idea."
+                  },
+                  "kicker": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Antetítulo: las primeras palabras dichas en el plano, tal cual."
+                  },
+                  "en": {
+                    "type": "number",
+                    "description": "Segundo del bruto en que entra. En recortes, el inicio del plano."
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "etiqueta",
+                  "texto",
+                  "en",
+                  "envio"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "chat"
+                  },
+                  "etiqueta": {
+                    "type": "string",
+                    "maxLength": 24
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "en": {
+                    "type": "number"
+                  },
+                  "envio": {
+                    "type": "number"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "filas"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "ficha"
+                  },
+                  "filas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "etiqueta",
+                        "valor",
+                        "en"
+                      ],
+                      "properties": {
+                        "etiqueta": {
+                          "type": "string",
+                          "maxLength": 16
+                        },
+                        "valor": {
+                          "type": "string",
+                          "maxLength": 22
+                        },
+                        "cifra": {
+                          "type": "boolean",
+                          "description": "El valor es un número que cuenta desde 0."
+                        },
+                        "sufijo": {
+                          "type": "string",
+                          "maxLength": 10
+                        },
+                        "en": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "en"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "fondo"
+                  },
+                  "en": {
+                    "type": "number",
+                    "description": "Segundo en que desaparece el fondo."
+                  },
+                  "titular": {
+                    "type": "string",
+                    "maxLength": 12
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "en"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "imagen"
+                  },
+                  "en": {
+                    "type": "number",
+                    "description": "Segundo del bruto en que se nombra lo que se enseña."
+                  },
+                  "wikipedia": {
+                    "type": "string",
+                    "description": "Título EXACTO del artículo de Wikipedia (en inglés): «Sagrada Família», «Steve Jobs». Para personas, lugares y productos."
+                  },
+                  "web": {
+                    "type": "string",
+                    "description": "Dominio que se nombra («stripe.com»): se usa su captura si no hay artículo con foto libre."
+                  },
+                  "propia": {
+                    "type": "string",
+                    "description": "Nombre de una foto o captura del propio cliente."
+                  },
+                  "pie": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "description": "Nombre de lo que se ve, sin emoticonos."
+                  },
+                  "forma": {
+                    "type": "string",
+                    "enum": [
+                      "tarjeta",
+                      "pantalla"
+                    ],
+                    "description": "tarjeta (a la altura del pecho, lo normal) o pantalla (mitad de arriba, para capturas que hay que leer)."
+                  },
+                  "archivo": {
+                    "type": "string",
+                    "description": "Lo rellena el motor al encontrar la imagen."
+                  },
+                  "credito": {
+                    "type": "string",
+                    "description": "Lo rellena el motor: autor y licencia."
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "tipo",
+                  "icono",
+                  "en"
+                ],
+                "properties": {
+                  "tipo": {
+                    "const": "icono"
+                  },
+                  "icono": {
+                    "type": "string",
+                    "enum": [
+                      "candado",
+                      "chat",
+                      "check",
+                      "chispa",
+                      "codigo",
+                      "cohete",
+                      "dinero",
+                      "equipo",
+                      "flecha",
+                      "ia",
+                      "idea",
+                      "mundo",
+                      "negocio",
+                      "objetivo",
+                      "persona",
+                      "rayo",
+                      "reloj",
+                      "subida"
+                    ]
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 18,
+                    "description": "Palabra corta debajo del icono (opcional)."
+                  },
+                  "en": {
+                    "type": "number"
+                  },
+                  "lado": {
+                    "type": "string",
+                    "enum": [
+                      "izquierda",
+                      "derecha"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "golpe": {
+            "type": "number",
+            "description": "Segundo del bruto con un golpe de zoom (la palabra más fuerte de la frase)."
+          }
+        }
+      }
+    },
+    "serie": {
+      "type": "object",
+      "description": "Cuando el bruto da para varios reels (manual, 0 bis): el tipo de este reel dentro de la serie.",
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "completo",
+            "punto",
+            "idea"
+          ],
+          "description": "completo: la idea entera; punto: un solo punto que se sostiene solo; idea: otra idea distinta del mismo bruto."
+        }
+      }
+    }
+  }
+}

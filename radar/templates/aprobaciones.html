@@ -1,0 +1,164 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% from "_estructura.html" import estructura with context %}
+{% block titulo %}Aprobaciones · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{# Un elemento suelto del borrador del Kit, sea texto o un objeto con su campo principal. #}
+{% macro texto_de(x) -%}
+{%- if x is mapping -%}{{ x.texto or x.titulo or x.nombre or x.frase or x.pregunta or x.historia or x.opinion or (x.values() | select("string") | first) or "" }}{%- else -%}{{ x }}{%- endif -%}
+{%- endmacro %}
+{% macro quitar(a, parte, indice=None, clave=None) -%}
+<form class="ap-quitar" method="post" action="/negocios/{{ negocio.id }}/aprobaciones/{{ a.id }}/quitar"><input type="hidden" name="parte" value="{{ parte }}">{% if clave is not none %}<input type="hidden" name="clave" value="{{ clave }}">{% else %}<input type="hidden" name="indice" value="{{ indice }}">{% endif %}<button class="btn-texto" type="submit" title="Quitar del borrador">Quitar</button></form>
+{%- endmacro %}
+
+{# Lo que se manda a mano: el texto, listo para copiar y pegar en Instagram. #}
+{% macro copiar(texto) -%}
+<button class="btn btn-secundario btn-peque ap-copiar" type="button" data-copia="{{ texto }}">Copiar</button>
+{%- endmacro %}
+
+{% macro vista_previa(a) -%}
+{% set d = a.datos %}
+{% if a.tipo == "kit" %}
+  {# Cada cosa del borrador con su «Quitar»: lo que quites no entra en el Kit al aprobar. #}
+  {% set gr = "ap-kit-grupo" %}
+  {% if d.fuentes_nuevas %}<div class="{{ gr }}"><h4>Fuentes de noticias nuevas</h4><ul class="ap-kit">{% for f in d.fuentes_nuevas %}
+    <li><span><b>{{ f.valor }}</b>{% if f.tipo %} <span class="kit-etiqueta">{{ f.tipo }}</span>{% endif %}{% if f.motivo %} · <span class="tenue">{{ f.motivo }}</span>{% endif %}</span></li>{% endfor %}</ul></div>{% endif %}
+  {% if d.preguntas_abiertas %}<div class="{{ gr }} ap-preguntas"><h4>Preguntas para la llamada</h4><p class="tenue">Lo que la web no dice y hay que preguntarte.</p><ol>{% for q in d.preguntas_abiertas %}<li>{{ q }}</li>{% endfor %}</ol></div>{% endif %}
+  {% if d.ficha %}<div class="{{ gr }}"><h4>Ficha</h4><ul class="ap-kit">{% for clave, v in d.ficha.items() %}
+    <li><span><b>{{ clave | replace("_", " ") | capitalize }}:</b> {{ v.valor if v is mapping else v }}{% if v is mapping and v.cita %} <q>{{ v.cita }}</q>{% endif %}</span>{{ quitar(a, "ficha", clave=clave) }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if d.voz %}<div class="{{ gr }}"><h4>Voz</h4>
+    {% if d.voz.resumen %}<p>{{ d.voz.resumen }}</p>{% endif %}
+    {% for campo, titulo in [("frases", "Frases"), ("como_habla", "Cómo habla"), ("movimientos", "Movimientos"), ("nunca", "Nunca")] %}
+    {% if d.voz[campo] %}<p class="ap-kit-sub">{{ titulo }}</p><ul class="ap-kit">{% for x in d.voz[campo] %}<li><span>{{ texto_de(x) }}</span>{{ quitar(a, "voz." ~ campo, loop.index0) }}</li>{% endfor %}</ul>{% endif %}
+    {% endfor %}
+    {% if d.voz.muestras %}<p class="ap-kit-sub">Muestras</p><ul class="ap-kit">{% for x in d.voz.muestras %}<li><details><summary>{{ texto_de(x)[:90] }}{{ "…" if texto_de(x) | length > 90 }}</summary><p>{{ texto_de(x) }}</p></details>{{ quitar(a, "voz.muestras", loop.index0) }}</li>{% endfor %}</ul>{% endif %}
+  </div>{% endif %}
+  {% if d.carriles %}<div class="{{ gr }}"><h4>Carriles</h4><ul class="ap-kit">{% for c in d.carriles %}
+    <li><span><b>{{ c.nombre }}</b> · {{ c.cuota }}/semana{% if c.etapa %} · {{ ETAPAS_KIT.get(c.etapa, c.etapa) }}{% endif %}{% if c.descripcion %} · <span class="tenue">{{ c.descripcion }}</span>{% endif %}</span>{{ quitar(a, "carriles", loop.index0) }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if d.pruebas %}<div class="{{ gr }}"><h4>Pruebas</h4><ul class="ap-kit">{% for p in d.pruebas %}
+    <li><span>{% if p.tipo %}{{ TIPOS_PRUEBA.get(p.tipo, p.tipo) }}: {% endif %}{{ p.titulo }}{% if p.cifra %} · <b>{{ p.cifra }}</b>{% endif %} <span class="tenue">({{ p.fuente or "sin fuente" }})</span></span>{{ quitar(a, "pruebas", loop.index0) }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if d.contexto %}<div class="{{ gr }}"><h4>Contexto</h4>
+    {% for campo, titulo in [("historias", "Historias"), ("opiniones", "Opiniones"), ("objeciones", "Objeciones"), ("frases_cliente", "Frases de clientes"), ("preguntas_frecuentes", "Preguntas frecuentes")] %}
+    {% if d.contexto[campo] %}<p class="ap-kit-sub">{{ titulo }}</p><ul class="ap-kit">{% for x in d.contexto[campo] %}
+      <li><span>{% if campo == "objeciones" and x is mapping %}{{ x.objecion or x.texto or "" }}{% if x.respuesta %} → <span class="tenue">{{ x.respuesta }}</span>{% endif %}{% else %}{{ texto_de(x) }}{% endif %}</span>{{ quitar(a, "contexto." ~ campo, loop.index0) }}</li>{% endfor %}</ul>{% endif %}
+    {% endfor %}
+  </div>{% endif %}
+  {% if d.prohibidas %}<div class="{{ gr }}"><h4>Prohibidas</h4><ul class="ap-kit">{% for x in d.prohibidas %}<li><span>{{ texto_de(x) }}</span>{{ quitar(a, "prohibidas", loop.index0) }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if d.competencia %}<div class="{{ gr }}"><h4>Competencia</h4><ul class="ap-kit">{% for x in d.competencia %}<li><span>{{ texto_de(x) }}</span>{{ quitar(a, "competencia", loop.index0) }}</li>{% endfor %}</ul></div>{% endif %}
+{% elif a.tipo == "dm" %}
+  {% if d.motivo %}<p class="tenue">Por qué le escribes: {{ d.motivo }}</p>{% endif %}
+  <div class="ap-amano"><p class="ap-texto">{{ d.texto }}</p>{{ copiar(d.texto) }}</div>
+  <p class="kit-meta">{{ d.caracteres or (d.texto or "") | length }} caracteres · lo mandas tú desde Instagram.</p>
+  {% if d.seguimientos %}<h4 class="ap-sub">Si no contesta</h4>
+  <ul class="ap-seguimientos">{% for x in d.seguimientos %}
+    <li><span class="kit-etiqueta">Seguimiento {{ loop.index }} · {{ x.dia | fecha }}</span><div class="ap-amano"><p>{{ x.texto }}</p>{{ copiar(x.texto) }}</div></li>{% endfor %}</ul>{% endif %}
+{% elif a.tipo == "comentarios" %}
+  {% if d.reels %}<div class="ap-reels"><b>Piden un reel de respuesta</b><ul>{% for r in d.reels %}<li>{{ r.texto if r is mapping else r }}{% if r is mapping and r.likes %} <span class="tenue">· {{ r.likes }} me gusta</span>{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+  {% for g in d.grupos or [] if g.comentarios %}
+  <div class="ap-kit-grupo"><h4>{{ g.nombre }} <span class="tenue">({{ g.comentarios | length }})</span></h4>
+    <ul class="ap-comentarios">{% for c in g.comentarios %}
+      <li class="{{ 'es-reel' if c.reel }}"><p class="ap-com"><b>@{{ c.usuario | replace("@", "") }}</b> {{ c.texto }}{% if c.likes %} <span class="tenue">· {{ c.likes }} me gusta</span>{% endif %}{% if c.reel %} <span class="cx-estado on">Pide un reel</span>{% endif %}</p>
+        {% if g.grupo == "ruido" %}<p class="tenue">No contestar: les da alcance.</p>
+        {% elif c.respuesta %}<div class="ap-amano"><p>{{ c.respuesta }}</p>{{ copiar(c.respuesta) }}</div>{% endif %}</li>{% endfor %}</ul></div>
+  {% endfor %}
+  <p class="kit-meta">Las respuestas las pegas tú en Instagram: aquí no se publica nada.</p>
+{% elif a.tipo == "respuesta" and d.a_mano %}
+  <div class="ap-amano"><p class="ap-texto">{{ d.texto }}</p>{{ copiar(d.texto) }}</div>
+{% elif a.tipo == "cuentas" %}
+  {# Las cuentas que Lupi propone seguir: quita las que no te convenzan antes de aprobar. #}
+  {% set redes = {"instagram": "Instagram", "tiktok": "TikTok", "youtube": "YouTube", "linkedin": "LinkedIn"} %}
+  <ul class="ap-kit ap-cuentas">{% for c in d.cuentas or [] %}
+    <li><span><b>{{ redes.get(c.plataforma, c.plataforma) }} · @{{ (c.usuario or "") | replace("@", "") }}</b>{% if c.tipo %} <span class="kit-etiqueta">{{ {"directa": "Directa", "adyacente": "Adyacente", "aspiracional": "Aspiracional", "remix": "Para remix"}.get(c.tipo, c.tipo) }}</span>{% endif %}{% if c.tema %} <span class="tenue">· {{ c.tema }}</span>{% endif %}
+      {% if c.motivo %}<br>{{ c.motivo }}{% endif %}
+      {% if c.ejemplo %}<br><a href="{{ c.ejemplo }}" target="_blank" rel="noopener">Ver su vídeo de ejemplo</a>{% if c.vistas %} <span class="tenue">· {{ c.vistas | cifra }} visualizaciones</span>{% endif %}{% if c.texto %}<br><span class="tenue">«{{ c.texto[:120] }}{{ "…" if c.texto | length > 120 }}»</span>{% endif %}{% endif %}</span>{{ quitar(a, "cuentas", loop.index0) }}</li>{% endfor %}</ul>
+  {% if d.consultas %}<p class="tenue">Las ha encontrado buscando: {{ d.consultas | join(" · ") }}.</p>{% endif %}
+  <p class="tenue">Si apruebas, Lupi empieza a seguirlas en <a href="{{ base_n }}/investigacion#cuentas">Investigación</a>.</p>
+{% elif a.tipo == "leccion" %}
+  <p class="tenue">{% if d.evidencia %}Por qué: {{ d.evidencia }}. {% endif %}Si la apruebas, todo el equipo la cumple desde ya.</p>
+{% elif a.tipo == "brief" %}
+  {% if d.grabar_antes %}<p><b>Grábalo antes de las {{ d.grabar_antes[11:16] }}</b> <span class="tenue">· 3 h antes de la primera publicación de hoy</span></p>{% endif %}
+  <ol class="ap-lista">{% for p in d.vista or [] %}<li><b>{{ p.titulo }}</b> · <span class="tenue">{% if p.clase %}{{ CLASES_PIEZA.get(p.clase, p.clase) }} · {% endif %}{{ p.tipo }} · {{ p.carril }} · {{ p.etapa | upper }}{% set f = nombre_formula(p.formula) %}{% if f and f != "Sin fórmula" %} · gancho: {{ f }}{% endif %}</span>{% if p.angulo %}<br>{{ p.angulo }}{% endif %}{% if p.referencia %}<br><span class="tenue">{{ p.referencia }}</span>{% endif %}{% if p.rodaje %}<br><span class="tenue">Al grabar: {{ p.rodaje | join(" · ") }}</span>{% endif %}</li>{% endfor %}</ol>
+  {% if d.historias and d.historias.marcos %}<p class="tenue">Con {{ d.historias.marcos | length }} historias para hoy, en <a href="{{ base_n }}/estrategia#historias">Graba hoy</a>.</p>{% endif %}
+  <p class="tenue">El detalle de cada pieza, con su esquema, está en <a href="{{ base_n }}/estrategia">Graba hoy</a>. Con «Pedir cambios», Plani rehace el plan con tu nota.</p>
+{% elif a.tipo == "guion" %}
+  {% if d.referencia %}<p class="tenue">{{ d.referencia }}</p>{% endif %}
+  {{ estructura(d.texto) }}
+  {% if d.palabra_clave %}<p class="tenue">Palabra clave: <b>{{ d.palabra_clave }}</b></p>{% endif %}
+  {% if d.avisos %}<p class="tenue">Avisos del validador: {{ d.avisos | join(" ") }}</p>{% endif %}
+  <p class="tenue"><a href="{{ base_n }}/guiones/{{ d.guion_id }}">Abrir la estructura</a> para corregirla tú o ver sus afirmaciones.</p>
+{% elif a.tipo == "video" %}
+  <video class="ap-video" src="/ediciones/{{ d.edicion_id }}/video" controls playsinline preload="metadata"></video>
+  {% if d.palabra_clave %}<p class="tenue">Palabra clave: <b>{{ d.palabra_clave }}</b></p>{% endif %}
+  {% if d.avisos %}<p class="tenue">Revisión automática: {{ d.avisos | join(" · ") }}</p>{% endif %}
+  <p class="tenue">Para dejar notas en momentos concretos del vídeo, ábrelo en <a href="{{ base_n }}/produccion#t{{ d.edicion_id }}">Producción</a>.</p>
+{% elif d.texto %}
+  <p class="ap-texto">{{ d.texto }}</p>
+{% endif %}
+{%- endmacro %}
+
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Aprobaciones</h1>
+    <p class="sub">Todo lo que tu equipo quiere cambiar o publicar pasa por aquí. Lo que apruebes sigue adelante; con «Pedir cambios», el agente lo rehace con tu nota. Cuánto hace cada agente sin ti se cambia en el <a href="{{ base_n }}/kit#autonomia">Kit de marca</a>.</p>
+  </div>
+</header>
+
+{% if pendientes %}
+<div class="ap-pendientes">
+  {% for a in pendientes %}
+  <article class="panel ap" id="{{ a.ref }}">
+    <div class="panel-cabecera">
+      <div>
+        <span class="kit-etiqueta">{{ a.tipo_nombre }}</span>
+        <h2>{{ a.resumen }}</h2>
+        <p class="kit-meta">{{ a.ref }} · {{ a.agente_nombre }} · {{ a.creado | fecha }}{% if a.clave %} · Importante{% endif %}
+          {% if a.datos.a_mano %}<span class="ap-caduca">{% if a.datos.seguimiento %}Seguimiento {{ a.datos.seguimiento }} de 2: {% endif %}mándalo tú desde Instagram</span>{% endif %}
+          {% set min = a.datos.caduca | quedan if a.tipo == "respuesta" and a.datos.caduca and not a.datos.a_mano else none %}
+          {% if min is not none %}<span class="ap-caduca {{ 'urgente' if min < 180 }}">{% if min <= 0 %}Ya no se puede contestar{% elif min < 60 %}Caduca en {{ min }} min{% elif min < 180 %}Caduca en {{ min // 60 }} h {{ min % 60 }} min{% else %}Caduca en {{ min // 60 }} h{% endif %}</span>{% endif %}</p>
+      </div>
+    </div>
+    <div class="panel-cuerpo">{{ vista_previa(a) }}</div>
+    <form class="form-pie ap-acciones" method="post" action="/negocios/{{ negocio.id }}/aprobaciones/{{ a.id }}">
+      <input name="nota" placeholder="Nota para el agente (obligatoria si pides cambios)" aria-label="Nota">
+      <button class="btn btn-fantasma" name="decision" value="rechazar" type="submit">Rechazar</button>
+      <button class="btn btn-secundario" name="decision" value="cambios" type="submit">Pedir cambios</button>
+      <button class="btn btn-primario" name="decision" value="aprobar" type="submit">{{ icono("check") }} Aprobar</button>
+    </form>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<section class="panel"><div class="vacio">{{ icono("check") }}<p>No hay nada esperando tu decisión.</p></div></section>
+{% endif %}
+
+{# Los borradores que Chati sustituye por uno nuevo salen como rechazados por Chati: no hace falta verlos. #}
+{% set ns_d = namespace(lista=[]) %}{% for a in decididas %}{% if not (a.decidido_por == "Chati" and a.estado.startswith("rechaz")) %}{% set ns_d.lista = ns_d.lista + [a] %}{% endif %}{% endfor %}
+{% set decididas = ns_d.lista %}
+{% if decididas %}
+<section class="panel">
+  <div class="panel-cabecera"><h2>Decididas</h2></div>
+  <ul class="kit-lista">
+    {% for a in decididas %}
+    <li><div>
+      <strong>{{ a.resumen }}</strong>
+      <p class="kit-meta">{{ a.ref }} · {{ a.agente_nombre }} · {{ ESTADOS_AP[a.estado] }} por {{ a.decidido_por or "ti" }} el {{ a.decidido | fecha }}{% if a.nota %} · «{{ a.nota }}»{% endif %}</p>
+    </div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+<script>
+  // «Copiar»: lo que se manda a mano, al portapapeles.
+  document.querySelectorAll("[data-copia]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var t = b.dataset.copia;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(function () {
+        var x = document.createElement("textarea"); x.value = t; document.body.appendChild(x); x.select(); document.execCommand("copy"); x.remove();
+      });
+      b.textContent = "Copiado ✓";
+      setTimeout(function () { b.textContent = "Copiar"; }, 1600);
+    });
+  });
+</script>
+{% endblock %}

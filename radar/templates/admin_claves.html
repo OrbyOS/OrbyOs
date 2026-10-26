@@ -1,0 +1,23 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Ajustes de la instalación · {{ APP }}{% endblock %}
+{% block contenido %}
+<p><a class="tenue" href="/admin">{{ icono("atras") }} Administración</a></p>
+<header class="vertical-cabecera">
+  <div>
+    <h1>Ajustes de la instalación</h1>
+    <p class="sub">La dirección pública de la app y los presupuestos de cada negocio. Las claves de Claude, Apify, Zernio, ManyChat y Telegram van en {% if negocio %}<a href="{{ base_n }}/conectores">Conectores</a>{% else %}Conectores{% endif %}. Deja un campo vacío para no cambiarlo.</p>
+  </div>
+</header>
+
+<section class="panel">
+  <form method="post" action="/admin/claves">
+    <div class="panel-cuerpo campos">
+      {% for c in claves %}
+      <label class="c"><span>{{ c.etiqueta }} <small>{{ c.ayuda }}</small></span><input name="{{ c.var }}" value="{{ c.valor }}"></label>
+      {% endfor %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+{% endblock %}

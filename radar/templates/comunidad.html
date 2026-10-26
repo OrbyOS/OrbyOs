@@ -1,0 +1,143 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Comunidad · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Comunidad</h1>
+    <p class="sub">Quien comenta tu palabra clave recibe la guía por DM. Tus mensajes llegan ordenados por temperatura, con una respuesta preparada que no sale hasta que la apruebas. Y cada lead se queda en tus contactos.</p>
+  </div>
+</header>
+
+<section class="panel" {% if estado_comunidad.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/comunidad/estado"{% endif %}>
+  <div class="panel-cabecera">
+    <div><h2>{% if estado_comunidad.trabajando %}<i class="hero-vivo"></i>Leyendo tus DMs{% else %}Bandeja{% endif %}</h2>
+      <p class="tenue">{% if estado_comunidad.ultimo %}Leída el {{ estado_comunidad.ultimo | fecha }}. {% endif %}Los borradores de respuesta van a <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>.</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/leer"><button class="btn btn-primario btn-peque" type="submit" {% if not conectado or estado_comunidad.trabajando %}disabled{% endif %}>{{ icono("actualizar") }} Leer DMs</button></form>
+  </div>
+  {% if estado_comunidad.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_comunidad.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if conversaciones %}
+  <ul class="kit-lista">
+    {% for c in conversaciones %}
+    <li class="cm-conv cm-{{ c.temperatura or 'nueva' }}">
+      <div>
+        <span class="kit-etiqueta">{{ c.temperatura_nombre }} · {{ c.plataforma | capitalize }}</span>
+        <strong data-privado>{{ c.participante or "Sin nombre" }}</strong>
+        {% if c.resumen %}<p class="tenue">{{ c.resumen }}</p>{% endif %}
+        {% if c.mensajes %}<p class="kit-meta">«{{ c.mensajes[-1].texto[:140] }}»</p>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif not conectado %}
+  <div class="vacio"><p>Conecta tu ManyChat en <a href="{{ base_n }}/conectores#manychat">Conectores</a> para que Chati lea tus DMs.</p></div>
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- lo que Chati prepara y mandas tú, a mano #}
+<section class="panel" id="mensajes">
+  <div class="panel-cabecera"><div><h2>Escribir un DM</h2><p class="tenue">Chati prepara el mensaje y hasta dos seguimientos; tú lo mandas a mano desde Instagram. Sin un motivo concreto no escribe nada.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/dm" data-cm-dm>
+    <div class="panel-cuerpo campos">
+      <fieldset class="c ancho iv-mov-fila iv-edicion"><legend>Qué es</legend>
+        <div class="iv-chips">{% for k, n in TIPOS_DM.items() %}<label class="iv-chip"><input type="radio" name="tipo" value="{{ k }}" {{ 'checked' if loop.first }} data-cm-tipo><span>{{ n }}</span></label>{% endfor %}</div></fieldset>
+      <label class="c"><span>A quién <small>Su usuario de Instagram</small></span><input name="usuario" placeholder="@usuario" required></label>
+      <label class="c ancho"><span>Por qué le escribes <small>Qué comentó, qué publicó o cómo os cruzasteis</small></span><textarea name="motivo" rows="3" required placeholder="Comentó en mi reel de precios que siempre le piden descuento"></textarea></label>
+      <label class="c ancho" data-cm-idea hidden><span>Tu idea de colaboración <small>Qué propones hacer juntos</small></span><textarea name="idea" rows="2" placeholder="Un directo a dos sobre cómo cobrar más sin perder clientes"></textarea></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Preparar el mensaje</button></div>
+  </form>
+</section>
+
+<section class="panel" id="comentarios">
+  <div class="panel-cabecera"><div><h2>Contestar los comentarios de un post</h2><p class="tenue">Chati los ordena (palabra clave, posibles clientes, aportes, preguntas, apoyo y ruido), prepara cada respuesta y te marca las preguntas que piden un reel. Las respuestas las pegas tú.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/comentarios">
+    <div class="panel-cuerpo campos">
+      <label class="c ancho"><span>De qué post <small>Opcional</small></span><select name="publicacion_id"><option value="">Ninguno en concreto</option>{% for p in posts_propios %}<option value="{{ p.id }}">{{ p.programado | fecha if p.programado else "Sin fecha" }}{% if p.palabra_clave %} · {{ p.palabra_clave }}{% endif %} · {{ p.url | replace("https://www.instagram.com", "") | replace("https://instagram.com", "") | truncate(40) }}</option>{% endfor %}</select></label>
+      <label class="c ancho"><span>Los comentarios <small>Uno por línea: «@usuario: comentario (12 me gusta)»</small></span><textarea name="texto" rows="6" placeholder="@laura.coach: ¿y esto sirve si vendo por WhatsApp? (14 me gusta)&#10;@pablo: GUIA"></textarea></label>
+    </div>
+    <div class="form-pie">
+      <button class="btn btn-secundario" type="submit" name="traer" value="1" {{ 'disabled' if not ia }} title="Gasta de tu cuenta de Apify">Traer con Apify <small class="tenue">· gasta de tu Apify</small></button>
+      <button class="btn btn-primario" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Ordenar y responder</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel" id="guias">
+  <div class="panel-cabecera"><div><h2>Guías de las palabras clave</h2><p class="tenue">Lo que recibe quien comenta la palabra. Una página corta con tu marca y, si quieres, un formulario para dejar el correo.</p></div></div>
+  {% if sin_guia %}
+  <form class="panel-cuerpo kit-linea" method="post" action="/negocios/{{ negocio.id }}/comunidad/guias">
+    <select name="guion_id" aria-label="Guion">{% for g in sin_guia %}<option value="{{ g.id }}">{{ g.palabra_clave }}</option>{% endfor %}</select>
+    <button class="btn btn-secundario" type="submit">{{ icono("chispa") }} Escribir su guía</button>
+  </form>
+  {% endif %}
+  {% for g in guias %}
+  <details class="cm-guia" id="guia-{{ g.id }}">
+    <summary><b>{{ g.palabra }}</b> · {{ g.titulo }} <span class="tenue">· {{ g.visitas }} visitas</span></summary>
+    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/guias/{{ g.id }}">
+      <div class="campos">
+        <label class="c ancho"><span>Título</span><input name="titulo" value="{{ g.titulo }}"></label>
+        <label class="c ancho"><span>Contenido <small>«## » para un apartado, «- » para un punto</small></span><textarea name="contenido" rows="10">{{ g.contenido }}</textarea></label>
+        <label class="c"><span>O un enlace externo <small>Tu web, un Google Doc o Notion</small></span><input name="enlace_externo" value="{{ g.enlace_externo }}" placeholder="https://"></label>
+        <label class="c kit-check"><input type="checkbox" name="pedir_email" value="1" {{ 'checked' if g.pedir_email }}> <span>Pedir el correo</span></label>
+      </div>
+      <div class="cm-guia-pie">
+        {% if url_publica or g.enlace_externo %}<a class="tenue" href="{{ g.enlace_externo or (url_publica ~ '/g/' ~ g.token) }}" target="_blank" rel="noopener">Ver la guía</a>{% else %}<a class="tenue" href="/g/{{ g.token }}" target="_blank">Vista previa</a>{% endif %}
+        <button class="btn btn-primario btn-peque" type="submit">Guardar</button>
+      </div>
+    </form>
+  </details>
+  {% endfor %}
+  {% if not guias and not sin_guia %}<div class="vacio"><p>Cuando un guion tenga palabra clave, aquí podrás escribir su guía.</p></div>{% endif %}
+</section>
+
+<section class="panel" id="automatizaciones">
+  <div class="panel-cabecera">
+    <div><h2>DMs automáticos</h2><p class="tenue">Tu ManyChat le pasa a Chati cada comentario y cada DM de Instagram. Cuando alguien escribe una palabra clave con guía, Chati le manda la guía una vez por persona, con el enlace de seguimiento del post.</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/automatizaciones"><button class="btn btn-secundario btn-peque" type="submit">Comprobar ahora</button></form>
+  </div>
+  {% if not url_publica %}<div class="panel-cuerpo"><div class="aviso">{{ icono("alerta") }}<div>La app aún no tiene una dirección pública, así que las guías de aquí no se pueden abrir desde un DM. Mientras tanto, pon en cada guía un enlace externo (tu web, Google Doc o Notion).</div></div></div>{% endif %}
+  {% if automatizaciones %}
+  <ul class="kit-lista">{% for a in automatizaciones %}<li><div><strong>{{ a.palabra }}</strong><p class="kit-meta">{{ a.plataforma | capitalize }} · {{ "Activa" if a.estado == "activa" else "Ha fallado" }}{% if a.error %} · <span class="kit-falta">{{ a.error }}</span>{% endif %}</p></div></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Contactos</h2><p class="tenue">Quien deja su correo en una guía o te escribe con interés.</p></div>
+    {% if contactos %}<a class="btn btn-fantasma btn-peque" href="/negocios/{{ negocio.id }}/comunidad/contactos.csv">{{ icono("descargar") }} CSV</a>{% endif %}</div>
+  {% if contactos %}
+  <ul class="kit-lista">{% for c in contactos %}<li><div><strong>{{ c.nombre or c.usuario or c.email }}</strong><p class="kit-meta">{{ TEMPERATURAS.get(c.temperatura, c.temperatura) }} · {{ "Guía" if c.origen == "guia" else "DM" }}{% if c.palabra %} · {{ c.palabra }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %} · {{ c.creado | fecha }}{% if c.crm %} · CRM: {{ c.crm }}{% endif %}</p></div></li>{% endfor %}</ul>
+  {% else %}<div class="vacio"><p>Todavía no hay contactos.</p></div>{% endif %}
+</section>
+
+<section class="panel" id="manychat">
+  <div class="panel-cabecera"><div><h2>ManyChat <span class="cx-estado {{ 'on' if manychat and manychat.conectado }}">{{ "Conectado" if manychat and manychat.conectado else "Sin conectar" }}</span></h2>
+    <p class="tenue">Chati lee tus DMs y responde a la palabra clave a través de tu ManyChat. La clave y la dirección para montar las automatizaciones están en Conectores.</p></div>
+    <a class="btn btn-secundario btn-peque" href="{{ base_n }}/conectores#manychat">{{ icono("enchufe") }} Conectores</a></div>
+</section>
+
+<section class="panel" id="ajustes">
+  <div class="panel-cabecera"><div><h2>Ajustes</h2></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/ajustes">
+    <div class="panel-cuerpo campos">
+      <label class="c ancho kit-check cm-aviso"><input type="checkbox" name="dm_automaticos" value="1" {{ 'checked' if ajustes_comunidad.dm_automaticos }}>
+        <span><b>Activar los DMs automáticos.</b> Entiendo que Chati mandará mensajes desde mi cuenta de Instagram, a través de mi ManyChat, a quien comente la palabra; que Instagram solo deja responder en las 24 horas siguientes al último mensaje de esa persona, y que en ManyChat no debe haber otra automatización respondiendo a las mismas palabras.</span></label>
+      <label class="c ancho"><span>Mensaje del DM <small>Va con el botón de la guía</small></span><input name="mensaje_dm" value="{{ ajustes_comunidad.mensaje_dm }}" maxlength="500"></label>
+      <label class="c ancho"><span>Webhook de tu CRM <small>Opcional: cada contacto nuevo se manda ahí (GoHighLevel, HubSpot, Make, Zapier…)</small></span><input name="crm_webhook" value="{{ ajustes_comunidad.crm_webhook }}" placeholder="https://"></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+
+<script>
+  // «Tu idea de colaboración» solo aparece si el DM es una propuesta de colaboración.
+  (function () {
+    var f = document.querySelector("[data-cm-dm]");
+    if (!f) return;
+    var idea = f.querySelector("[data-cm-idea]");
+    function ver() { var t = f.querySelector("[data-cm-tipo]:checked"); idea.hidden = !(t && t.value === "colaboracion"); }
+    f.querySelectorAll("[data-cm-tipo]").forEach(function (r) { r.addEventListener("change", ver); });
+    ver();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,236 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Investigación · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% macro tarjeta(p) -%}
+{% set m = medianas.get(p.cuenta_id) or {} %}
+<article class="inv-post" id="post-{{ p.id }}">
+  <a class="inv-imagen {{ 'inv-sin-imagen' if not p.imagen }}" href="{{ p.url }}" target="_blank" rel="noopener">{% if p.imagen %}<img src="{{ p.imagen }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}<span class="inv-x">×{{ p.x }}</span></a>
+  <div class="inv-cuerpo">
+    <p class="kit-meta">{{ "@" ~ p.cuenta if not p.cuenta.startswith("@") else p.cuenta }} · {{ PLATAFORMAS[p.plataforma] }} · {{ p.publicado[:10] }}</p>
+    <p class="inv-cifras"><b>{{ p.vistas | cifra }}</b> visualizaciones{% if p.comentarios %} · <b>{{ p.comentarios | cifra }}</b> comentarios{% endif %}</p>
+    <p class="tenue inv-normal">Lo normal en esta cuenta: {{ m.vistas | cifra }} visualizaciones{% if p.plataforma == "instagram" %} y {{ m.comentarios | cifra }} comentarios{% endif %}</p>
+    {% if p.gancho %}<p class="inv-gancho">«{{ p.gancho }}»</p>{% if p.formula_nombre %}<p class="inv-formula">Fórmula: {{ p.formula_nombre }}</p>{% endif %}{% elif p.texto %}<p class="inv-texto">{{ p.texto[:160] }}</p>{% endif %}
+    {% if p.encaje_motivo %}<p class="inv-sirve">Por qué te sirve: {{ p.encaje_motivo }}</p>{% endif %}
+    {% if p.plataforma == "youtube" %}
+    <p class="tenue inv-idea">{{ icono("chispa") }} Vídeo largo: es una idea de tema para Plani, no una plantilla para rehacer.</p>
+    {% elif p.estado_plantilla == "lista" %}
+    <details class="inv-plantilla">
+      <summary>Plantilla de remix</summary>
+      {% set t = p.plantilla %}
+      <p><b>Tema:</b> {{ t.tema }}</p>
+      <p><b>Gancho:</b> «{{ t.gancho_literal }}»</p>
+      <ol class="ap-lista">{% for paso in t.pasos %}<li><span class="tenue">{{ paso.desde | round | int }}-{{ paso.hasta | round | int }} s</span> · {{ paso.que_hace }}</li>{% endfor %}</ol>
+      <p><b>Formato:</b> {{ t.formato }} · {{ t.aspecto }}</p>
+      <p><b>Cierre:</b> {{ t.cierre }}</p>
+      <p><b>Por qué funciona:</b> {{ t.por_que_funciona }}</p>
+      {% if t.del_creador %}<p class="tenue"><b>Es suyo, no se copia:</b> {{ t.del_creador | join(" · ") }}</p>{% endif %}
+    </details>
+    {% else %}
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/posts/{{ p.id }}/desmontar">
+      {% if p.estado_plantilla == "fallida" %}<p class="kit-falta inv-aviso">No se pudo desmontar: {{ (p.plantilla.fallos or ["sin motivo"]) | join(" ") }}</p>{% endif %}
+      <button class="btn btn-fantasma btn-peque" type="submit" {% if not ia %}disabled{% endif %}>{{ icono("chispa") }} {{ "Reintentar" if p.estado_plantilla == "fallida" else "Desmontar" }}</button>
+    </form>
+    {% endif %}
+  </div>
+</article>
+{%- endmacro %}
+
+{% block contenido %}
+{% set L = lupi_de(negocio.id) %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Investigación</h1>
+    <p class="sub">Lupi mide cada post contra lo normal de su propia cuenta: un salto de ×{{ umbral | round | int }} en una cuenta pequeña cuenta tanto como en una grande. Los que destacan se transcriben y se desmontan en una plantilla para hacer tu versión.</p>
+  </div>
+  <div class="vertical-acciones">
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/borrador-ficha" title="Lupi lee tu web y te propone un borrador de la ficha en Aprobaciones"><button class="btn btn-secundario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("contenido") }} Leer mi web</button></form>
+  </div>
+</header>
+
+{% if despegando %}
+<section class="panel inv-despega" id="despegando">
+  <div class="panel-cabecera"><div><h2><i class="hero-vivo"></i>Está despegando ahora</h2><p class="tenue">Posts de tu competencia que van al triple o más de lo normal en sus primeras horas. Es el momento de grabar tu versión.</p></div></div>
+  <ul class="inv-despegan">
+    {% for p in despegando %}
+    <li>
+      <span class="inv-ritmo">×{{ (p.ritmo or 0) | round(1) | string | replace(".0", "") | replace(".", ",") }}<small>a su edad</small></span>
+      <div><p class="kit-meta">{{ "@" ~ p.cuenta if not p.cuenta.startswith("@") else p.cuenta }} · {{ PLATAFORMAS[p.plataforma] }} · hace {{ p.publicado | hace }}</p>
+        <p class="inv-texto">{{ (p.texto or "")[:140] }}{{ "…" if (p.texto or "") | length > 140 }}</p>
+        <p class="tenue"><b>{{ p.vistas | cifra }}</b> visualizaciones{% if p.encaje_motivo %} · {{ p.encaje_motivo }}{% endif %}</p></div>
+      <a class="btn btn-secundario btn-peque" href="{{ p.url }}" target="_blank" rel="noopener">{{ icono("externo") }} Verlo</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% set listas_ = L.noticias | selectattr("lista") | list %}
+{% if L.noticias %}
+<section class="panel" id="noticias">
+  <div class="panel-cabecera"><div><h2>Noticias para grabar</h2><p class="tenue">Lo que se mueve en tu nicho, con el reel ya pensado: cada paso con lo que se ve, y cada dato comprobado contra su fuente. Las noticias caducan rápido: grábala antes de la hora que pone.</p></div></div>
+  <div class="panel-cuerpo nt-lista">
+    {% for n in L.noticias %}{% set g = n.guion or {} %}{% set min = n.grabar_antes | quedan %}
+    <details class="nt-noticia {{ 'nt-fuera' if not n.lista }}" {{ 'open' if loop.first and n.lista }}>
+      <summary>
+        <span class="nt-calor" title="Calor de la noticia">{{ n.calor | round | int }}</span>
+        <span class="nt-cab"><b>{{ g.cabecera or n.titulo }}</b>
+          <small>{{ n.medio }} · {{ n.cobertura }} medio{{ "s" if n.cobertura != 1 }}{% if min is not none %} · {% if min <= 0 %}<span class="kit-falta">ya pasó su hora</span>{% else %}<span class="{{ 'kit-falta' if min < 360 }}">quedan {{ (min // 60) ~ " h" if min >= 60 else min ~ " min" }} para grabarla</span>{% endif %}{% endif %}</small></span>
+        {% if not n.lista %}<span class="cx-estado">No pasa la revisión</span>{% endif %}
+      </summary>
+      <div class="nt-cuerpo">
+        {% if g.gancho %}<p class="nt-gancho">«{{ g.gancho }}»</p>{% endif %}
+        {% if g.pasos %}<ol class="nt-pasos">{% for p in g.pasos %}<li><span>{{ p.texto }}</span><em>{{ L.VISUALES.get(p.visual, p.visual) }}</em></li>{% endfor %}</ol>{% endif %}
+        {% if g.tu_lectura %}<p class="nt-lectura"><b>Tu lectura:</b> {{ g.tu_lectura }}</p>{% elif g.angulo %}<p><b>Tu ángulo:</b> {{ g.angulo }}</p>{% endif %}
+        {% if g.comprobaciones %}<ul class="nt-datos">{% for c in g.comprobaciones %}<li class="nt-{{ c.estado }}"><span>{{ c.dato }}</span><em>{{ L.ESTADOS_DATO.get(c.estado, c.estado) }}</em></li>{% endfor %}</ul>{% endif %}
+        {% if n.fallos %}<ul class="avisos">{% for f in n.fallos %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+        <p class="kit-meta"><a href="{{ n.url }}" target="_blank" rel="noopener">{{ icono("externo") }} Leer la fuente</a>{% if n.motivo %} · {{ n.motivo }}{% endif %}</p>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="panel" {% if estado_analista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/investigacion/estado"{% endif %}>
+  <div class="panel-cabecera">
+    <div>
+      <h2>{% if estado_analista.trabajando %}<i class="hero-vivo"></i>Escaneando ahora{% elif estado_analista.ultimo %}Último escaneo: {{ estado_analista.ultimo | fecha }}{% else %}Todavía no ha escaneado{% endif %}</h2>
+      <p class="tenue">Cada escaneo lee tus cuentas y las de la competencia que llevan más tiempo sin mirar, para que el gasto no crezca con las cuentas que sigas.{% if estado_analista.resumen %} El último revisó {{ estado_analista.resumen.cuentas }} cuentas y encontró {{ estado_analista.resumen.nuevos_destacados }} posts nuevos que destacan.{% endif %}</p>
+    </div>
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/escanear">
+      <button class="btn btn-primario btn-peque" type="submit" {% if estado_analista.trabajando or not cuentas %}disabled{% endif %}>{{ icono("actualizar") }} Escanear ahora</button>
+    </form>
+  </div>
+  {% if estado_analista.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_analista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Lo que destaca en tu nicho</h2><p class="tenue">Posts de tu competencia que han superado su normal. Son la materia prima del «Graba hoy».</p></div></div>
+  {% if destacados %}
+  <div class="inv-rejilla">{% for p in destacados %}{{ tarjeta(p) }}{% endfor %}</div>
+  {% else %}
+  <div class="vacio"><p>{{ "Aún no hay nada que destaque. Pulsa «Escanear ahora»." if not estado_analista.ultimo else "Ningún post de la competencia supera su normal por ahora." }}</p></div>
+  {% endif %}
+</section>
+
+{% if publico and (publico.preguntas or publico.objeciones or publico.deseos) %}
+<section class="panel" id="publico">
+  <div class="panel-cabecera"><div><h2>Lo que pregunta tu nicho</h2><p class="tenue">Lo que dice el público en los comentarios de los posts que destacan{% if publico.comentarios %} ({{ publico.comentarios }} comentarios leídos{% if publico.creado %}, {{ publico.creado | fecha }}{% endif %}){% endif %}. Cada idea es un vídeo esperando.</p></div></div>
+  <div class="panel-cuerpo inv-publico">
+    {% for clave, titulo in [("preguntas", "Preguntas"), ("objeciones", "Objeciones"), ("deseos", "Deseos")] %}
+    {% if publico[clave] %}
+    <div><h3>{{ titulo }}</h3>
+      <ul>{% for x in publico[clave] %}<li><b>{{ x.idea }}</b>{% if x.veces %} <span class="cx-estado">{{ x.veces }} {{ "vez" if x.veces == 1 else "veces" }}</span>{% endif %}{% if x.ejemplo %}<q>{{ x.ejemplo }}</q>{% endif %}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% set F = L.formulas %}
+{% if F and (F.destacan or F.sin_formula) %}
+<section class="panel" id="formulas">
+  <div class="panel-cabecera"><div><h2>Fórmulas de gancho que funcionan <span class="cx-estado {{ 'on' if F.confianza == 'suficiente' }}">Muestra {{ F.confianza }}</span></h2>
+    <p class="tenue">De {{ F.posts }} posts de {{ F.cuentas }} cuentas: las fórmulas de gancho cuyos posts van por encima de lo normal del nicho (con al menos 3 usos).{% if F.confianza == "poca" %} Con tan poca muestra, tómalo como pista, no como regla.{% endif %}{% if F.palabras_gancho and F.palabras_gancho.arriba %} Los ganchos que destacan tienen unas {{ F.palabras_gancho.arriba }} palabras (los que no, {{ F.palabras_gancho.abajo }}).{% endif %}</p></div></div>
+  {% if F.destacan %}
+  <ul class="kit-lista fm-lista">{% for d in F.destacan %}
+    <li><div><strong>{{ d.nombre }}</strong>
+      <p class="kit-meta">{% if d.empuje %}<b class="fm-empuje">×{{ "%g" | format(d.empuje) | replace(".", ",") }}</b> sobre lo normal del nicho · {% endif %}{% if d.usos %}{{ d.usos }} uso{{ "s" if d.usos != 1 }} · {% endif %}{{ d.arriba }} destaca{{ "n" if d.arriba != 1 }} y {{ d.abajo }} no</p>
+      {% for e in d.ejemplos %}<p class="fm-ejemplo"><a href="{{ e.url }}" target="_blank" rel="noopener">«{{ e.gancho }}»</a> <span class="tenue">· @{{ e.cuenta | replace("@", "") }} · ×{{ e.x }}</span></p>{% endfor %}</div></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if F.sin_formula %}
+  <details class="ob-otra"><summary>Ganchos que destacan sin fórmula conocida ({{ F.sin_formula | length }}): puede ser ruido o una fórmula nueva</summary>
+    <ul class="kit-lista">{% for e in F.sin_formula %}<li><div><a href="{{ e.url }}" target="_blank" rel="noopener">«{{ e.gancho }}»</a><p class="kit-meta">@{{ e.cuenta | replace("@", "") }} · ×{{ e.x }}</p></div></li>{% endfor %}</ul></details>
+  {% endif %}
+</section>
+{% endif %}
+
+{% set P = L.perfil %}
+{% if not (P and P.partes) %}
+<section class="panel" id="perfil">
+  <div class="panel-cabecera"><div><h2>La nota de tu perfil</h2><p class="tenue">Lupi mira tu Instagram como lo vería alguien que entra por primera vez y te dice qué arreglar primero. Hace falta tu cuenta en la lista de abajo, y Claude y Apify en Conectores.</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/perfil"><button class="btn btn-primario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Puntuar mi perfil</button></form></div>
+</section>
+{% else %}
+{% set por_id = {} %}{% for f in P.partes %}{% set _ = por_id.update({f.id: f}) %}{% endfor %}
+<section class="panel" id="perfil">
+  <div class="panel-cabecera"><div><h2>La nota de tu perfil</h2><p class="tenue">Lo que ve alguien que entra en tu Instagram por primera vez. Primero lo que más puntos recupera.{% if P.creado %} Puntuado el {{ P.creado | fecha }}.{% endif %}</p></div>
+    <div class="pf-acciones"><div class="pf-nota"><b>{{ P.total }}</b><span>de {{ P.sobre }}</span>{% if P.antes is defined and P.antes is not none %}{% set dif = P.total - P.antes %}<small class="{{ 'pf-sube' if dif > 0 else 'pf-baja' if dif < 0 }}">{{ "+" if dif > 0 }}{{ dif }} desde la última</small>{% endif %}</div>
+      <form method="post" action="/negocios/{{ negocio.id }}/investigacion/perfil"><button class="btn-texto" type="submit" {{ 'disabled' if not ia }}>Volver a puntuar</button></form></div></div>
+  <ul class="kit-lista pf-partes">
+    {% for pid in P.arreglos %}{% set f = por_id.get(pid) %}{% if f %}
+    <li><div>
+      <strong>{{ f.nombre }}</strong>
+      {% if f.sin_datos %}<p class="kit-meta">No se ve desde fuera: revísalo tú · vale {{ f.maximo }}</p>
+      {% else %}<span class="pf-barra" style="--v: {{ (100 * f.puntos / f.maximo) | round | int if f.maximo else 0 }}%"><i></i></span><p class="kit-meta">{{ f.puntos }} de {{ f.maximo }}{% if f.motivo %} · {{ f.motivo }}{% endif %}</p>{% endif %}
+      {% if f.arreglo %}<p class="pf-arreglo">{{ f.arreglo }}</p>{% endif %}
+    </div></li>
+    {% endif %}{% endfor %}
+  </ul>
+  {% set bien = P.partes | rejectattr("id", "in", P.arreglos) | list %}
+  {% if bien %}<p class="panel-cuerpo tenue">Ya está bien: {{ bien | map(attribute="nombre") | join(", ") }}.</p>{% endif %}
+  {% if P.sin_ver %}<p class="panel-cuerpo kit-meta">Hay {{ P.sin_ver }} puntos que no se ven desde fuera y no cuentan en la nota.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Tus posts</h2><p class="tenue">Cada uno contra tu propia mediana. Los que destacan son candidatos a «hazlo otra vez, con otro ángulo».</p></div></div>
+  {% if propios %}<div class="inv-rejilla">{% for p in propios %}{{ tarjeta(p) }}{% endfor %}</div>{% endif %}
+  {% if tus_posts %}
+  <ul class="kit-lista">
+    {% for p in tus_posts %}
+    <li><div><strong>{{ (p.texto or p.url)[:90] }}</strong>
+      <p class="kit-meta">{{ PLATAFORMAS[p.plataforma] }} · {{ p.publicado[:10] }} · {{ p.vistas | cifra }} visualizaciones · ×{{ p.x }}{% if p.destaca %} · destaca{% endif %}</p></div>
+      <a class="btn-icono" href="{{ p.url }}" target="_blank" rel="noopener" title="Abrir">{{ icono("externo") }}</a></li>
+    {% endfor %}
+  </ul>
+  {% elif not propios %}
+  <div class="vacio"><p>Añade tus cuentas abajo para medir tus posts.</p></div>
+  {% endif %}
+</section>
+
+<section class="panel" id="cuentas">
+  <div class="panel-cabecera"><div><h2>Cuentas que sigue Lupi</h2><p class="tenue">De 3 a 10 por plataforma que hagan el tipo de post que quieres hacer. Los referentes principales se miran antes.</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/sugerir-cuentas"><button class="btn btn-secundario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Sugerir cuentas</button></form></div>
+  {% if cuentas %}
+  <ul class="kit-lista">
+    {% for c in cuentas %}
+    <li>
+      <div><strong>{{ c.usuario }}</strong>{% if c.propia %} <span class="kit-etiqueta">Tuya</span>{% elif c.tipo %} <span class="kit-etiqueta" title="{{ L.TIPOS_CUENTA.get(c.tipo, '') }}">{{ L.TIPOS_CUENTA.get(c.tipo, c.tipo).split(" (")[0] }}</span>{% endif %}
+        <p class="kit-meta">{{ c.plataforma_nombre }} · {% if c.ultimo_escaneo %}Escaneada el {{ c.ultimo_escaneo | fecha }}{% else %}Sin escanear{% endif %}{% if c.aviso %} · <span class="kit-falta">{{ c.aviso }}</span>{% endif %}</p></div>
+      <div class="inv-acciones">
+        {% if not c.propia %}
+        <form method="post" action="/negocios/{{ negocio.id }}/investigacion/cuentas/{{ c.id }}/nivel">
+          <select name="nivel" onchange="this.form.submit()" aria-label="Nivel">{% for n, nombre in NIVELES.items() %}<option value="{{ n }}" {{ 'selected' if c.nivel == n }}>{{ nombre }}</option>{% endfor %}</select>
+        </form>
+        {% endif %}
+        <form method="post" action="/negocios/{{ negocio.id }}/investigacion/cuentas/{{ c.id }}/quitar"><button class="btn-icono btn-icono-peligro" type="submit" title="Quitar">{{ icono("papelera") }}</button></form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/investigacion/cuentas">
+    <div class="panel-cuerpo campos">
+      <label class="c"><span>Plataforma</span><select name="plataforma">{% for p, n in PLATAFORMAS.items() %}<option value="{{ p }}">{{ n }}</option>{% endfor %}</select></label>
+      <label class="c"><span>Usuario o enlace</span><input name="usuario" placeholder="@usuario" required></label>
+      <label class="c"><span>Nivel</span><select name="nivel">{% for n, nombre in NIVELES.items() %}<option value="{{ n }}" {{ 'selected' if n == 2 }}>{{ nombre }}</option>{% endfor %}</select></label>
+      <label class="c kit-check"><input type="checkbox" name="propia" value="1"> <span>Es mi cuenta</span></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">{{ icono("mas") }} Añadir cuenta</button></div>
+  </form>
+</section>
+{% if descartados %}
+<details class="panel inv-descartados" id="descartados">
+  <summary class="panel-cabecera"><div><h2>Descartados por no encajar ({{ descartados | length }})</h2><p class="tenue">Destacan, pero no sirven para tu negocio. Así ves que el filtro trabaja.</p></div></summary>
+  <ul class="kit-lista">{% for p in descartados %}
+    <li><div><strong>{{ "@" ~ p.cuenta if not p.cuenta.startswith("@") else p.cuenta }} · ×{{ p.x }}</strong>
+      <p class="kit-meta">{{ TIPOS_POST.get(p.encaje_tipo, p.encaje_tipo) if p.encaje_tipo else "Sin tipo" }}{% if p.encaje_motivo %} · {{ p.encaje_motivo }}{% endif %}</p>
+      {% if p.texto %}<p class="tenue">{{ p.texto[:120] }}</p>{% endif %}</div>
+      <a class="btn-texto" href="{{ p.url }}" target="_blank" rel="noopener">Ver</a></li>{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

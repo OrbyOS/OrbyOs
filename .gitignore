@@ -1,0 +1,14 @@
+.env
+.venv/
+data/
+__pycache__/
+motor_reels/tools/overlay.yaml
+motor_reels/tools/segmentar
+.venv/
+.env
+data/
+datos/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
