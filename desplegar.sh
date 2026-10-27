@@ -52,6 +52,7 @@ grep -q '^RADAR_URL_PUBLICA=' .env && sed -i "s|^RADAR_URL_PUBLICA=.*|RADAR_URL_
   echo "RADAR_URL_PUBLICA=https://$DOMINIO" >> .env
 # Lo guardado desde la app (datos/.env) manda sobre el .env: que tampoco se quede con la dirección antigua.
 [ -f datos/.env ] && sed -i "s|^RADAR_URL_PUBLICA=.*|RADAR_URL_PUBLICA=https://$DOMINIO|" datos/.env || true
+mkdir -p /opt/orby-media   # vídeos para publicar por la API de Instagram (Caddy los sirve en RADAR_RUTA_MEDIA)
 docker compose up -d --build
 # Caddy no se reinicia solo si solo cambia el Caddyfile: que lo vuelva a leer.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true

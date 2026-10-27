@@ -410,8 +410,10 @@ def recordatorios(negocio_id: int) -> int:
     n = 0
     for p in publicador.te_toca(negocio_id, antes_minutos=60):
         ruta = motor.carpeta(p["edicion_id"]) / "final.mp4"
-        if encolar(negocio_id, f"📲 A las {p['programado'][11:16]} te toca publicar en Instagram. Este es el texto:\n\n"
-                               f"{p['texto']}", video=str(ruta) if ruta.exists() else "", clave=f"tuyo-{p['id']}",
+        texto = f"📲 A las {p['programado'][11:16]} te toca publicar en Instagram. Este es el texto:\n\n{p['texto']}"
+        if p.get("aviso_colaboradores"):  # post en colaboración: la invitación se hace al compartir
+            texto += f"\n\n{p['aviso_colaboradores']}"
+        if encolar(negocio_id, texto, video=str(ruta) if ruta.exists() else "", clave=f"tuyo-{p['id']}",
                    prioridad="alta"):
             n += 1
     return n

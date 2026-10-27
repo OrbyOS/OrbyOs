@@ -14,7 +14,15 @@
 }
 
 {$RADAR_DOMINIO} {
-	import app
+	# Vídeos que Instagram descarga para publicar un reel por su API: se suben justo antes y se borran después.
+	# La ruta (secreta) está en RADAR_RUTA_MEDIA del .env del servidor. Sin listado de carpetas.
+	handle_path {$RADAR_RUTA_MEDIA:/media-apagada}/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		import app
+	}
 }
 
 # www lleva a la dirección sin www.

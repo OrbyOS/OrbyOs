@@ -1,32 +1,33 @@
 /** Lo que manda radar/agentes/generacion.py (tiempos en segundos). */
-export type Palabra = {texto: string; t: number; fin: number};
+export type Palabra = {texto: string; t: number; fin: number; enfasis?: boolean};
 
-export type Escena = {
+/** Un plano: lo que se ve mientras suena un trozo de la voz. Cada tipo lee sus propios campos (planos.tsx). */
+export type Plano = {
   inicio: number;
   fin: number;
-  /** Etiqueta de arriba («1 · BUSCAR IDEAS»). La primera escena lleva el título del vídeo en su lugar. */
-  etiqueta?: string;
-  /** Cinta que aparece a mitad de escena con el remate («La que más cuesta»). */
-  cinta?: string;
-  /** Ilustraciones del catálogo (ilustraciones.tsx), de izquierda a derecha. */
-  objetos: string[];
+  tipo: string;
+  [campo: string]: unknown;
 };
 
+export type Rotulo = {inicio: number; fin: number; texto: string};
+
 export type Estilo = {
-  mesa: string;       // color de la superficie del fondo
-  veta: string;       // vetas de la superficie
-  acento: string;     // palabra resaltada, insignias y cintas
+  mesa: string;       // fondo
+  veta: string;       // rejilla del fondo
+  acento: string;     // insignias, cintas y lo que se marca
   texto: string;
-  subrayado: string;  // la palabra que suena en los subtítulos
+  subrayado: string;  // la palabra que suena en los subtítulos y el resalte del título
   caja: string;       // caja del título
+  malo: string;       // cruces, sellos y lo que está mal
 };
 
 export type Props = {
   fps: number;
   total: number; // fotogramas
   audio: string; // archivo en la carpeta pública del render
-  titulo: {texto: string; resalte: string; insignia?: string};
-  escenas: Escena[];
+  titulo: {texto: string; resalte: string; insignia?: string; fin: number};
+  planos: Plano[];
+  rotulos: Rotulo[]; // la etiqueta de arriba de cada bloque («1 · Tiempo de visionado»)
   palabras: Palabra[];
   estilo: Estilo;
 };

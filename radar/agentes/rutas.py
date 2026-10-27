@@ -755,6 +755,7 @@ async def guardar_plan(request: Request, negocio_id: int):
                      "dias": sorted({int(d) for d in form.getlist(f"{red}_dias") if str(d).isdigit() and 0 <= int(d) <= 6}),
                      "horas": sorted({h for h in horas if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", h)}),
                      "autopublicar": form.get(f"{red}_autopublicar") == "1" if red == "instagram" else True}
+    plan["instagram"]["colaboradores"] = publicador.limpiar_colaboradores(str(form.get("instagram_colaboradores") or ""))
     kit_marca.cambiar(negocio_id, publicacion=plan)
     return _volver(negocio_id, "publicacion", "Plan de publicación guardado.", "plan")
 
@@ -786,6 +787,14 @@ async def programar(request: Request, negocio_id: int, edicion_id: int):
                                                    for p in r["programadas"]) + ".")
     partes += r["fallos"]
     return _volver(negocio_id, "publicacion", " ".join(partes) or "Ya estaba programado.")
+
+
+@router.post("/negocios/{negocio_id}/publicacion/{edicion_id}/colaboradores")
+def colaboradores_del_video(request: Request, negocio_id: int, edicion_id: int, colaboradores: str = Form("")):
+    _propio(request, negocio_id)
+    lista = publicador.poner_colaboradores(negocio_id, edicion_id, colaboradores)
+    return _volver(negocio_id, "publicacion", "Colaboradores: " + ", ".join(f"@{u}" for u in lista) + "."
+                   if lista else "Este vídeo usa los colaboradores del plan.")
 
 
 @router.post("/negocios/{negocio_id}/publicacion/{edicion_id}/reels-prueba")

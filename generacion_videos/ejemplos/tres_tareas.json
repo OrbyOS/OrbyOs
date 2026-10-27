@@ -1,15 +1,16 @@
 {
-  "titulo": {"texto": "Tres tareas que te comen la semana", "resalte": "te comen la semana", "insignia": "3 tareas"},
-  "escenas": [
-    {"texto": "Si vives de tu marca personal, hay tres tareas que te comen la semana. La tercera es la que hace que casi todos lo dejen.",
-     "objetos": ["lupa", "libreta", "claqueta"]},
-    {"etiqueta": "1 · Buscar ideas", "cinta": "Horas de scroll", "objetos": ["lupa", "movil"],
-     "texto": "Una: buscar qué funciona. Horas mirando cuentas de tu sector para saber de qué hablar esta semana."},
-    {"etiqueta": "2 · Escribir", "cinta": "Cada semana", "objetos": ["libreta", "taza"],
-     "texto": "Dos: escribir. Un gancho que pare el dedo, un guion que se entienda y el texto del post."},
-    {"etiqueta": "3 · Editar", "cinta": "La que más cuesta", "objetos": ["claqueta", "portatil"],
-     "texto": "Y tres: editar. Cortar silencios, poner subtítulos, buscar imágenes. Una hora por vídeo, como poco."},
-    {"etiqueta": "Los que aguantan", "objetos": ["calendario"],
-     "texto": "Los que aguantan no trabajan más horas. Se lo dan hecho a un equipo. Guárdalo para el día que pienses en dejarlo."}
-  ]
+ "titulo": {"texto": "Tres tareas que te comen la semana", "resalte": "te comen la semana", "insignia": "3 tareas"},
+ "escenas": [
+  {"planos": [
+   {"di": "Si vives de tu marca personal, hay tres tareas que te comen la semana.", "ve": {"tipo": "objetos", "objetos": ["lupa", "libreta", "claqueta"]}}
+  ]},
+  {"rotulo": "Las tres", "planos": [
+   {"di": "^Buscar ideas, ^escribir guiones y ^editar vídeos.", "ve": {"tipo": "lista", "items": ["Buscar ideas", "Escribir guiones", "Editar vídeos"], "marca": "num"}},
+   {"di": "La tercera es la que hace que casi todos lo *dejen*.", "ve": {"tipo": "palabra", "texto": "EDITAR", "sello": "LA PEOR"}}
+  ]},
+  {"planos": [
+   {"di": "Los que aguantan no trabajan más horas: se lo dan hecho a un *equipo*.", "ve": {"tipo": "equipo", "flash": true}},
+   {"di": "Guárdalo para el día que pienses en dejarlo.", "ve": {"tipo": "cierre", "texto": "Tu equipo de contenido con IA"}}
+  ]}
+ ]
 }

@@ -44,3 +44,19 @@ def test_la_voz_pagada_no_se_paga_dos_veces(tmp_path, monkeypatch):
         assert generacion._voz("Hola", tmp_path / f"escena_{i}.wav")[0]["texto"] == "Hola"
         assert (tmp_path / f"escena_{i}.wav").read_bytes() == b"audio"
     assert llamadas == ["Hola"]
+
+
+def test_el_guion_marca_enfasis_y_golpes():
+    from radar.agentes import generacion
+    assert generacion._fichas("Uno ^investiga, otro *escribe* y *lo que nunca* ^dirías.") == [
+        ("Uno", False, False), ("investiga,", False, True), ("otro", False, False), ("escribe", True, False),
+        ("y", False, False), ("lo", True, False), ("que", True, False), ("nunca", True, False), ("dirías.", False, True)]
+
+
+def test_los_efectos_caen_donde_entra_cada_cosa():
+    from radar.agentes import generacion
+    planos = [{"tipo": "objetos", "objetos": ["lupa"], "inicio": 0, "fin": 2},
+              {"tipo": "lista", "items": ["a", "b"], "golpes": [6, 30], "inicio": 2, "fin": 4}]
+    ev = generacion.eventos_de_sonido(planos)
+    assert ev[0] == (1.88, "barrido")  # el primer plano es la portada: no suena
+    assert [e for _, e in ev[1:]] == ["tic", "tic"] and abs(ev[1][0] - (2 + 14 / 30)) < 1e-9

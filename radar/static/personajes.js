@@ -6,7 +6,7 @@
   "use strict";
   var COLORES = { jefa: "#3D7BFF", analista: "#22D3EE", estratega: "#FBBF24", guionista: "#F472B6",
                   editor: "#34D399", publicador: "#A78BFA", comunidad: "#FB7185" };
-  var RUTA = "/static/marca/agentes/", V = "?v=1";
+  var RUTA = "/static/marca/agentes/", V = "?v=2";
 
   function robot(clave, opciones) {
     var c = COLORES[clave] || COLORES.jefa, o = opciones || {}, k = COLORES[clave] ? clave : "jefa";

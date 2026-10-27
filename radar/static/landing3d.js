@@ -1,6 +1,6 @@
 /* La portada de la landing: Orby en 3D, vivo. Flota, mira hacia el cursor, parpadea y su anillo respira.
    Se para cuando no se ve; sin WebGL (o con «reducir movimiento») se queda el render fijo. */
-import { montar } from "/static/orby3d.js?v=2";
+import { montar } from "/static/orby3d.js?v=3";
 
 const lienzo = document.querySelector("[data-orby3d]");
 const escenario = lienzo && lienzo.closest(".ln-escenario");
@@ -9,7 +9,7 @@ const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 function arrancar() {
   let e;
   try {
-    e = montar(lienzo, { camara: [0.7, 0.85, 8.9], mira: [0, 0.38, 0], fov: 24, opacidadSombra: 0.38, contraluz: 2.6 });
+    e = montar(lienzo, { camara: [0.7, 0.85, 8.9], mira: [0, 0.38, 0], fov: 24, opacidadSombra: 0.38, contraluz: 2.6, aura: "#3d6bff", opacidadAura: 0.22 });
   } catch (err) {
     return;  // sin WebGL: se queda la imagen de respaldo
   }
@@ -36,7 +36,7 @@ function arrancar() {
   let visible = true;
   new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible) requestAnimationFrame(bucle); }).observe(escenario);
 
-  const anilloBase = p.anillo.material.emissiveIntensity;
+  const anilloBase = p.anillo.material.color.clone();
   function bucle(t) {
     if (!visible) return;
     const s = t / 1000;
@@ -45,7 +45,7 @@ function arrancar() {
     e.orby.rotation.y = -0.25 + Math.sin(s * 0.35) * 0.08;
     p.brazoIzq.rotation.z = -0.13 - Math.sin(s * 1.1 + 0.6) * 0.06;
     p.brazoDer.rotation.z = 0.13 + Math.sin(s * 1.1 + 0.6) * 0.06;
-    p.anillo.material.emissiveIntensity = anilloBase * (0.8 + 0.25 * Math.sin(s * 2.2));
+    p.anillo.material.color.copy(anilloBase).multiplyScalar(0.8 + 0.25 * Math.sin(s * 2.2));
     // La cabeza sigue al cursor, con suavidad
     mira.x += (raton.x - mira.x) * 0.06; mira.y += (raton.y - mira.y) * 0.06;
     p.cabeza.rotation.y = -0.1 + mira.x * 0.42;

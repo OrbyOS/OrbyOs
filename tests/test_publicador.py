@@ -121,3 +121,56 @@ def test_reels_de_prueba_solo_si_se_activan_y_con_tu_ok(app_aislada, monkeypatch
         assert con.execute("SELECT COUNT(*) FROM publicaciones WHERE modo = 'prueba'").fetchone()[0] == 4
     ap.decidir(a2["id"], "aprobar")  # aprobar otra vez no repite nada
     assert len(_creados(falso)) == 4
+
+
+def test_colaboradores_con_zernio_y_en_el_recordatorio(app_aislada, monkeypatch):
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    falso = _con_zernio(monkeypatch, nid)
+    eid = _video_aprobado(nid)
+    assert publicador.limpiar_colaboradores("@Orby, https://instagram.com/otra.cuenta/ mala!cuenta a b c") == \
+        ["orby", "otra.cuenta", "a"]
+    # Del plan de Instagram (la propia cuenta nunca cuenta como colaboradora).
+    cliente.post(f"/negocios/{nid}/publicacion/plan", data={"instagram_activa": "1", "instagram_dias": ["0"],
+                                                           "instagram_horas": "13:30", "instagram_autopublicar": "1",
+                                                           "instagram_colaboradores": "@orby @mentora"})
+    assert kit.leer(nid)["publicacion"]["instagram"]["colaboradores"] == ["orby", "mentora"]
+    assert publicador.colaboradores(nid, eid) == ["orby"]
+    r = publicador.programar(nid, eid, ["instagram"], cuando=datetime.now() + timedelta(days=3), ensayo=True)
+    assert r["plan"][0]["colaboradores"] == ["orby"]
+    publicador.programar(nid, eid, ["instagram"], cuando=datetime.now() + timedelta(days=3))
+    assert _creados(falso)[0]["platforms"][0]["platformSpecificData"]["collaborators"] == ["orby"]
+    # Los del vídeo sustituyen a los del plan; y solo en tus vídeos.
+    otra = _video_aprobado(nid, palabra="PRECIO")
+    cliente.post(f"/negocios/{nid}/publicacion/{otra}/colaboradores", data={"colaboradores": "socio1"})
+    assert publicador.colaboradores(nid, otra) == ["socio1"]
+    assert publicador.poner_colaboradores(nid + 1, otra, "intruso") == [] and publicador.colaboradores(nid, otra) == ["socio1"]
+    # Si Instagram lo publicas tú, el recordatorio dice a quién invitar.
+    kit.cambiar(nid, publicacion={**kit.leer(nid)["publicacion"],
+                                  "instagram": {**kit.leer(nid)["publicacion"]["instagram"], "autopublicar": False}})
+    publicador.programar(nid, otra, ["instagram"], cuando=datetime.now() + timedelta(minutes=40))
+    p = publicador.te_toca(nid)[0]
+    assert p["colaboradores"] == ["socio1"] and "Invitar colaborador → @socio1" in p["aviso_colaboradores"]
+
+
+def test_horas_segun_tu_cuenta(app_aislada, monkeypatch):
+    from radar.agentes import analista
+    _, nid = _negocio_con_cliente(app_aislada)
+    from datetime import date
+    # Sin datos: las del plan.
+    assert publicador.mejores_horas(nid)["fuente"] == "plan"
+    analista.anadir_cuenta(nid, "instagram", "mentora", propia=True)
+    c = analista.cuentas(nid)[0]
+    hoy = datetime.now().replace(minute=0, second=0, microsecond=0)
+    posts = []
+    for i in range(14):  # a las 19 h (hora de Madrid) rinden el triple que a las 9 h
+        dia = hoy - timedelta(days=i + 1)
+        hora = 19 if i % 2 else 9
+        utc = dia.replace(hour=hora) - publicador._zona().utcoffset(dia.replace(hour=hora))
+        posts.append({"url": f"https://instagram.com/reel/{i}", "publicado": utc.isoformat() + "Z", "texto": "x",
+                      "vistas": 3000 if hora == 19 else 1000})
+    analista._guardar_posts(nid, c, posts)
+    m = publicador.mejores_horas(nid)
+    assert m["fuente"] == "tu cuenta" and m["posts"] == 14 and m["horas"][0] == "19:00"
+    lunes = date(2027, 1, 4)
+    r = publicador.proponer_horas(nid, [lunes, lunes + timedelta(days=1)])
+    assert set(r["horas"]) == {"2027-01-04", "2027-01-05"} and all(h in ("19:00", "09:00") for h in r["horas"].values())

@@ -1,10 +1,10 @@
 #!/bin/bash
-# Instala Radar en este ordenador (macOS o Linux) y lo abre en el navegador.
+# Instala Orby en este ordenador (macOS o Linux) y lo abre en el navegador.
 #   bash instalar.sh
 set -e
 cd "$(dirname "$0")"
 DIR="$(pwd)"
-echo "Instalando Radar en $DIR"
+echo "Instalando Orby en $DIR"
 
 # 1. Python 3.11 o más reciente
 PY=""
@@ -35,17 +35,17 @@ chmod 600 .env
 
 # 4. Un acceso directo para abrirlo con doble clic (macOS)
 if [ "$(uname)" = "Darwin" ]; then
-  cat > "Abrir Radar.command" <<LANZADOR
+  cat > "Abrir Orby.command" <<LANZADOR
 #!/bin/bash
-# Doble clic para abrir Radar. Para cerrarlo, cierra esta ventana.
+# Doble clic para abrir Orby. Para cerrarlo, cierra esta ventana.
 URL="http://localhost:8000"
 if curl -s -o /dev/null "\$URL"; then open "\$URL"; exit 0; fi
 cd "$DIR" || exit 1
 ( for i in \$(seq 1 40); do sleep 1; curl -s -o /dev/null "\$URL" && open "\$URL" && break; done ) &
 ./arrancar.sh
 LANZADOR
-  chmod +x "Abrir Radar.command"
-  echo "Listo. Para abrirlo: doble clic en «Abrir Radar.command»."
+  chmod +x "Abrir Orby.command"
+  echo "Listo. Para abrirlo: doble clic en «Abrir Orby.command»."
 fi
 
 # 5. Claude: con tu plan (Claude Code) o con una clave de la API
@@ -56,6 +56,6 @@ else
 fi
 
 URL="http://localhost:${PORT:-8000}"
-echo "Arrancando Radar en $URL … La primera cuenta que crees será la de administración."
+echo "Arrancando Orby en $URL … La primera cuenta que crees será la de administración."
 ( for i in $(seq 1 60); do sleep 1; curl -s -o /dev/null "$URL" && { command -v open >/dev/null && open "$URL" || xdg-open "$URL" >/dev/null 2>&1 || true; } && break; done ) &
 exec ./arrancar.sh

@@ -1690,6 +1690,12 @@ def test_recordatorio_de_instagram_con_el_video(app_aislada, monkeypatch):
     assert jefa.recordatorios(nid) == 1 and jefa.recordatorios(nid) == 0
     jefa.despachar(nid)
     assert tg.videos and "Comenta CIERRE" in tg.videos[-1][2] and str(tg.videos[-1][1]).endswith("final.mp4")
+    con_colab = [{**p, "id": 999, "aviso_colaboradores": "Antes de compartir: Etiquetar personas → Invitar colaborador → @orby."}
+                 for p in publicador.te_toca(nid, antes_minutos=60)]
+    monkeypatch.setattr(publicador, "te_toca", lambda *a, **k: con_colab)
+    jefa.recordatorios(nid)
+    jefa.despachar(nid)
+    assert "Invitar colaborador → @orby" in tg.videos[-1][2]  # en colaboración, el recordatorio lo dice
 
 
 def _sin_silencio(nid):

@@ -166,10 +166,28 @@
 .ln-pie a:first-of-type { margin-left: auto; }
 
 /* ---------------------------------------------------------------- tableta y móvil */
+/* ---------------------------------------------------------------- código abierto */
+.ln-insignia { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 16px; padding: 7px 15px 7px 12px; border-radius: 999px; font-size: 13px;
+  color: var(--ln-texto-2); background: rgba(61, 123, 255, .1); box-shadow: inset 0 0 0 1px rgba(61, 123, 255, .35); transition: background .3s, transform .4s var(--ln-curva); }
+.ln-insignia:hover { background: rgba(61, 123, 255, .18); transform: scale(1.03); }
+.ln-insignia b { color: var(--ln-texto); font-weight: 600; }
+.ln-insignia span:last-child { padding-left: 9px; border-left: 1px solid rgba(255, 255, 255, .14); }
+.ln-insignia-punto { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 10px #4ade80; }
+.ln-abierto { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+.ln-terminal { margin: 0; border-radius: 30px; overflow: hidden; background: #05070c; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), 0 40px 120px -40px rgba(61, 123, 255, .45); }
+.ln-terminal pre { margin: 0; padding: 30px 32px 36px; overflow-x: auto; font: 500 15px/1.9 ui-monospace, "SF Mono", Menlo, monospace; color: #dbe4ff; }
+.ln-t-p { color: var(--ln-marca-claro); user-select: none; }
+.ln-t-ok { color: #4ade80; }
+.ln-abierto-puntos { display: grid; gap: 18px; }
+.ln-abierto-puntos > div { padding: 26px 30px; border-radius: 26px; background: linear-gradient(180deg, #0c0f18, #050608); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); display: grid; gap: 8px; }
+.ln-abierto-puntos h3 { font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.ln-abierto-puntos p { font-size: 15.5px; line-height: 1.5; color: var(--ln-texto-2); }
+#abierto .ln-ctas { margin-top: 40px; }
+
 @media (max-width: 1000px) {
   .ln-enlaces { display: none; }
   .ln-equipo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ln-tres, .ln-planes { grid-template-columns: 1fr; }
+  .ln-tres, .ln-planes, .ln-abierto { grid-template-columns: 1fr; }
   .ln-seccion { padding-top: 110px; }
 }
 @media (max-width: 640px) {
@@ -186,6 +204,8 @@
   .ln-ventana { border-radius: 18px; }
   .ln-plan, .ln-tres li, .ln-garantias > div { padding: 28px 24px; }
   .ln-form { grid-template-columns: 1fr; padding: 20px; }
+  .ln-terminal pre { padding: 22px 20px 26px; font-size: 12.5px; }
+  .ln-abierto-puntos > div { padding: 24px; }
   .ln-faq summary { font-size: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {

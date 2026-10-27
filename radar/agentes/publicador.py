@@ -11,6 +11,10 @@
 - Fuera de Instagram, la palabra clave no sirve (los mensajes automáticos de ManyChat solo van en Instagram): esa línea
   se cambia por la del enlace.
 - Hashtags: de 3 a 5 en Instagram y TikTok, los del tema de la pieza primero y luego los de la lista del Kit.
+- Colaboradores en Instagram (hasta 3 cuentas): los del vídeo o, si no tiene, los del plan de Instagram. Con Zernio
+  se mandan con el post; si lo publicas tú, el recordatorio te dice a quién invitar.
+- Horas: `mejores_horas` mira a qué hora rinden más tus propios posts (vistas frente a lo normal de tu cuenta) y
+  `proponer_horas` pone una hora a cada día del calendario de Plani. Sin datos suficientes, las horas del plan.
 - Reels de prueba (Instagram, solo si el negocio los activa): las variantes que haga Monti salen como «trial reels»,
   que Instagram enseña primero a quien no te sigue y nunca van a tu perfil. Nada sale sin tu OK, y la primera vez
   sale una sola hasta que confirmes que no apareció en tu perfil.
@@ -25,9 +29,10 @@
 import json
 import os
 import re
+import statistics
 import subprocess
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -103,6 +108,53 @@ def cuenta_de(negocio_id: int, red: str) -> dict | None:
     neg = db.negocio(negocio_id) or {"ficha": {}}
     mio = re.sub(r"^@|.*\.com/@?", "", str(neg["ficha"].get(red) or "")).strip("/").lower()
     return next((c for c in candidatas if mio and c["usuario"].lower() == mio), candidatas[0])
+
+
+# ---------------------------------------------------------------- colaboradores (Instagram)
+
+MAX_COLABORADORES = 3     # lo que admite Instagram
+AJUSTES_VIDEO = "publi.json"
+
+
+def limpiar_colaboradores(lista) -> list[str]:
+    """Usuarios de Instagram válidos, sin @ ni repetidos, como mucho 3."""
+    if isinstance(lista, str):
+        lista = re.split(r"[\s,;]+", lista)
+    salida = []
+    for u in lista or []:
+        u = re.sub(r"^.*instagram\.com/|^@|/.*$", "", str(u).strip()).lower()
+        if re.fullmatch(r"[a-z0-9._]{1,30}", u) and u not in salida:
+            salida.append(u)
+    return salida[:MAX_COLABORADORES]
+
+
+def _ajustes_video(edicion_id: int) -> dict:
+    ruta = motor.carpeta(edicion_id) / AJUSTES_VIDEO
+    try:
+        return json.loads(ruta.read_text()) if ruta.exists() else {}
+    except ValueError:
+        return {}
+
+
+def poner_colaboradores(negocio_id: int, edicion_id: int, lista) -> list[str]:
+    """Los colaboradores de este vídeo (sustituyen a los del plan). Una lista vacía vuelve a los del plan."""
+    ed = db.edicion(edicion_id)
+    if not ed or ed["negocio_id"] != negocio_id:
+        return []
+    datos = {**_ajustes_video(edicion_id), "colaboradores": limpiar_colaboradores(lista)}
+    if not datos["colaboradores"]:
+        datos.pop("colaboradores")
+    (motor.carpeta(edicion_id) / AJUSTES_VIDEO).write_text(json.dumps(datos, ensure_ascii=False))
+    return datos.get("colaboradores", [])
+
+
+def colaboradores(negocio_id: int, edicion_id: int | None, kit: dict | None = None) -> list[str]:
+    """Los del vídeo o, si no tiene, los del plan de Instagram. Nunca la propia cuenta."""
+    propios = _ajustes_video(edicion_id).get("colaboradores") if edicion_id else None
+    lista = limpiar_colaboradores(propios if propios is not None else
+                                  (kit or kit_marca.leer(negocio_id))["publicacion"]["instagram"].get("colaboradores"))
+    mia = (cuenta_de(negocio_id, "instagram") or {}).get("usuario", "").lower()
+    return [u for u in lista if u != mia]
 
 
 def estado_cuentas(negocio_id: int) -> list[dict]:
@@ -473,7 +525,7 @@ def portada(edicion_id: int) -> Path | None:
 
 
 def _cuerpo(red: str, cuenta: str, texto: str, url_video: str, cuando: datetime, titulo: str, clave_unica: str,
-            url_portada: str = "", *, zona: str = "", prueba: bool = False) -> dict:
+            url_portada: str = "", *, zona: str = "", prueba: bool = False, colaboradores: list[str] | None = None) -> dict:
     especifico, video = {}, {"type": "video", "url": url_video}
     if red == "youtube":
         especifico = {"title": (titulo or texto.split("\n")[0])[:99], "visibility": "public", "madeForKids": False}
@@ -485,7 +537,7 @@ def _cuerpo(red: str, cuenta: str, texto: str, url_video: str, cuando: datetime,
         # Reel de prueba: Instagram lo enseña a quien no te sigue y no va a tu perfil. Pasarlo a normal, a mano.
         especifico = {"trialParams": {"graduationStrategy": "MANUAL"}}
     elif red == "instagram":
-        especifico = {"shareToFeed": True}
+        especifico = {"shareToFeed": True, **({"collaborators": colaboradores} if colaboradores else {})}
         if url_portada:
             video["instagramThumbnail"] = url_portada
     elif red == "linkedin" and url_portada:
@@ -512,6 +564,7 @@ def programar(negocio_id: int, edicion_id: int, redes: list[str], *, cuando: dat
     web, prefijo = _web(negocio_id, kit)
     numero, etiquetas = numero_de_pieza(negocio_id, edicion_id), hashtags(ed, kit)
     titulo = textos_guardados(edicion_id).get("titulo_youtube") or titulo_reel(ed)
+    colabs = colaboradores(negocio_id, edicion_id, kit)
     programadas, fallos, ensayado, url_video, url_portada = [], [], [], None, None
     for red in [r for r in redes if r in REDES]:
         unica = _clave_unica(negocio_id, edicion_id, version, red)
@@ -534,6 +587,7 @@ def programar(negocio_id: int, edicion_id: int, redes: list[str], *, cuando: dat
         if ensayo:
             ensayado.append({"red": red, "red_nombre": REDES[red], "cuando": momento, "modo": modo, "texto": texto,
                              "utm": utm, "titulo": titulo if red == "youtube" else "", "problemas": problemas,
+                             "colaboradores": colabs if red == "instagram" else [],
                              "aviso": aviso})
             continue
         if problemas:
@@ -547,7 +601,7 @@ def programar(negocio_id: int, edicion_id: int, redes: list[str], *, cuando: dat
                     url_portada = _subir_portada(negocio_id, edicion_id)
                 r = zernio.crear_post(clave(negocio_id), _cuerpo(red, cuenta_de(negocio_id, red)["id"], texto, url_video,
                                                                  momento, titulo, unica, url_portada or "",
-                                                                 zona=kit.get("zona", "")), unica)
+                                                                 zona=kit.get("zona", ""), colaboradores=colabs), unica)
                 externo = r["id"]
             except zernio.ErrorZernio as e:
                 fallos.append(f"{REDES[red]}: {e}")
@@ -673,9 +727,73 @@ def actualizar_estados(negocio_id: int, limite: int = 15) -> int:
 
 
 def te_toca(negocio_id: int, *, antes_minutos: int = 60) -> list[dict]:
-    """Las de Instagram que publicas tú y cuya hora está cerca o ya ha pasado."""
+    """Las de Instagram que publicas tú y cuya hora está cerca o ya ha pasado. Cada una lleva `colaboradores` (a
+    quién invitar al publicar) y `aviso_colaboradores`, la línea lista para el recordatorio."""
     limite = (_ahora() + timedelta(minutes=antes_minutos)).isoformat(timespec="minutes")
-    return [p for p in publicaciones(negocio_id) if p["estado"] == "tu_publicas" and p["programado"] <= limite]
+    salida = [p for p in publicaciones(negocio_id) if p["estado"] == "tu_publicas" and p["programado"] <= limite]
+    for p in salida:
+        p["colaboradores"] = colaboradores(negocio_id, p["edicion_id"])
+        p["aviso_colaboradores"] = (
+            "Antes de compartir: Etiquetar personas → Invitar colaborador → "
+            + ", ".join(f"@{u}" for u in p["colaboradores"]) + "." if p["colaboradores"] else "")
+    return salida
+
+
+# ---------------------------------------------------------------- a qué hora publicar
+
+MIN_POSTS_HORAS = 10      # menos posts propios con fecha y vistas, y no hay datos para fiarse
+DIAS_HORAS = 180
+
+
+def _hora_local(publicado: str, zona: ZoneInfo) -> datetime | None:
+    try:
+        d = datetime.fromisoformat(publicado.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d.astimezone(zona).replace(tzinfo=None) if d.tzinfo else d
+
+
+def mejores_horas(negocio_id: int, red: str = "instagram") -> dict:
+    """A qué hora rinden más tus posts: la mediana de «veces lo normal de tu cuenta» por hora del día (y por día de
+    la semana). Devuelve {fuente, posts, horas: [«HH:00»…] (las mejores primero), por_dia: {0-6: «HH:00»}}."""
+    kit = kit_marca.leer(negocio_id)
+    zona = _zona(kit.get("zona", ""))
+    desde = (_ahora() - timedelta(days=DIAS_HORAS)).isoformat()
+    with db.conexion() as con:
+        filas = con.execute(
+            "SELECT p.publicado, p.vistas, p.x FROM posts p JOIN cuentas c ON c.id = p.cuenta_id WHERE p.negocio_id = ? "
+            "AND c.propia = 1 AND c.plataforma = ? AND p.publicado != '' AND p.vistas > 0", (negocio_id, red)).fetchall()
+    puntos = []
+    mediana = statistics.median([f["vistas"] for f in filas]) if filas else 0
+    for f in filas:
+        cuando = _hora_local(f["publicado"], zona)
+        if cuando and cuando.isoformat() >= desde[:19]:
+            puntos.append((cuando, f["x"] or f["vistas"] / max(mediana, 1)))
+    plan = sorted((kit["publicacion"].get(red) or {}).get("horas") or [])
+    if len(puntos) < MIN_POSTS_HORAS:
+        return {"fuente": "plan", "posts": len(puntos), "horas": plan, "por_dia": {}}
+
+    def ranking(grupo):
+        por_hora: dict[int, list[float]] = {}
+        for cuando, x in grupo:
+            por_hora.setdefault(cuando.hour, []).append(x)
+        notas = {h: statistics.median(xs) for h, xs in por_hora.items() if len(xs) >= 2}
+        return [f"{h:02d}:00" for h, _ in sorted(notas.items(), key=lambda kv: -kv[1])]
+    por_dia = {}
+    for d in range(7):
+        mejor = ranking([p for p in puntos if p[0].weekday() == d])
+        if mejor:
+            por_dia[d] = mejor[0]
+    return {"fuente": "tu cuenta", "posts": len(puntos), "horas": ranking(puntos)[:3] or plan, "por_dia": por_dia}
+
+
+def proponer_horas(negocio_id: int, dias: list[date], red: str = "instagram") -> dict:
+    """Una hora para cada día del calendario de Plani: la mejor de ese día de la semana si hay datos; si no, la mejor
+    en general; y si tampoco, la del plan. Devuelve {fuente, posts, horas: {«AAAA-MM-DD»: «HH:MM»}}."""
+    m = mejores_horas(negocio_id, red)
+    defecto = (m["horas"] or ["13:30"])[0]
+    return {"fuente": m["fuente"], "posts": m["posts"],
+            "horas": {d.isoformat(): m["por_dia"].get(d.weekday(), defecto) for d in sorted(set(dias))}}
 
 
 def calendario(negocio_id: int, dias: int = 14) -> list[tuple[str, list[dict]]]:

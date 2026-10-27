@@ -4,7 +4,7 @@
 {% block cabecera %}
 <script>/* La landing (y su oficina) siempre en oscuro: es el escaparate. */ document.documentElement.dataset.tono = "oscuro";</script>
 <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="/static/sala.css?v=73"><link rel="stylesheet" href="/static/landing.css?v=7">{% endblock %}
+<link rel="stylesheet" href="/static/sala.css?v=73"><link rel="stylesheet" href="/static/landing.css?v=8">{% endblock %}
 {% block clase_body %}landing{% endblock %}
 {% block cuerpo %}
 {# Página de venta de Orby. Orby (el director, en 3D de verdad) es la imagen del producto; la oficina, la prueba de que el
@@ -23,7 +23,7 @@
 <header class="ln-nav">
   <a class="ln-logo" href="/"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
   <nav class="ln-enlaces" aria-label="Secciones">
-    <a href="#producto">Producto</a><a href="#equipo">Equipo</a><a href="#como">Cómo funciona</a><a href="#implementacion">Implementación</a><a href="#preguntas">Preguntas</a>
+    <a href="#producto">Producto</a><a href="#equipo">Equipo</a><a href="#abierto">Código abierto</a><a href="#como">Cómo funciona</a><a href="#implementacion">Implementación</a><a href="#preguntas">Preguntas</a>
   </nav>
   <div class="ln-nav-acciones">
     <a class="ln-entrar" href="/entrar">Entrar</a>
@@ -35,19 +35,20 @@
   {# ---------------------------------------------------------------- 1. Orby, en 3D #}
   <section class="ln-hero">
     <div class="ln-hero-texto">
-      <p class="ln-antetitulo ln-entra">Tu director de contenido con IA</p>
+      <a class="ln-insignia ln-entra" href="#abierto"><span class="ln-insignia-punto"></span><b>Código abierto</b><span>Licencia MIT</span></a>
+      <p class="ln-antetitulo ln-entra" style="--d:.04s">Tu director de contenido con IA</p>
       <h1 class="ln-entra" style="--d:.08s">Conoce a Orby.</h1>
-      <p class="ln-entradilla ln-entra" style="--d:.16s">Investiga, planifica, escribe, edita, publica y responde. Tú grabas unos minutos y das el visto bueno.</p>
+      <p class="ln-entradilla ln-entra" style="--d:.16s">Investiga, planifica, escribe, edita, publica y responde. Tú grabas unos minutos y das el visto bueno. Y todo su código está abierto.</p>
       <div class="ln-ctas ln-entra" style="--d:.24s">
         <a class="ln-btn ln-btn-primario" href="{{ solicitar }}">Solicitar implementación</a>
-        {% if URL_GITHUB %}<a class="ln-btn ln-btn-cristal" href="{{ URL_GITHUB }}" target="_blank" rel="noopener">{{ icono("externo") }} Ver en GitHub</a>
+        {% if URL_GITHUB %}<a class="ln-btn ln-btn-cristal" href="{{ URL_GITHUB }}" target="_blank" rel="noopener">{{ icono("externo") }} Ver el código en GitHub</a>
         {% else %}<span class="ln-btn ln-btn-cristal ln-pronto" title="El repositorio se publica muy pronto">Ver en GitHub <small>pronto</small></span>{% endif %}
       </div>
     </div>
     <div class="ln-escenario" aria-hidden="true">
       <div class="ln-halo"></div>
       <canvas class="ln-orby3d" data-orby3d></canvas>
-      <img class="ln-orby-respaldo" src="/static/marca/agentes/jefa.webp?v=1" alt="" width="896" height="1072">
+      <img class="ln-orby-respaldo" src="/static/marca/agentes/jefa.webp?v=2" alt="" width="896" height="1072">
       <div class="ln-suelo"></div>
     </div>
   </section>
@@ -104,7 +105,7 @@
     <div class="ln-equipo">
       {% for clave, nombre, verbo, texto in equipo %}
       <article class="ln-agente" data-revela style="--c: {{ {'analista':'#22D3EE','estratega':'#FBBF24','guionista':'#F472B6','editor':'#34D399','publicador':'#A78BFA','comunidad':'#FB7185'}[clave] }}; --d: {{ loop.index0 * 0.06 }}s">
-        <img class="ln-agente-render" src="/static/marca/agentes/{{ clave }}.webp?v=1" alt="{{ nombre }}" width="896" height="1072" loading="lazy">
+        <img class="ln-agente-render" src="/static/marca/agentes/{{ clave }}.webp?v=2" alt="{{ nombre }}" width="896" height="1072" loading="lazy">
         <p class="ln-verbo">{{ verbo }}</p>
         <h3>{{ nombre }}</h3>
         <p>{{ texto }}</p>
@@ -113,7 +114,33 @@
     </div>
   </section>
 
-  {# ---------------------------------------------------------------- 4. cómo funciona #}
+    {# ---------------------------------------------------------------- código abierto #}
+  <section class="ln-seccion" id="abierto">
+    <div class="ln-cabeza ln-centrada" data-revela>
+      <p class="ln-antetitulo">Código abierto</p>
+      <h2>Todo el código.<br>A la vista.</h2>
+      <p>Orby es software libre con licencia MIT. Cada agente, cada regla y cada conexión están publicados: puedes leerlos, auditarlos y mejorarlos.</p>
+    </div>
+    <div class="ln-abierto">
+      <figure class="ln-terminal" data-revela aria-label="Instalar Orby desde GitHub">
+        <div class="ln-ventana-barra" aria-hidden="true"><i></i><i></i><i></i><span>terminal</span></div>
+        <pre><code><span class="ln-t-p">$</span> git clone {{ URL_GITHUB or "https://github.com/…" }}
+<span class="ln-t-p">$</span> cd {{ (URL_GITHUB or "orby").rstrip("/").rsplit("/", 1)[-1] }} &amp;&amp; ./arrancar.sh
+<span class="ln-t-ok">Orby y su equipo, en tu servidor.</span></code></pre>
+      </figure>
+      <div class="ln-abierto-puntos">
+        <div data-revela><h3>Sin cajas negras</h3><p>Ves qué hace cada agente, qué datos usa y a dónde los envía.</p></div>
+        <div data-revela style="--d:.06s"><h3>En tu servidor</h3><p>Tu contenido, tu Kit de marca y tus contactos no pasan por el nuestro.</p></div>
+        <div data-revela style="--d:.12s"><h3>Sin ataduras</h3><p>Si un día dejas de trabajar con nosotros, Orby sigue funcionando. Y sigue siendo tuyo.</p></div>
+      </div>
+    </div>
+    <div class="ln-ctas" data-revela>
+      {% if URL_GITHUB %}<a class="ln-btn ln-btn-cristal" href="{{ URL_GITHUB }}" target="_blank" rel="noopener">{{ icono("externo") }} Ver el código en GitHub</a>
+      {% else %}<span class="ln-btn ln-btn-cristal ln-pronto" title="El repositorio se publica muy pronto">Ver el código en GitHub <small>pronto</small></span>{% endif %}
+    </div>
+  </section>
+
+{# ---------------------------------------------------------------- 4. cómo funciona #}
   <section class="ln-seccion" id="como">
     <div class="ln-cabeza ln-centrada" data-revela>
       <p class="ln-antetitulo">Cómo funciona</p>
@@ -182,13 +209,14 @@
       <details><summary>¿Va a sonar a mí o a una IA?</summary><p>A ti. Todo sale de tu Kit de marca, que montamos con tus llamadas. Y si corriges algo a menudo, el equipo lo convierte en una regla.</p></details>
       <details><summary>¿En qué redes publica?</summary><p>Instagram, TikTok, YouTube y LinkedIn, cada pieza en su hueco y con su texto para cada red.</p></details>
       <details><summary>¿Tengo que saber de tecnología?</summary><p>No. En la implementación lo dejamos todo funcionando. Tú grabas, revisas y apruebas.</p></details>
+      <details><summary>Si es de código abierto, ¿qué pago?</summary><p>Puedes instalarlo tú: el código está en GitHub. Lo que contratas es que lo dejemos funcionando para tu marca: servidor, conectores, tu Kit de marca y el equipo ajustado a tu negocio.</p></details>
       <details><summary>¿Qué pasa con mis datos?</summary><p>El software es libre y de código abierto, y corre en tu servidor. Tu contenido, tu Kit de marca y tus contactos son tuyos.</p></details>
     </div>
   </section>
 
   {# ---------------------------------------------------------------- 8. solicitar #}
   <section class="ln-cierre" id="solicitar">
-    <img class="ln-cierre-render" src="/static/marca/agentes/jefa.webp?v=1" alt="" width="896" height="1072" loading="lazy" data-revela>
+    <img class="ln-cierre-render" src="/static/marca/agentes/jefa.webp?v=2" alt="" width="896" height="1072" loading="lazy" data-revela>
     <h2 data-revela>Pon a Orby<br>a trabajar.</h2>
     <p data-revela>Cuéntanos qué vendes y dónde publicas. Te escribimos para ver si encaja y preparar la primera llamada.</p>
     {% if con_formulario %}
@@ -219,13 +247,13 @@
 <footer class="ln-pie">
   <span class="ln-logo"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</span>
   <span>Tu director de contenido con IA.</span>
-  {% if URL_GITHUB %}<a href="{{ URL_GITHUB }}" target="_blank" rel="noopener">Código abierto en GitHub</a>{% endif %}
+  {% if URL_GITHUB %}<a href="{{ URL_GITHUB }}" target="_blank" rel="noopener">Código abierto · MIT</a>{% else %}<span>Código abierto · MIT</span>{% endif %}
   <a href="/entrar">Entrar</a>
 </footer>
 {% endblock %}
 {% block scripts %}
 <script src="/static/sala.js?v=73" defer></script>
-<script type="module" src="/static/landing3d.js?v=4"></script>
+<script type="module" src="/static/landing3d.js?v=5"></script>
 <script>
   // Cada bloque aparece al entrar en pantalla.
   (function () {

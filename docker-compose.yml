@@ -47,11 +47,13 @@ services:
     environment:
       RADAR_DOMINIO: ${RADAR_DOMINIO:?Pon RADAR_DOMINIO en el .env}
       RADAR_DOMINIO_ANTIGUO: ${RADAR_DOMINIO_ANTIGUO:-localhost}
+      RADAR_RUTA_MEDIA: ${RADAR_RUTA_MEDIA:-/media-apagada}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${RADAR_CARPETA_MEDIA:-/opt/orby-media}:/srv/media:ro   # fuera de la carpeta de la app: el despliegue no la borra
       - caddy_datos:/data
       - caddy_config:/config
 
