@@ -386,7 +386,7 @@ def test_graba_hoy_remix_primero_y_se_aprueba(app_aislada):
     assert len(remixes) == 4  # 70 % de 5, redondeado
     assert len({p["fuente_post_id"] for p in remixes}) == 4 and all(p["fuente_post_id"] in fuentes for p in remixes)
     assert all(p["datos"]["referencia"].startswith("Basado en el post de @rival") for p in remixes)
-    assert "Graba hoy" in cliente.get(f"/negocios/{nid}/estrategia").text
+    assert "<h1>Grabar</h1>" in cliente.get(f"/negocios/{nid}/estrategia").text
     assert "Basado en el post de @rival" in cliente.get(f"/negocios/{nid}/aprobaciones").text
     ap.decidir(a["id"], "aprobar", por="cliente@ejemplo.com")
     assert {p["estado"] for p in estratega.piezas(nid, dia=estratega._hoy())} == {"aprobada"}
@@ -907,7 +907,7 @@ def test_de_la_toma_al_video_aprobado_con_una_v2(app_aislada, monkeypatch):
     video = [x for x in ap.pendientes(nid) if x["tipo"] == "video"]
     assert len(video) == 1 and video[0]["clave"]
     pagina = cliente.get(f"/negocios/{nid}/produccion").text
-    assert "Listo para ti" in pagina and "¿De qué guion es?" in pagina
+    assert "Para revisar" in pagina and "¿De qué guion es?" in pagina
     # La toma sin guion claro: dices que no tiene guion y se edita tal cual.
     cliente.post(f"/negocios/{nid}/produccion/{t2['id']}/guion", data={"guion_id": "0"})
     assert produccion.etapa(_db.edicion(t2["id"])) == "revisar"
@@ -1959,7 +1959,7 @@ def test_administracion_conserva_el_menu(app_aislada):
     _registrar(app_aislada, "duena@ejemplo.com")
     app_aislada.post("/negocios", data={"nombre": "Mi marca", "que_vende": "IA y marketing"})
     for ruta in ("/admin", "/admin/claves", "/cuenta"):
-        assert "Graba hoy" in app_aislada.get(ruta).text, ruta
+        assert "Grabar</a>" in app_aislada.get(ruta).text, ruta
 
 
 def test_primeros_pasos(app_aislada, monkeypatch):
@@ -3097,7 +3097,35 @@ def test_las_estructuras_de_escri_se_pintan_por_bloques(app_aislada):
     assert '<p class="es-cierre"><span>Cierre</span>comenta LLAMADA</p>' in pagina
     assert 'es-estructura es-prompter' in pagina and "La estructura" in pagina and "El guion" not in pagina
     lista = cliente.get(f"/negocios/{nid}/guiones").text
-    assert "<h1>Estructuras</h1>" in lista and "Nueva estructura" in lista and "Tu ejemplo:" in lista
+    assert "aria-current=\"page\">Estructuras" in lista and "Nueva estructura" in lista and "Tu ejemplo:" in lista
     # Un guion antiguo, sin bloques, sigue saliendo en párrafos.
     gid2, _ = _guion_aprobado(nid, "Viejo", "Hola.\nEsto es un guion de antes.")
     assert "<p>Esto es un guion de antes.</p>" in cliente.get(f"/negocios/{nid}/guiones/{gid2}").text
+
+
+def test_adaptar_un_reel_a_mi_voz(app_aislada, monkeypatch):
+    """Ideas → «Adaptar a mi voz»: una pieza aprobada que rehace ese reel; si no estaba desmontado, Lupi lo desmonta."""
+    from radar import jobs
+    from radar.agentes import guionista
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    analista.anadir_cuenta(nid, "instagram", "rival")
+    listo = _post_guardado(nid, "rival", "https://instagram.com/p/a", 90_000, 9)
+    crudo = _post_guardado(nid, "rival", "https://instagram.com/p/b", 50_000, 5, plantilla=False, texto="Otro reel")
+    lanzados, desmontados = [], []
+    monkeypatch.setattr(llm, "disponible", lambda: True)
+    monkeypatch.setattr(jobs, "en_segundo_plano", lambda f, *a: lanzados.append((f, a)))
+    r = cliente.post(f"/negocios/{nid}/investigacion/posts/{listo}/adaptar", follow_redirects=False)
+    assert r.status_code == 303 and "/guiones?aviso=" in r.headers["location"]
+    funcion, (neg, pieza_id, post_id, _) = lanzados[-1]
+    p = estratega.pieza(nid, pieza_id)
+    assert funcion is guionista.trabajo_adaptar and post_id == listo
+    assert p["estado"] == "aprobada" and p["tipo"] == "remix" and p["fuente_post_id"] == listo
+    assert p["titulo"] == "Cómo vender mentorías por llamada" and "@rival" in p["datos"]["referencia"]
+    monkeypatch.setattr(analista, "desmontar", lambda n, pid: desmontados.append(pid))
+    monkeypatch.setattr(guionista, "trabajo_escribir", lambda negocio, ids, nota, u: lanzados.append(("escribir", ids)))
+    guionista.trabajo_adaptar(neg, pieza_id, listo, None)
+    assert desmontados == [] and lanzados[-1] == ("escribir", [pieza_id])
+    otra = guionista.adaptar_post(neg, crudo)
+    guionista.trabajo_adaptar(neg, otra, crudo, None)
+    assert desmontados == [crudo] and lanzados[-1] == ("escribir", [otra])
+    assert cliente.post(f"/negocios/{nid}/investigacion/posts/9999/adaptar", follow_redirects=False).status_code == 303

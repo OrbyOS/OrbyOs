@@ -23,6 +23,10 @@ CLAVES = [
      "Opcional: cada negocio puede poner la suya en Publicación.", True),
     ("MANYCHAT_API_KEY", "Clave de ManyChat", "ManyChat → Settings → API (necesita el plan Pro). Para los DMs y las "
      "palabras clave de Instagram.", True),
+    ("RADAR_IG_APP_ID", "Identificador de la app de Instagram",
+     "developers.facebook.com → tu app → Instagram → Configuración de la API con el inicio de sesión de Instagram. "
+     "Con él, cada negocio conecta su Instagram con un botón.", False),
+    ("RADAR_IG_APP_SECRETO", "Clave secreta de la app de Instagram", "En la misma página, «Mostrar».", True),
     ("RADAR_URL_PUBLICA", "Dirección pública de la app",
      "Si la app está en un servidor (https://…): con ella las guías se abren desde un DM y ManyChat le pasa los mensajes.", False),
     ("RADAR_PRESUPUESTO_APIFY", "Presupuesto de Apify al mes por negocio ($)", "15 por defecto.", False),

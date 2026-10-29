@@ -41,7 +41,7 @@ if [ -n "$ANTERIOR" ] && [ "$ANTERIOR" != "$DOMINIO" ]; then
 fi
 grep -q '^RADAR_DOMINIO=' .env && sed -i "s|^RADAR_DOMINIO=.*|RADAR_DOMINIO=$DOMINIO|" .env || echo "RADAR_DOMINIO=$DOMINIO" >> .env
 # Abierta a más gente: cada cuenta conecta sus claves (Claude por la API, Apify, YouTube, Zernio, ManyChat).
-for ajuste in RADAR_CLAVES_COMPARTIDAS=0 RADAR_MOTOR=api RADAR_REGISTRO_ABIERTO=1; do
+for ajuste in RADAR_CLAVES_COMPARTIDAS=0 RADAR_MOTOR=api RADAR_REGISTRO_ABIERTO=0 RADAR_PLAN_INICIAL=prueba; do
   grep -q "^${ajuste%%=*}=" .env && sed -i "s|^${ajuste%%=*}=.*|$ajuste|" .env || echo "$ajuste" >> .env
 done
 # El nombre de la app (sale en la landing y en toda la app). Solo si aún no se ha puesto otro a mano.
@@ -53,6 +53,7 @@ grep -q '^RADAR_URL_PUBLICA=' .env && sed -i "s|^RADAR_URL_PUBLICA=.*|RADAR_URL_
 # Lo guardado desde la app (datos/.env) manda sobre el .env: que tampoco se quede con la dirección antigua.
 [ -f datos/.env ] && sed -i "s|^RADAR_URL_PUBLICA=.*|RADAR_URL_PUBLICA=https://$DOMINIO|" datos/.env || true
 mkdir -p /opt/orby-media   # vídeos para publicar por la API de Instagram (Caddy los sirve en RADAR_RUTA_MEDIA)
+mkdir -p /opt/sitios       # otras webs estáticas que sirve Caddy (ver el final del Caddyfile)
 docker compose up -d --build
 # Caddy no se reinicia solo si solo cambia el Caddyfile: que lo vuelva a leer.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true

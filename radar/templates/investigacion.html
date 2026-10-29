@@ -1,6 +1,12 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
-{% block titulo %}Investigación · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% from "_ui.html" import icono, pestanas %}
+{% block titulo %}Ideas · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{# «Adaptar a mi voz»: Escri convierte ese reel en tu estructura y aparece en Grabar. #}
+{% macro adaptar(p) -%}
+<form class="inv-adaptar" method="post" action="/negocios/{{ negocio.id }}/investigacion/posts/{{ p.id }}/adaptar">
+  <button class="btn btn-primario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Adaptar a mi voz</button></form>
+{%- endmacro %}
 
 {% macro tarjeta(p) -%}
 {% set m = medianas.get(p.cuenta_id) or {} %}
@@ -12,6 +18,7 @@
     <p class="tenue inv-normal">Lo normal en esta cuenta: {{ m.vistas | cifra }} visualizaciones{% if p.plataforma == "instagram" %} y {{ m.comentarios | cifra }} comentarios{% endif %}</p>
     {% if p.gancho %}<p class="inv-gancho">«{{ p.gancho }}»</p>{% if p.formula_nombre %}<p class="inv-formula">Fórmula: {{ p.formula_nombre }}</p>{% endif %}{% elif p.texto %}<p class="inv-texto">{{ p.texto[:160] }}</p>{% endif %}
     {% if p.encaje_motivo %}<p class="inv-sirve">Por qué te sirve: {{ p.encaje_motivo }}</p>{% endif %}
+    {% if not p.propia and p.plataforma != "youtube" %}{{ adaptar(p) }}{% endif %}
     {% if p.plataforma == "youtube" %}
     <p class="tenue inv-idea">{{ icono("chispa") }} Vídeo largo: es una idea de tema para Plani, no una plantilla para rehacer.</p>
     {% elif p.estado_plantilla == "lista" %}
@@ -38,19 +45,23 @@
 
 {% block contenido %}
 {% set L = lupi_de(negocio.id) %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Investigación</h1>
-    <p class="sub">Lupi mide cada post contra lo normal de su propia cuenta: un salto de ×{{ umbral | round | int }} en una cuenta pequeña cuenta tanto como en una grande. Los que destacan se transcriben y se desmontan en una plantilla para hacer tu versión.</p>
-  </div>
-  <div class="vertical-acciones">
-    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/borrador-ficha" title="Lupi lee tu web y te propone un borrador de la ficha en Aprobaciones"><button class="btn btn-secundario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("contenido") }} Leer mi web</button></form>
+<header class="pg-cabeza">
+  <div><h1>Ideas</h1>
+    <p class="pg-sub">{% if estado_analista.trabajando %}<i class="hero-vivo"></i> Lupi está escaneando tu nicho…{% elif estado_analista.ultimo %}Último escaneo: {{ estado_analista.ultimo | fecha }} · {{ cuentas | length }} cuenta{{ "s" if cuentas | length != 1 }}.{% else %}Añade las cuentas de tu nicho y Lupi te dice qué está funcionando.{% endif %}</p></div>
+  <div class="pg-acciones">
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/borrador-ficha" title="Lupi lee tu web y te propone un borrador de la ficha"><button class="btn btn-secundario" type="submit" {{ 'disabled' if not ia }}>Leer mi web</button></form>
+    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/escanear">
+      <button class="btn btn-primario" type="submit" {% if estado_analista.trabajando or not cuentas %}disabled{% endif %}>{{ icono("actualizar") }} Escanear ahora</button></form>
   </div>
 </header>
+{{ pestanas([("#ideas", "Para grabar", true, (despegando | length) + (destacados | length)), ("#publico", "Tu público", false, 0), ("#perfil", "Tu perfil", false, 0), ("#cuentas", "Cuentas", false, cuentas | length)]) }}
+<div {% if estado_analista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/investigacion/estado"{% endif %}></div>
+{% if estado_analista.avisos %}<div class="aviso">{{ icono("alerta") }}<ul class="avisos">{% for a in avisos_para(estado_analista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
 
+<div class="pg-panel" data-panel="ideas">
 {% if despegando %}
 <section class="panel inv-despega" id="despegando">
-  <div class="panel-cabecera"><div><h2><i class="hero-vivo"></i>Está despegando ahora</h2><p class="tenue">Posts de tu competencia que van al triple o más de lo normal en sus primeras horas. Es el momento de grabar tu versión.</p></div></div>
+  <div class="panel-cabecera"><div><h2><i class="hero-vivo"></i>Está despegando ahora</h2><p class="tenue">Van al triple de lo normal en sus primeras horas: graba tu versión ya.</p></div></div>
   <ul class="inv-despegan">
     {% for p in despegando %}
     <li>
@@ -58,7 +69,7 @@
       <div><p class="kit-meta">{{ "@" ~ p.cuenta if not p.cuenta.startswith("@") else p.cuenta }} · {{ PLATAFORMAS[p.plataforma] }} · hace {{ p.publicado | hace }}</p>
         <p class="inv-texto">{{ (p.texto or "")[:140] }}{{ "…" if (p.texto or "") | length > 140 }}</p>
         <p class="tenue"><b>{{ p.vistas | cifra }}</b> visualizaciones{% if p.encaje_motivo %} · {{ p.encaje_motivo }}{% endif %}</p></div>
-      <a class="btn btn-secundario btn-peque" href="{{ p.url }}" target="_blank" rel="noopener">{{ icono("externo") }} Verlo</a>
+      <div class="inv-despega-acciones"><a class="btn btn-secundario btn-peque" href="{{ p.url }}" target="_blank" rel="noopener">{{ icono("externo") }} Verlo</a>{{ adaptar(p) }}</div>
     </li>
     {% endfor %}
   </ul>
@@ -68,7 +79,7 @@
 {% set listas_ = L.noticias | selectattr("lista") | list %}
 {% if L.noticias %}
 <section class="panel" id="noticias">
-  <div class="panel-cabecera"><div><h2>Noticias para grabar</h2><p class="tenue">Lo que se mueve en tu nicho, con el reel ya pensado: cada paso con lo que se ve, y cada dato comprobado contra su fuente. Las noticias caducan rápido: grábala antes de la hora que pone.</p></div></div>
+  <div class="panel-cabecera"><div><h2>Noticias para grabar</h2><p class="tenue">Con el reel ya pensado y cada dato comprobado. Caducan rápido.</p></div></div>
   <div class="panel-cuerpo nt-lista">
     {% for n in L.noticias %}{% set g = n.guion or {} %}{% set min = n.grabar_antes | quedan %}
     <details class="nt-noticia {{ 'nt-fuera' if not n.lista }}" {{ 'open' if loop.first and n.lista }}>
@@ -92,21 +103,10 @@
 </section>
 {% endif %}
 
-<section class="panel" {% if estado_analista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/investigacion/estado"{% endif %}>
-  <div class="panel-cabecera">
-    <div>
-      <h2>{% if estado_analista.trabajando %}<i class="hero-vivo"></i>Escaneando ahora{% elif estado_analista.ultimo %}Último escaneo: {{ estado_analista.ultimo | fecha }}{% else %}Todavía no ha escaneado{% endif %}</h2>
-      <p class="tenue">Cada escaneo lee tus cuentas y las de la competencia que llevan más tiempo sin mirar, para que el gasto no crezca con las cuentas que sigas.{% if estado_analista.resumen %} El último revisó {{ estado_analista.resumen.cuentas }} cuentas y encontró {{ estado_analista.resumen.nuevos_destacados }} posts nuevos que destacan.{% endif %}</p>
-    </div>
-    <form method="post" action="/negocios/{{ negocio.id }}/investigacion/escanear">
-      <button class="btn btn-primario btn-peque" type="submit" {% if estado_analista.trabajando or not cuentas %}disabled{% endif %}>{{ icono("actualizar") }} Escanear ahora</button>
-    </form>
-  </div>
-  {% if estado_analista.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_analista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
-</section>
+
 
 <section class="panel">
-  <div class="panel-cabecera"><div><h2>Lo que destaca en tu nicho</h2><p class="tenue">Posts de tu competencia que han superado su normal. Son la materia prima del «Graba hoy».</p></div></div>
+  <div class="panel-cabecera"><div><h2>Lo que destaca en tu nicho</h2><p class="tenue">Posts que superan lo normal de su cuenta. De aquí sale tu plan.</p></div></div>
   {% if destacados %}
   <div class="inv-rejilla">{% for p in destacados %}{{ tarjeta(p) }}{% endfor %}</div>
   {% else %}
@@ -114,6 +114,9 @@
   {% endif %}
 </section>
 
+</div>
+
+<div class="pg-panel" data-panel="publico">
 {% if publico and (publico.preguntas or publico.objeciones or publico.deseos) %}
 <section class="panel" id="publico">
   <div class="panel-cabecera"><div><h2>Lo que pregunta tu nicho</h2><p class="tenue">Lo que dice el público en los comentarios de los posts que destacan{% if publico.comentarios %} ({{ publico.comentarios }} comentarios leídos{% if publico.creado %}, {{ publico.creado | fecha }}{% endif %}){% endif %}. Cada idea es un vídeo esperando.</p></div></div>
@@ -147,10 +150,14 @@
 </section>
 {% endif %}
 
+{% if not (publico and (publico.preguntas or publico.objeciones or publico.deseos)) and not (F and (F.destacan or F.sin_formula)) %}<div class="pg-vacio"><p><b>Aún no hay datos de tu público.</b> Salen de los comentarios de los posts que destacan: escanea tu nicho primero.</p></div>{% endif %}
+</div>
+
+<div class="pg-panel" data-panel="perfil">
 {% set P = L.perfil %}
 {% if not (P and P.partes) %}
 <section class="panel" id="perfil">
-  <div class="panel-cabecera"><div><h2>La nota de tu perfil</h2><p class="tenue">Lupi mira tu Instagram como lo vería alguien que entra por primera vez y te dice qué arreglar primero. Hace falta tu cuenta en la lista de abajo, y Claude y Apify en Conectores.</p></div>
+  <div class="panel-cabecera"><div><h2>La nota de tu perfil</h2><p class="tenue">Cómo ve tu Instagram alguien que entra por primera vez, y qué arreglar primero.</p></div>
     <form method="post" action="/negocios/{{ negocio.id }}/investigacion/perfil"><button class="btn btn-primario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Puntuar mi perfil</button></form></div>
 </section>
 {% else %}
@@ -176,7 +183,7 @@
 {% endif %}
 
 <section class="panel">
-  <div class="panel-cabecera"><div><h2>Tus posts</h2><p class="tenue">Cada uno contra tu propia mediana. Los que destacan son candidatos a «hazlo otra vez, con otro ángulo».</p></div></div>
+  <div class="panel-cabecera"><div><h2>Tus posts</h2><p class="tenue">Comparados con lo normal de tu cuenta.</p></div></div>
   {% if propios %}<div class="inv-rejilla">{% for p in propios %}{{ tarjeta(p) }}{% endfor %}</div>{% endif %}
   {% if tus_posts %}
   <ul class="kit-lista">
@@ -191,8 +198,11 @@
   {% endif %}
 </section>
 
+</div>
+
+<div class="pg-panel" data-panel="cuentas">
 <section class="panel" id="cuentas">
-  <div class="panel-cabecera"><div><h2>Cuentas que sigue Lupi</h2><p class="tenue">De 3 a 10 por plataforma que hagan el tipo de post que quieres hacer. Los referentes principales se miran antes.</p></div>
+  <div class="panel-cabecera"><div><h2>Cuentas que sigue Lupi</h2><p class="tenue">De 3 a 10 por red, que hagan el tipo de post que quieres hacer.</p></div>
     <form method="post" action="/negocios/{{ negocio.id }}/investigacion/sugerir-cuentas"><button class="btn btn-secundario btn-peque" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Sugerir cuentas</button></form></div>
   {% if cuentas %}
   <ul class="kit-lista">
@@ -233,4 +243,5 @@
   </ul>
 </details>
 {% endif %}
+</div>
 {% endblock %}

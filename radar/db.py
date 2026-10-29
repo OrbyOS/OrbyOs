@@ -363,6 +363,65 @@ CREATE TABLE IF NOT EXISTS palabras_clave (
     creado TEXT NOT NULL,
     PRIMARY KEY (negocio_id, palabra)
 );
+CREATE TABLE IF NOT EXISTS interes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    negocio_id INTEGER NOT NULL DEFAULT 0,
+    funcion TEXT NOT NULL,                  -- la función de pago (radar/planes.py)
+    tipo TEXT NOT NULL,                     -- intento | vista | avisame
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS regalos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+    creado TEXT NOT NULL,
+    palabra TEXT NOT NULL,                  -- lo que la gente comenta
+    destino TEXT NOT NULL,                  -- adónde lleva (guía, skill, landing…)
+    guia_id INTEGER,                        -- si es una guía de Comunidad
+    corto TEXT NOT NULL,                    -- su enlace corto: /r/<corto>
+    activa INTEGER NOT NULL DEFAULT 1,
+    exacta INTEGER NOT NULL DEFAULT 0,      -- solo en mayúsculas o sola en el comentario
+    mensaje TEXT NOT NULL DEFAULT '',       -- el privado con el enlace ('' = el de la casa)
+    pregunta TEXT NOT NULL DEFAULT '',      -- la pregunta de una hora después ('' = la de la casa)
+    media_id TEXT NOT NULL DEFAULT ''       -- solo en ese reel ('' = en todos)
+);
+CREATE TABLE IF NOT EXISTS suscriptores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lista TEXT NOT NULL,                    -- la newsletter (una por landing)
+    email TEXT NOT NULL,
+    nombre TEXT NOT NULL DEFAULT '',
+    creado TEXT NOT NULL,
+    ip_huella TEXT NOT NULL DEFAULT '',     -- hash de la IP con sal: la IP no se guarda
+    origen TEXT NOT NULL DEFAULT '',        -- la palabra del reel del que viene
+    consentimiento TEXT NOT NULL DEFAULT '',-- el texto de la casilla que aceptó
+    consentimiento_en TEXT NOT NULL DEFAULT '',
+    baja TEXT NOT NULL DEFAULT '',
+    UNIQUE (lista, email)
+);
+CREATE TABLE IF NOT EXISTS enlaces_cortos (
+    nombre TEXT PRIMARY KEY,                -- <dirección>/r/<nombre>
+    destino TEXT NOT NULL,
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS clics_cortos (
+    nombre TEXT NOT NULL,
+    dia TEXT NOT NULL,
+    clics INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (nombre, dia)
+);
+CREATE TABLE IF NOT EXISTS envios_ig (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+    comentario_id TEXT NOT NULL,
+    media_id TEXT NOT NULL DEFAULT '',
+    autor_id TEXT NOT NULL DEFAULT '',
+    autor TEXT NOT NULL DEFAULT '',
+    palabra TEXT NOT NULL DEFAULT '',
+    estado TEXT NOT NULL,                   -- enviando | enviado | fallido | repetido | tope
+    error TEXT NOT NULL DEFAULT '',
+    creado TEXT NOT NULL,
+    UNIQUE (negocio_id, comentario_id)
+);
 """
 
 # Columnas añadidas después de la primera versión (bases de datos ya creadas).
@@ -385,6 +444,14 @@ MIGRACIONES = [
     ("posts", "comentarios_top", "TEXT NOT NULL DEFAULT ''"),
     ("guiones", "ganchos", "TEXT NOT NULL DEFAULT '[]'"),     # otros ganchos para el mismo guion, para elegir o probar  # JSON: los comentarios más relevantes, ya leídos
     ("cuentas", "tipo", "TEXT NOT NULL DEFAULT ''"),          # directa | adyacente | aspiracional | remix (de la competencia)
+    ("envios_ig", "fase", "TEXT NOT NULL DEFAULT ''"),
+    ("enlaces_cortos", "negocio_id", "INTEGER NOT NULL DEFAULT 0"),  # 0 = de la instalación
+    ("regalos", "dominio", "TEXT NOT NULL DEFAULT ''"),
+    ("regalos", "apertura", "TEXT NOT NULL DEFAULT ''"),         # el primer privado, con el botón ('' = el de la casa)          # https://su-web.es si su web manda /r/ a la app
+    ("suscriptores", "kit", "TEXT NOT NULL DEFAULT ''"),         # '' pendiente | ok | no (lista sin Kit)
+    ("suscriptores", "kit_error", "TEXT NOT NULL DEFAULT ''"),
+    ("suscriptores", "kit_intentos", "INTEGER NOT NULL DEFAULT 0"),        # esperando (el botón) | enlace | preguntado | caducado
+    ("envios_ig", "enlace_en", "TEXT NOT NULL DEFAULT ''"),   # cuándo le llegó el enlace: la pregunta va una hora después
 ]
 
 
@@ -591,7 +658,7 @@ def eliminar_negocio(negocio_id: int) -> list[int]:
         for tabla in ("informes", "ediciones", "estilos", "enlaces", "marcas", "vega_mensajes", "kits", "aprobaciones",
                       "estado_agentes", "palabras_clave", "publicaciones", "conexiones", "guiones", "piezas", "posts",
                       "cuentas", "guias", "automatizaciones", "mensajes_dm", "conversaciones", "contactos", "metricas",
-                      "postmortems", "eventos", "informes_semanales", "mensajes_salida", "onboarding", "posts_fotos"):
+                      "postmortems", "eventos", "informes_semanales", "mensajes_salida", "onboarding", "posts_fotos", "envios_ig", "regalos"):
             con.execute(f"DELETE FROM {tabla} WHERE negocio_id = ?", (negocio_id,))
         con.execute("DELETE FROM negocios WHERE id = ?", (negocio_id,))
     return ediciones

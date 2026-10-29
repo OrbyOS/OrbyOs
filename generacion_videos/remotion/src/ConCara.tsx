@@ -1,7 +1,12 @@
 import React from 'react';
-import {AbsoluteFill, Audio, Easing, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
-import {ANCHO, CLAMP, CV, CX, EXPO, EstiloCtx, Tarjeta, fontFamily, pop, ramp, sombra, sombraTexto, useEstilo} from './base';
+import {AbsoluteFill, Audio, Easing, Img, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {ANCHO, CLAMP, CV, CX, ESCENARIO, EXPO, ConMarca, EstiloCtx, Filete, Tarjeta, Velo, fontFamily, pop, ramp, sombra, sombraTexto, useEstilo} from './base';
 import {Robot} from './robot';
+import {FondoLienzo, Logos, PIEZAS_LIENZO, SelloSerie, SubtitulosCortos, type EstiloCara} from './lienzo';
+import * as InstrumentSerif from '@remotion/google-fonts/InstrumentSerif';
+import * as PlayfairDisplay from '@remotion/google-fonts/PlayfairDisplay';
+import * as Fraunces from '@remotion/google-fonts/Fraunces';
+import * as DMSerifDisplay from '@remotion/google-fonts/DMSerifDisplay';
 import {Fondo, PlanoVivo, Subtitulos} from './Explicativo';
 import type {Estilo, Palabra, Plano, Props as PropsExplicativo} from './tipos';
 
@@ -12,18 +17,28 @@ import type {Estilo, Palabra, Plano, Props as PropsExplicativo} from './tipos';
  */
 type Tramo = {desde: number; hasta: number}; // segundos del bruto que se quedan
 type Encuadre = {t: number; x: number; y: number; w: number}; // segundos dentro de la capa · rectángulo del vídeo fuente
-type Capa =
-  | {inicio: number; fin: number; tipo: 'pantalla'; archivo: string; desde: number; ancho: number; alto: number; encuadres: Encuadre[];
+// «dividida»: pantalla partida (la visual arriba, la cara abajo, los subtítulos en la costura). «pasos» + «paso»: los
+// pasos del proceso que se cuenta, arriba del todo, con el actual marcado; sirve de hilo entre varias divididas.
+// «alto»: la parte de la visual (0,45-0,5; 0,5 por defecto). «fondo»: "marca" (el fondo oscuro de la marca, con la línea
+// de la costura) o "lienzo" (blanco limpio, sin línea). «flota»: una pieza del lienzo sobre el vídeo, sin partir la pantalla.
+type Division = {dividida?: boolean; pasos?: string[]; paso?: number; alto?: number; fondo?: 'marca' | 'lienzo'; flota?: boolean};
+type Capa = Division & (
+  | {inicio: number; fin: number; tipo: 'pantalla' | 'imagen'; archivo: string; desde: number; ancho: number; alto: number; encuadres: Encuadre[];
      cursor?: {t: number; x: number; y: number; clic?: boolean}[]}
-  | {inicio: number; fin: number; tipo: 'plano' | 'encima'; plano: Omit<Plano, 'inicio' | 'fin'>};
+  | {inicio: number; fin: number; tipo: 'plano' | 'encima'; plano: Omit<Plano, 'inicio' | 'fin'>});
 type Rotulo = {inicio: number; fin: number; texto: string; arriba?: boolean};
+type ConPlano = Extract<Capa, {plano: unknown}>;
+// «*palabra*» en el texto: esa palabra en cursiva y en el acento de la marca. «ante»: antetítulo pequeño encima.
+// «subraya»: un trazo fino del acento que se dibuja debajo de la palabra marcada.
+type Clave = {inicio: number; fin: number; texto: string; lugar?: 'izq' | 'der' | 'arriba'; ante?: string; subraya?: boolean};
 type Sonido = {t: number; archivo: string; volumen?: number};
 
 export type PropsConCara = {
   fps: number;
   total: number;
-  cara: {archivo: string; tramos: Tramo[]; zooms?: {t: number; escala: number}[]};
+  cara: {archivo: string; tramos: Tramo[]; zooms?: {t: number; escala: number}[]; centro?: {x: number; y: number}};
   capas: Capa[];
+  claves?: Clave[];
   rotulos: Rotulo[];
   palabras: Palabra[];
   sonidos: Sonido[];
@@ -32,15 +47,16 @@ export type PropsConCara = {
 
 const W = 1080, H = 1920, CAMBIO = 5;
 
-/** La persona: cada tramo del bruto en su sitio, con un pequeño empujón de cámara en los momentos marcados. */
+/** La persona: cada tramo del bruto en su sitio y los reencuadres (punch-ins) secos, como un corte de editor, con el
+ * centro en la cara para que nunca se salga de cuadro. */
 const Cara: React.FC<{p: PropsConCara; frame: number; fps: number}> = ({p, frame, fps}) => {
   let acum = 0;
   const t = frame / fps;
-  const zs = (p.cara.zooms ?? []).filter((x) => x.t <= t);
-  const z = zs[zs.length - 1];
-  const escala = z ? interpolate(t - z.t, [0, 0.25], [1, z.escala], {...CLAMP, easing: EXPO}) : 1.0;
+  const zs = (p.cara.zooms ?? []).filter((x) => x.t <= t + 1e-6);
+  const escala = zs.length ? zs[zs.length - 1].escala : 1.0;
+  const c = p.cara.centro ?? {x: 0.5, y: 0.34};
   return (
-    <AbsoluteFill style={{transform: `scale(${escala})`}}>
+    <AbsoluteFill style={{transform: `scale(${escala})`, transformOrigin: `${c.x * W}px ${c.y * H}px`}}>
       {p.cara.tramos.map((tr, i) => {
         const dur = Math.round((tr.hasta - tr.desde) * fps);
         const desde = Math.round(acum);
@@ -56,8 +72,73 @@ const Cara: React.FC<{p: PropsConCara; frame: number; fps: number}> = ({p, frame
   );
 };
 
+// Tipografías de titular del catálogo (las mismas que el motor de reels) por si el Kit nombra una en vez de subir la suya.
+// Las serif van en caja normal y peso 400, como en el kit; las de palo, en mayúsculas y negra.
+const SERIF: Record<string, {loadFont: (s?: any, o?: any) => {fontFamily: string}}> = {InstrumentSerif, PlayfairDisplay, Fraunces, DMSerifDisplay};
+const titular = (nombre?: string) => {
+  const f = nombre ? SERIF[nombre] : undefined;
+  return f ? {familia: f.loadFont('normal', {weights: ['400'], subsets: ['latin', 'latin-ext']}).fontFamily, serif: true} : {familia: fontFamily, serif: false};
+};
+
+/** Ancho libre al lado de la cara para una palabra clave (0 si no cabe con al menos 80 px de letra). La cabeza ocupa
+ * unos 200 px a cada lado de su centro, más con el reencuadre; el texto no pasa de x 850 (zona segura). */
+// El título va centrado de verdad (x 540): encima de la cabeza no hay botones de Instagram que esquivar.
+const ANCHO_TITULO = 900;
+/** Cuerpo del título encima de la cabeza: la serif es más estrecha y se lee a más tamaño; los largos bajan para caber en dos líneas. */
+const tamTitulo = (texto: string, serif: boolean) => serif ? (texto.length > 14 ? 128 : 150) : (texto.length > 14 ? 88 : 104);
+
+const lugar0 = (k: Clave, centro: {x: number; y: number}) => {
+  if (!k.lugar || k.lugar === 'arriba') return 0;
+  const ancho = k.lugar === 'der' ? 850 - (centro.x * W + 200) : centro.x * W - 230 - 60;
+  return ancho / (k.texto.length * 0.62) >= 80 ? ancho : 0;
+};
+
+/** La palabra clave (el título del reel) en el momento en que la dice: centrada encima de la cabeza, con la tipografía de
+ * titular y el color de texto de la marca, sin borde ni caja y con una sombra suave para que se lea sobre el vídeo.
+ * Aparece de golpe, se asienta (1,06 → 1) y se va con su frase. Al lado de la cara solo si el montaje lo pide. */
+const ClaveJunto: React.FC<{k: Clave; frame: number; fps: number; centro: {x: number; y: number}}> = ({k, frame, fps, centro}) => {
+  const ini = Math.round(k.inicio * fps), fin = Math.round(k.fin * fps);
+  if (frame < ini || frame >= fin) return null;
+  const a = ramp(frame - ini, 0, 6);
+  // Al lado de la cara solo si cabe sin tocarla (el hueco es estrecho en un vertical); si no, encima de la cabeza.
+  const cy = centro.y * H;
+  const hueco = lugar0(k, centro);
+  const lugar = hueco > 0 ? k.lugar : 'arriba';
+  const e = useEstilo();
+  const t = titular(e.titular);
+  const tamLado = Math.min(92, hueco / (k.texto.length * 0.62));
+  const pos: React.CSSProperties = lugar === 'arriba'
+    ? {left: (W - ANCHO_TITULO) / 2, width: ANCHO_TITULO, top: Math.max(250, cy - 470), textAlign: 'center'}
+    : lugar === 'der'
+      ? {left: centro.x * W + 200, width: hueco, top: cy - 60, textAlign: 'left'}
+      : {left: 60, width: hueco, top: cy - 60, textAlign: 'left'};
+  // Sobre fondo claro (techo, pared) el blanco se pierde: un velo muy leve que oscurece la parte de arriba (o el lado) solo
+  // mientras está el texto, en degradado y sin bordes, y una sombra difusa detrás de las letras. Nunca una caja.
+  const velo = lugar === 'arriba'
+    ? `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.30) ${Math.round((Number(pos.top) + 260) / H * 100)}%, rgba(0,0,0,0) ${Math.round((Number(pos.top) + 520) / H * 100)}%)`
+    : `radial-gradient(ellipse 520px 300px at ${lugar === 'der' ? '85%' : '15%'} ${Math.round((cy + 40) / H * 100)}%, rgba(0,0,0,0.38), rgba(0,0,0,0) 70%)`;
+  return (
+    <>
+    <AbsoluteFill style={{background: velo, opacity: Math.min(1, a * 1.5)}} />
+    <div style={{position: 'absolute', ...pos}}><Velo fuerza={0.55}><div style={{fontFamily: t.familia, fontWeight: t.serif ? 400 : 900, color: e.texto, lineHeight: t.serif ? 1.02 : 0.98,
+      letterSpacing: t.serif ? '-0.015em' : -0.5, textTransform: t.serif ? 'none' : 'uppercase', opacity: Math.min(1, a * 2),
+      fontSize: lugar === 'arriba' ? tamTitulo(k.texto, t.serif) : tamLado,
+      transform: `scale(${1.06 - 0.06 * a})`, transformOrigin: lugar === 'der' ? '0% 50%' : lugar === 'izq' ? '100% 50%' : '50% 50%',
+      textShadow: '0 2px 6px rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.55), 0 10px 60px rgba(0,0,0,0.45)'}}>
+      {k.ante && <div style={{fontFamily, fontWeight: 700, fontSize: 30, letterSpacing: '0.22em', textTransform: 'uppercase',
+        color: e.texto, opacity: 0.72, marginBottom: 14, fontStyle: 'normal'}}>{k.ante}</div>}
+      {k.texto.split(/(\*[^*]+\*)/).filter(Boolean).map((trozo, i) => trozo.startsWith('*')
+        ? <span key={i} style={{position: 'relative', display: 'inline-block', fontStyle: t.serif ? 'italic' : 'normal', color: e.subrayado,
+            paddingRight: t.serif ? '0.06em' : 0}}>{trozo.slice(1, -1)}
+            {k.subraya && <span style={{position: 'absolute', left: 0, bottom: '-0.02em', height: 5, borderRadius: 3, background: e.subrayado,
+              width: `${interpolate(frame - ini, [4, 14], [0, 100], {...CLAMP, easing: EXPO})}%`}} />}</span>
+        : <span key={i}>{trozo}</span>)}</div></Velo></div>
+    </>
+  );
+};
+
 /** Grabación de pantalla con zoom: el encuadre va de un rectángulo del vídeo fuente al siguiente. */
-const Pantalla: React.FC<{c: Extract<Capa, {tipo: 'pantalla'}>; f: number; fps: number}> = ({c, f, fps}) => {
+const Pantalla: React.FC<{c: Extract<Capa, {tipo: 'pantalla' | 'imagen'}>; f: number; fps: number}> = ({c, f, fps}) => {
   const t = f / fps;
   const es = c.encuadres;
   let r = es[0];
@@ -80,7 +161,9 @@ const Pantalla: React.FC<{c: Extract<Capa, {tipo: 'pantalla'}>; f: number; fps: 
     <AbsoluteFill style={{overflow: 'hidden', background: '#05070f'}}>
       <div style={{position: 'absolute', left: 0, top: 0, width: c.ancho, height: c.alto, transformOrigin: '0 0',
         transform: `translate(${-r.x * escala}px, ${-r.y * escala + (H - (c.alto * W / c.ancho)) * 0}px) scale(${escala})`}}>
-        <OffthreadVideo src={staticFile(c.archivo)} startFrom={Math.round(c.desde * fps)} muted style={{width: c.ancho, height: c.alto}} />
+        {c.tipo === 'imagen'
+          ? <Img src={staticFile(c.archivo)} style={{width: c.ancho, height: c.alto, objectFit: 'cover'}} />
+          : <OffthreadVideo src={staticFile(c.archivo)} startFrom={Math.round(c.desde * fps)} muted style={{width: c.ancho, height: c.alto}} />}
         {cx !== null ? (
           <div style={{position: 'absolute', left: cx, top: cy, transform: `scale(${1 / escala * 2.2})`, transformOrigin: '0 0'}}>
             {clic ? <div style={{position: 'absolute', left: -30, top: -30, width: 60, height: 60, borderRadius: 30,
@@ -218,21 +301,93 @@ const Partir: React.FC<PP> = ({p, f, fps, dur}) => {
   );
 };
 
+// Pantalla dividida: la costura va a media altura. La cara se recoloca en la mitad de abajo con la cara centrada; la
+// visual, en la de arriba con su escenario (y 590-1270 en el plano completo) centrado en ella.
+const COSTURA = H / 2;
+
+/** Los pasos del proceso, en texto plano: el actual en el acento y con su filete, los demás apagados. Nunca pastillas. */
+const Pasos: React.FC<{pasos: string[]; paso: number; f: number}> = ({pasos, paso, f}) => {
+  const e = useEstilo();
+  return (
+    <div style={{position: 'absolute', top: 150, left: 0, width: W, display: 'flex', justifyContent: 'center', gap: 44}}>
+      {pasos.map((x, i) => {
+        const activo = i + 1 === paso;
+        return (
+          <div key={i} style={{fontFamily, fontWeight: 700, fontSize: 26, letterSpacing: '0.16em', textTransform: 'uppercase',
+            color: activo ? e.subrayado : e.texto, opacity: activo ? 1 : 0.42, position: 'relative', paddingBottom: 10}}>
+            <span style={{opacity: 0.6, marginRight: 10}}>{i + 1}</span>{x}
+            {activo && <div style={{position: 'absolute', left: 0, bottom: 0, height: 3, borderRadius: 2, background: e.subrayado,
+              width: `${interpolate(f, [2, 12], [0, 100], {...CLAMP, easing: EXPO})}%`}} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** Fondo de la mitad de arriba: el fondo de la marca casi plano, con una rejilla fina del color del texto y algo más de
+ * luz en el centro. Nada que se mueva por su cuenta: lo que se mueve es la pieza. */
+const FondoDividido: React.FC<{f: number}> = ({f}) => {
+  const e = useEstilo();
+  return (
+    <AbsoluteFill style={{background: `radial-gradient(ellipse 80% 70% at 50% 45%, color-mix(in srgb, ${e.mesa} 86%, ${e.subrayado}) 0%, ${e.mesa} 70%)`}}>
+      <AbsoluteFill style={{opacity: 0.06, backgroundImage: `linear-gradient(${e.texto} 1px, transparent 1px), linear-gradient(90deg, ${e.texto} 1px, transparent 1px)`,
+        backgroundSize: '60px 60px', backgroundPosition: `0 ${(f * 0.25) % 60}px`}} />
+    </AbsoluteFill>
+  );
+};
+
+/** Lista en la tipografía de titular de la marca, centrada en la mitad de arriba. «titulo»: una línea pequeña encima, con
+ * palabras de la frase, que está desde el primer fotograma (la mitad de arriba nunca espera vacía a la primera línea). Cada línea entra en su golpe (fundido
+ * y 1,04 → 1, sin subir ni desenfocar) y, con marca «cruz», un trazo del acento la tacha y la apaga. «queda»: la línea
+ * final que sobrevive, en cursiva y en el acento. */
+const Tachar: React.FC<PP> = ({p, f}) => {
+  const e = useEstilo();
+  const t = titular(e.titular);
+  const items = (Array.isArray(p.items) ? p.items : []) as string[];
+  const golpes = (Array.isArray(p.golpes) ? p.golpes : []) as number[];
+  const queda = typeof p.queda === 'string' ? p.queda : '';
+  const todas = queda ? [...items, queda] : items;
+  const tam = todas.some((x) => x.length > 18) ? 96 : 120;
+  const encabezado = typeof p.titulo === 'string' ? p.titulo : '';
+  return (
+    <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 10, paddingTop: 60}}>
+      {encabezado && <div style={{fontFamily, fontWeight: 700, fontSize: 28, letterSpacing: '0.2em', textTransform: 'uppercase',
+        color: e.texto, opacity: 0.6 * ramp(f, 0, 6), marginBottom: 26}}>{encabezado}</div>}
+      {todas.map((x, i) => {
+        const g = golpes[i] ?? i * 20;
+        const k = ramp(f, g, g + 7);
+        const final = queda && i === items.length;
+        const tacha = p.marca === 'cruz' && !final ? interpolate(f, [g + 10, g + 20], [0, 1], {...CLAMP, easing: EXPO}) : 0;
+        return (
+          <div key={i} style={{position: 'relative', fontFamily: t.familia, fontWeight: t.serif ? 400 : 800, fontSize: tam, lineHeight: 1.1,
+            color: final ? e.subrayado : e.texto, fontStyle: final && t.serif ? 'italic' : 'normal', opacity: k * (1 - 0.55 * tacha),
+            transform: `scale(${1.04 - 0.04 * k})`, textTransform: t.serif ? 'none' : 'uppercase'}}>
+            {x}
+            <div style={{position: 'absolute', left: -8, top: '55%', height: 4, borderRadius: 2, background: e.subrayado,
+              width: `calc(${tacha * 100}% + ${tacha * 16}px)`}} />
+          </div>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+// Piezas hechas para la mitad de arriba de la pantalla dividida (se dibujan en su caja de 1080 × 960).
+const DIVIDIDAS: Record<string, React.FC<PP>> = {tachar: Tachar};
+
 const PROPIOS: Record<string, React.FC<PP>> = {copias: Copias, transcripcion: Transcripcion, partir: Partir};
 
-/** Rótulo corto: caja oscura, entra con rebote, en la zona segura (arriba, o encima de los subtítulos). */
-const RotuloCaja: React.FC<{r: Rotulo; frame: number; fps: number; e: Estilo}> = ({r, frame, fps, e}) => {
+/** Rótulo corto: texto plano con su filete de acento sobre un velo difuso (nunca una caja), en la zona segura: arriba o
+ * encima de los subtítulos. Entra en 6 fotogramas y se asienta sin rebote. */
+const RotuloCaja: React.FC<{r: Rotulo; frame: number; fps: number; e: Estilo}> = ({r, frame, fps}) => {
   const ini = Math.round(r.inicio * fps), fin = Math.round(r.fin * fps);
   if (frame < ini || frame > fin) return null;
-  const f = frame - ini;
-  const s = pop(f, fps, 0, 9);
   const sale = interpolate(frame, [fin - CAMBIO, fin], [1, 0], CLAMP);
   return (
     <div style={{position: 'absolute', left: CX - ANCHO / 2, width: ANCHO, top: r.arriba === false ? 1080 : 250, display: 'flex',
       justifyContent: 'center', opacity: sale}}>
-      <div style={{background: e.caja, color: '#fff', fontFamily, fontWeight: 900, fontSize: 70, lineHeight: 1.05, textAlign: 'center',
-        padding: '18px 34px', borderRadius: 24, border: `3px solid ${e.acento}`, boxShadow: sombra, textTransform: 'uppercase',
-        transform: `scale(${0.7 + 0.3 * s}) rotate(-2deg)`, maxWidth: ANCHO}}>{r.texto}</div>
+      <Filete texto={r.texto} k={ramp(frame - ini, 0, 6)} tam={60} ancho={150} />
     </div>
   );
 };
@@ -242,10 +397,20 @@ export const ConCara: React.FC<PropsConCara> = (p) => {
   const {fps} = useVideoConfig();
   const t = frame / fps;
   const comoExplicativo = {...p, planos: [], rotulos: [], titulo: {texto: '', resalte: '', fin: 0}, audio: ''} as unknown as PropsExplicativo;
+  const division = p.capas.find((c) => c.dividida && frame >= Math.round(c.inicio * fps) && frame < Math.round(c.fin * fps));
+  const c0 = p.cara.centro ?? {x: 0.5, y: 0.34};
+  const costura = Math.round(H * (division?.alto ?? COSTURA / H));
+  // La cara centrada en la parte de abajo, sin salirse del vídeo.
+  const bajaCara = Math.min(0, Math.max(-(H - costura), (H - costura) / 2 - c0.y * H));
+  const cortos = (p.estilo as EstiloCara).subtitulos === 'cortos';
   return (
-    <EstiloCtx.Provider value={p.estilo}>
+    <ConMarca estilo={p.estilo}>
       <AbsoluteFill style={{background: '#000', overflow: 'hidden'}}>
-        <Cara p={p} frame={frame} fps={fps} />
+        {division ? (
+          <div style={{position: 'absolute', left: 0, top: costura, width: W, height: H - costura, overflow: 'hidden'}}>
+            <div style={{position: 'absolute', left: 0, top: bajaCara, width: W, height: H}}><Cara p={p} frame={frame} fps={fps} /></div>
+          </div>
+        ) : <Cara p={p} frame={frame} fps={fps} />}
         {p.capas.map((c, i) => {
           const ini = Math.round(c.inicio * fps), fin = Math.round(c.fin * fps);
           if (frame < ini - 1 || frame > fin + CAMBIO) return null;
@@ -253,30 +418,74 @@ export const ConCara: React.FC<PropsConCara> = (p) => {
           const entra = interpolate(f, [0, CAMBIO], [0, 1], {...CLAMP, easing: EXPO});
           const sale = interpolate(frame, [fin, fin + CAMBIO], [0, 1], CLAMP);
           if (c.tipo === 'encima') {
+            if (c.plano.tipo === 'logos') return <AbsoluteFill key={i} style={{opacity: 1 - sale}}><Logos p={c.plano} f={f} fps={fps} centro={c0} /></AbsoluteFill>;
+            if (c.plano.tipo === 'serie') return frame < fin ? <AbsoluteFill key={i}><SelloSerie p={c.plano} f={f} fps={fps} /></AbsoluteFill> : null;
             const Comp = c.plano.tipo === 'grabando' ? Grabando : null;
             return Comp ? <AbsoluteFill key={i} style={{opacity: 1 - sale}}><Comp p={c.plano} f={f} fps={fps} dur={fin - ini} /></AbsoluteFill> : null;
           }
           const Propio = c.tipo === 'plano' ? PROPIOS[String(c.plano.tipo)] : undefined;
+          const Lienzo = c.tipo === 'plano' ? PIEZAS_LIENZO[String(c.plano.tipo)] : undefined;
+          if (c.flota && Lienzo && !c.dividida) {
+            // Flotando sobre el vídeo, en la parte de arriba: entra y sale con corte seco, como en el lienzo.
+            if (frame >= fin) return null;
+            return (
+              <div key={i} style={{position: 'absolute', left: 0, top: 170, width: W, height: 760}}>
+                <Lienzo p={{...(c as ConPlano).plano, flota: true}} f={f} fps={fps} dur={fin - ini} ancho={W} alto={760} />
+              </div>
+            );
+          }
+          if (c.dividida) {
+            if (frame >= fin) return null; // corte seco al volver a la cara entera, como un editor
+            const sube = -(ESCENARIO.top + ESCENARIO.alto / 2 - costura / 2 - (c.pasos ? 50 : 0));
+            const lienzo = c.fondo === 'lienzo';
+            return (
+              <div key={i} style={{position: 'absolute', left: 0, top: 0, width: W, height: costura, overflow: 'hidden'}}>
+                {lienzo ? <FondoLienzo /> : <FondoDividido f={frame} />}
+                {Lienzo ? <Lienzo p={(c as ConPlano).plano} f={f} fps={fps} dur={fin - ini} ancho={W} alto={costura} />
+                : c.tipo === 'plano' && DIVIDIDAS[String(c.plano.tipo)] ? (
+                  React.createElement(DIVIDIDAS[String(c.plano.tipo)], {p: (c as ConPlano).plano, f, fps, dur: fin - ini})
+                ) : c.tipo === 'pantalla' || c.tipo === 'imagen' ? (
+                  <div style={{position: 'absolute', left: W * 0.26, top: (costura - H * 0.48) / 2 + (c.pasos ? 40 : 0), width: W, height: H,
+                    transform: 'scale(0.48)', transformOrigin: '0 0', borderRadius: 60, overflow: 'hidden', boxShadow: sombra}}>
+                    <Pantalla c={c} f={f} fps={fps} />
+                  </div>
+                ) : (
+                  <div style={{position: 'absolute', left: 0, top: sube, width: W, height: H}}>
+                    {Propio ? <Propio p={(c as ConPlano).plano} f={f} fps={fps} dur={fin - ini} />
+                      : <PlanoVivo pl={{...(c as ConPlano).plano, inicio: c.inicio, fin: c.fin} as Plano} i={1} frame={frame} fps={fps} />}
+                  </div>
+                )}
+                {c.pasos && <Pasos pasos={c.pasos} paso={c.paso ?? 1} f={f} />}
+                {!lienzo && <div style={{position: 'absolute', left: 0, bottom: 0, width: W, height: 2, background: p.estilo.subrayado, opacity: 0.55}} />}
+              </div>
+            );
+          }
           return (
             <AbsoluteFill key={i} style={{opacity: entra * (1 - sale), transform: `scale(${1.08 - 0.08 * entra + 0.04 * sale})`}}>
-              {c.tipo === 'pantalla' ? <Pantalla c={c} f={f} fps={fps} /> : (
+              {c.tipo === 'pantalla' || c.tipo === 'imagen' ? <Pantalla c={c} f={f} fps={fps} /> : (
                 <AbsoluteFill>
                   <Fondo f={frame} p={comoExplicativo} />
-                  {Propio ? <Propio p={c.plano} f={f} fps={fps} dur={fin - ini} />
-                    : <PlanoVivo pl={{...c.plano, inicio: c.inicio, fin: c.fin} as Plano} i={1} frame={frame} fps={fps} />}
+                  {Propio ? <Propio p={(c as ConPlano).plano} f={f} fps={fps} dur={fin - ini} />
+                    : <PlanoVivo pl={{...(c as ConPlano).plano, inicio: c.inicio, fin: c.fin} as Plano} i={1} frame={frame} fps={fps} />}
                 </AbsoluteFill>
               )}
             </AbsoluteFill>
           );
         })}
+        {!division && (p.claves ?? []).map((k, i) => <ClaveJunto key={`k${i}`} k={k} frame={frame} fps={fps} centro={p.cara.centro ?? {x: 0.5, y: 0.34}} />)}
         {p.rotulos.map((r, i) => <RotuloCaja key={i} r={r} frame={frame} fps={fps} e={p.estilo} />)}
-        <Subtitulos p={comoExplicativo} t={t} />
+        {/* En la dividida, los subtítulos suben a la costura y se centran. */}
+        {/* Los cortos se quedan siempre a la altura del pecho, también con la pantalla partida. */}
+        {cortos ? <SubtitulosCortos palabras={p.palabras} t={t} top={division ? Math.max(1240, costura + 420) : 1240} /> : (
+        <div style={{position: 'absolute', inset: 0, transform: division ? `translate(${W / 2 - CX}px, ${costura - 120 - 1300}px)` : undefined}}>
+          <Subtitulos p={comoExplicativo} t={t} />
+        </div>)}
         {p.sonidos.map((s, i) => (
           <Sequence key={i} from={Math.max(0, Math.round(s.t * fps))}>
             <Audio src={staticFile(s.archivo)} volume={s.volumen ?? 0.5} />
           </Sequence>
         ))}
       </AbsoluteFill>
-    </EstiloCtx.Provider>
+    </ConMarca>
   );
 };

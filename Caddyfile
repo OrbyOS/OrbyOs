@@ -45,3 +45,7 @@ www.{$RADAR_DOMINIO} {
 		import app
 	}
 }
+
+# Otras webs estáticas en el mismo servidor (opcional): cada una es un archivo <dominio>.caddy y su carpeta
+# <dominio>/ dentro de /opt/sitios del servidor (lo sube producto/subir_sitio.sh). Sin ninguna, no hace nada.
+import /srv/sitios/*.caddy

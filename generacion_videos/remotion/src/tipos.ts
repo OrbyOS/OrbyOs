@@ -19,6 +19,13 @@ export type Estilo = {
   subrayado: string;  // la palabra que suena en los subtítulos y el resalte del título
   caja: string;       // caja del título
   malo: string;       // cruces, sellos y lo que está mal
+  titular?: string;   // tipografía de titular del catálogo por nombre (InstrumentSerif…), si el Kit no sube la suya
+  fuente?: string;    // archivo de la tipografía de la marca en la carpeta pública (del Kit); sin él, Inter Tight
+  logo?: string;      // archivo del logo de la marca (del Kit), para el cierre
+  // "cazzap": fondo oscuro uniforme, subtítulo arriba con la palabra clave seleccionada como en un editor y cifras sin
+  // aro con su fuente debajo (referencia @cazzap.app). "viral": tomas reales a pantalla completa y rótulo en mayúsculas en
+  // el centro (viral.tsx). Sin él, el diseño de siempre.
+  diseno?: string;
 };
 
 export type Props = {

@@ -62,6 +62,9 @@ class Plan:
 
 # La cuota está por definir: estos límites sirven para controlar el gasto mientras tanto.
 PLANES = {
+    # Gratis: con su propia clave de Claude y sin lo que cuesta a la instalación (Apify, edición, publicación…):
+    # ver radar/planes.py.
+    "gratis": Plan("gratis", "Gratis", 1, 0, 0, 0),
     "prueba": Plan("prueba", "Prueba", 1, 2, 6, 3),
     "prueba_agencia": Plan("prueba_agencia", "Prueba agencia", 3, 4, 12, 6),
     "growth": Plan("growth", "Growth", 2, 8, 30, 20),

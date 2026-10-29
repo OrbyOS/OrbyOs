@@ -222,6 +222,15 @@ def _grafico_en_segundos(g: dict, tramo: list[int], palabras: list[dict], ini: f
             if g.get(k):
                 salida[k] = str(g[k])[:largo]
         return salida
+    if tipo == "logos":
+        nombres = [str(x)[:40] for x in (g.get("logos") or []) if str(x).strip()][:5]
+        return {"tipo": "logos", "en": round(t(dentro(g.get("en"))), 3), "logos": nombres}
+    if tipo == "sello":
+        salida = {"tipo": "sello", "en": round(t(dentro(g.get("en"))), 3)}
+        for k, largo in (("texto", 14), ("cinta", 24)):
+            if g.get(k):
+                salida[k] = str(g[k])[:largo]
+        return salida
     if tipo == "imagen":
         salida = {"tipo": "imagen", "en": round(t(dentro(g.get("en"))), 3), "pie": str(g.get("pie") or "")[:32],
                   "forma": "pantalla" if g.get("forma") == "pantalla" else "tarjeta"}
@@ -265,7 +274,7 @@ def sanear(m: dict, intentos: int = 4) -> tuple[dict, list[str]]:
                 g["kicker"] = [w for w in (val.EMOJI.sub("", k).strip() for k in g["kicker"]) if w][-val.PALABRAS_ROTULO:]
         # 1. Máximos por minuto: se quedan los primeros.
         minutos = sum(p["src"][1] - p["src"][0] for p in planos) / 60
-        tope = {k: val.maximo(k, minutos) for k in val.MAXIMOS}
+        tope = {k: val.maximo(k, minutos, (m.get("reglas") or {}).get("maximos")) for k in val.MAXIMOS}
         cuenta = {k: 0 for k in val.MAXIMOS}
         for p in planos:
             if p.get("entrada") in ("latigo", "tiras"):

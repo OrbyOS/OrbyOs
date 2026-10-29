@@ -31,6 +31,14 @@
 {%- elif nombre == "ajustes" -%}<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
 {%- elif nombre == "enchufe" -%}<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>
 {%- elif nombre == "candado" -%}<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+{%- elif nombre == "inicio" -%}<path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 9.5V20h11V9.5"/><path d="M10 20v-5h4v5"/>
+{%- elif nombre == "bandeja" -%}<path d="M4 13h4.5l1.5 2.5h4l1.5-2.5H20"/><path d="M5.5 5h13L20 13v6H4v-6z"/>
+{%- elif nombre == "bombilla" -%}<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>
+{%- elif nombre == "camara" -%}<rect x="3" y="6.5" width="13" height="11" rx="2.5"/><path d="m16 10.5 5-3v9l-5-3"/>
+{%- elif nombre == "tijeras" -%}<circle cx="6" cy="7" r="2.6"/><circle cx="6" cy="17" r="2.6"/><path d="M8.2 8.4 20 17M8.2 15.6 20 7"/>
+{%- elif nombre == "calendario" -%}<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>
+{%- elif nombre == "mensaje" -%}<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z"/>
+{%- elif nombre == "grafico" -%}<path d="M4 20V4M4 20h16"/><path d="m7.5 15 4-4.5 3 3L20 7.5"/>
 {%- endif -%}
 </svg>
 {%- endmacro %}
@@ -178,4 +186,9 @@
   </div>
   {% endfor %}
 </div>
+{%- endmacro %}
+
+{# Pestañas dentro de un área: [(enlace, nombre, activa, contador)]. #}
+{% macro pestanas(lista) -%}
+<nav class="pg-pestanas" aria-label="Secciones">{% for enlace, nombre, activa, n in lista %}<a href="{{ enlace }}" class="{{ 'activa' if activa }}" {% if activa %}aria-current="page"{% endif %}>{{ nombre }}{% if n %}<small>{{ n }}</small>{% endif %}</a>{% endfor %}</nav>
 {%- endmacro %}

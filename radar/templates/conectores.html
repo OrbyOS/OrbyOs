@@ -78,6 +78,7 @@
       {% if claves_compartidas %}{{ campo(instalacion.CLAUDE_CODE_OAUTH_TOKEN) }}{% endif %}
       {{ campo(instalacion.APIFY_TOKEN) }}
       {{ campo(instalacion.YOUTUBE_API_KEY) }}
+      {% if instalacion.RADAR_IG_APP_ID %}{{ campo(instalacion.RADAR_IG_APP_ID) }}{{ campo(instalacion.RADAR_IG_APP_SECRETO) }}{% endif %}
     </div>
     <div class="form-pie"><button class="btn btn-secundario" type="submit">Guardar</button></div>
   </form>
@@ -167,6 +168,71 @@
   {% endif %}
 </section>
 
+{# La palabra clave de Instagram por su API oficial, sin ManyChat: la cuenta, la clave secreta de la app de Meta y la
+   dirección de avisos que se pega en Meta. Las palabras y los envíos se llevan en Comunidad. #}
+{% set ig = instagram_de(negocio.id) %}
+<section class="panel" id="instagram">
+  <div class="panel-cabecera"><div><h2>Instagram {{ estado(ig.conectado) }} <span class="hy-etiqueta">Palabra clave sin ManyChat</span></h2>
+    <p class="tenue">{% if ig.conectado %}Conectado con @{{ ig.usuario }}{% if ig.comprobado %} · comprobado el {{ ig.comprobado | fecha }}{% endif %}. Las palabras y los envíos se llevan en <a href="{{ base_n }}/comunidad#instagram">Comunidad</a>.{% else %}Con la API oficial de Instagram: quien comenta una palabra en tu reel recibe tu enlace por privado, sin ManyChat. Hace falta una app de Meta con Instagram y el token de tu cuenta profesional.{% endif %}</p></div></div>
+  {% if ig.conectado and (not ig.secreto or not ig.suscrito) %}
+  <div class="panel-cuerpo"><ul class="avisos">
+    {% if not ig.secreto %}<li>Falta la clave secreta de la app: sin ella {{ APP }} no acepta los avisos de Meta.</li>{% endif %}
+    {% if not ig.suscrito %}<li>La cuenta no se ha podido suscribir a los comentarios. Revisa los permisos del token y pulsa «Guardar y comprobar».</li>{% endif %}
+  </ul></div>
+  {% endif %}
+  {% if ig.boton %}
+  <div class="panel-cuerpo cx-ig-boton">
+    <a class="btn btn-primario" href="{{ ig.conectar }}">{{ icono("enchufe") }} {{ "Volver a conectar Instagram" if ig.conectado else "Conectar Instagram" }}</a>
+    <span class="tenue">Entras con tu cuenta de Instagram y vuelves aquí. Sin copiar ni pegar nada.</span>
+  </div>
+  <details class="cx-instalacion"><summary>Pegar el token a mano</summary>
+  <form method="post" action="/negocios/{{ negocio.id }}/conectores/instagram">
+    <div class="panel-cuerpo campos">
+      {% if ig.conectado %}
+      <div class="c"><span>Token de la cuenta <span class="cx-estado on">✓ Puesto</span></span>{{ cambiar("token", "token de Instagram", "Pega el token nuevo") }}</div>
+      {% else %}
+      <label class="c"><span>Token de la cuenta <small>Meta → tu app → Instagram → Generar token</small></span><input name="token" type="password" autocomplete="off" placeholder="IGAA…"></label>
+      {% endif %}
+      {% if ig.secreto %}
+      <div class="c"><span>Clave secreta de la app <span class="cx-estado on">✓ Puesta</span></span>{{ cambiar("secreto", "clave secreta de la app") }}</div>
+      {% else %}
+      <label class="c"><span>Clave secreta de la app <small>Meta → tu app → Instagram → «App secret» de Instagram</small></span><input name="secreto" type="password" autocomplete="off" placeholder="Pégala aquí"></label>
+      {% endif %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">{{ "Guardar y comprobar" if ig.conectado else "Conectar" }}</button></div>
+  </form>
+  </details>
+  {% else %}
+  <form method="post" action="/negocios/{{ negocio.id }}/conectores/instagram">
+    <div class="panel-cuerpo campos">
+      {% if ig.conectado %}
+      <div class="c"><span>Token de la cuenta <span class="cx-estado on">✓ Puesto</span></span>{{ cambiar("token", "token de Instagram", "Pega el token nuevo") }}</div>
+      {% else %}
+      <label class="c"><span>Token de la cuenta <small>Meta → tu app → Instagram → Generar token</small></span><input name="token" type="password" autocomplete="off" placeholder="IGAA…"></label>
+      {% endif %}
+      {% if ig.secreto %}
+      <div class="c"><span>Clave secreta de la app <span class="cx-estado on">✓ Puesta</span></span>{{ cambiar("secreto", "clave secreta de la app") }}</div>
+      {% else %}
+      <label class="c"><span>Clave secreta de la app <small>Meta → tu app → Instagram → «App secret» de Instagram</small></span><input name="secreto" type="password" autocomplete="off" placeholder="Pégala aquí"></label>
+      {% endif %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">{{ "Guardar y comprobar" if ig.conectado else "Conectar" }}</button></div>
+  </form>
+  {% endif %}
+  {% if ig.direccion %}
+  <div class="panel-cuerpo cm-manychat">
+    <p class="tenue">Para que Meta avise de cada comentario, pega estos dos datos en tu app de Meta → Instagram → Webhooks y suscríbete al campo <code>comments</code>.</p>
+    <label class="c ancho"><span>Callback URL</span>
+      <span class="cm-copiar"><input id="ig-direccion" value="{{ ig.direccion }}" readonly><button class="btn btn-secundario btn-peque" type="button" data-copiar="ig-direccion">Copiar</button></span></label>
+    <label class="c ancho"><span>Verify token</span>
+      <span class="cm-copiar"><input id="ig-verify" value="{{ ig.verify_token }}" readonly><button class="btn btn-secundario btn-peque" type="button" data-copiar="ig-verify">Copiar</button></span></label>
+  </div>
+  {% elif ig.conectado %}
+  <div class="panel-cuerpo"><div class="aviso">{{ icono("alerta") }}<div>La app aún no tiene una dirección pública, así que Meta no puede mandar los avisos de los comentarios.</div></div></div>
+  {% endif %}
+  {% if ig.conectado %}<form method="post" action="/negocios/{{ negocio.id }}/conectores/instagram" class="form-pie"><input type="hidden" name="quitar" value="1"><button class="btn-texto" type="submit">Desconectar Instagram</button></form>{% endif %}
+</section>
+
 <section class="panel" id="telegram">
   <div class="panel-cabecera"><div><h2>Telegram {{ estado(tg_chat) }} <span class="hy-etiqueta">Opcional</span></h2>
     <p class="tenue">{% if tg_chat %}Conectado con @{{ tg_bot }}. Te llegan el resumen de la mañana, cada aprobación con sus botones y las alertas. La hora del resumen y el silencio se ajustan en <a href="{{ base_n }}/hoy#avisos">Hoy</a>.{% elif tg_bot %}Falta un paso: abre tu bot y pulsa Iniciar.{% else %}Si quieres que el equipo te escriba al móvil mientras llega la app: crea un bot en Telegram con @BotFather (escríbele /newbot) y pega aquí el token que te da.{% endif %}</p></div>
@@ -199,7 +265,7 @@
 </section>
 
 <script>
-  // Copiar la dirección de ManyChat con un clic.
+  // Copiar las direcciones de ManyChat e Instagram con un clic.
   document.querySelectorAll("[data-copiar]").forEach(function (b) {
     b.addEventListener("click", function () {
       var campo = document.getElementById(b.dataset.copiar);

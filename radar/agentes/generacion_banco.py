@@ -95,10 +95,13 @@ def hoja(candidatos: list[dict], salida: Path) -> Path:
     return salida
 
 
-def tratar(origen: Path, salida: Path, desde: float = 0.0, segundos: float = 2.2, oscurecer: float = 0.0) -> Path:
-    """Recorte vertical 1080×1920 con el tratamiento de la marca. `oscurecer` (0-1) para usarlo de fondo."""
+def tratar(origen: Path, salida: Path, desde: float = 0.0, segundos: float = 2.2, oscurecer: float = 0.0, natural: bool = False) -> Path:
+    """Recorte vertical 1080×1920 con el tratamiento de la marca. `oscurecer` (0-1) para usarlo de fondo. `natural`
+    (diseño «viral»): el objeto con su color real, solo un punto más de contraste, sin azul, grano ni viñeta."""
     n = round(segundos * 30)
     filtro = (
+        "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,fps=30,eq=contrast=1.04:saturation=1.06"
+    ) if natural else (
         # Vertical a 1080×1920 (el empujón de cámara lo hace el montaje, más suave que el zoompan de ffmpeg).
         "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,fps=30,"
         "eq=saturation=0.72:contrast=1.04:brightness=-0.02,"
@@ -117,7 +120,8 @@ def preparar_recurso(ve: dict, publica: Path) -> str:
     ve: {"pixabay": id, "desde"?: s, "segundos"?: s, "oscurecer"?: 0-1}. El clip descargado se guarda en el banco."""
     destino_dir = publica / "recursos"
     destino_dir.mkdir(parents=True, exist_ok=True)
-    nombre = f"pixabay_{ve['pixabay']}_{ve.get('desde', 0)}_{ve.get('oscurecer', 0)}.mp4"
+    natural = bool(ve.get("natural"))
+    nombre = f"pixabay_{ve['pixabay']}_{ve.get('desde', 0)}_{ve.get('oscurecer', 0)}{'_n' if natural else ''}.mp4"
     tratado = BANCO_DIR / "tratados" / nombre
     if not tratado.exists():
         origen = BANCO_DIR / f"pixabay_{ve['pixabay']}.mp4"
@@ -126,6 +130,16 @@ def preparar_recurso(ve: dict, publica: Path) -> str:
             r.raise_for_status()
             v = r.json()["hits"][0]["videos"]["large"]
             descargar({"id": ve["pixabay"], "url": v["url"]})
-        tratar(origen, tratado, ve.get("desde", 0), ve.get("segundos", 8), ve.get("oscurecer", 0))
+        tratar(origen, tratado, ve.get("desde", 0), ve.get("segundos", 8), ve.get("oscurecer", 0), natural)
     (destino_dir / nombre).write_bytes(tratado.read_bytes())
     return f"recursos/{nombre}"
+
+
+def preparar_imagen(ve: dict, publica: Path) -> str:
+    """Para el plano «imagen» (diseño «viral»): una foto real ya descargada (Wikimedia, Pixabay), por su ruta en
+    `ve["archivo"]`. Se copia a la carpeta pública del render; el empujón o el paneo lo pone el montaje."""
+    origen = Path(ve["archivo"]).expanduser()
+    destino_dir = publica / "recursos"
+    destino_dir.mkdir(parents=True, exist_ok=True)
+    (destino_dir / origen.name).write_bytes(origen.read_bytes())
+    return f"recursos/{origen.name}"

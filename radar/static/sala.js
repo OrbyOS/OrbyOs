@@ -33,12 +33,16 @@
   var estado = null, anterior = null, cuartos = {}, etiquetas = {}, vistos = {}, demo = false, demoDatos = null;
   var enfocado = null, capaPaquetes = null;
   var vista = null, objetivo = null, base = null, rodando = false;
-  // La oficina de noche (tema oscuro, el de siempre) o de día (tema claro).
+  // La oficina de noche (tema oscuro, el de siempre) o de día (tema claro), con la marca de Orby: muebles de la
+  // misma porcelana crema que los muñecos, pantallas negras y brillantes como su visor, y luz azul como la franja de
+  // su cuello. De noche, el estudio es casi negro con un punto de azul, para que la porcelana y la luz destaquen.
   var PALETAS = {
-    oscuro: { suelo: "#0f1630", muro: "#131b38", cielo: ["#050a1c", "#0e1d48"], edificio: "#081028", marco: "#17214a", luces: 0.32, letrero: "#080d22",
-              base: "#24305e", poste: "#5f72b3", cabina: "#2f3f86", torre: "#1d2750", torreTapa: "#273466", escalon: "#283668", estrado: "#1a2a5e" },
-    claro: { suelo: "#e8e0d2", muro: "#f3eee5", cielo: ["#bcd3ef", "#f6eee2"], edificio: "#cbc2b3", marco: "#ddd4c5", luces: 0.06, letrero: "#fffdf9",
-             base: "#d8cfbf", poste: "#a89b86", cabina: "#e7e0d4", torre: "#d3c9b8", torreTapa: "#e3dacb", escalon: "#dad1c1", estrado: "#5b8cf5" }
+    oscuro: { suelo: "#0d1018", muro: "#11151f", cielo: ["#03050b", "#0a1226"], edificio: "#070a14", marco: "#1a1f2c", luces: 0.28, letrero: "#05070d",
+              base: "#2a2f3b", poste: "#7a7f8c", cabina: "#2a3042", torre: "#cdbb9f", torreTapa: "#e6d8c2", escalon: "#c9b699", estrado: "#bfa98a",
+              mueble: "#e6d6bf", papel: "#f4ece0", gris: "#c9b9a1", pantalla: "#07080c" },
+    claro: { suelo: "#e9dfcf", muro: "#f5eee3", cielo: ["#c4d6ee", "#f7efe3"], edificio: "#cfc4b2", marco: "#ddd2c0", luces: 0.06, letrero: "#fffbf4",
+             base: "#d9ccb7", poste: "#a8977d", cabina: "#e9e0d1", torre: "#d6c4a8", torreTapa: "#ece0cc", escalon: "#d9c9b0", estrado: "#c8b496",
+             mueble: "#efe3d0", papel: "#fbf6ee", gris: "#d2c3ab", pantalla: "#0b0d13" }
   };
   function paleta() { return PALETAS[document.documentElement.dataset.tono === "claro" ? "claro" : "oscuro"]; }
 
@@ -132,7 +136,7 @@
         izq: '<rect x="30" y="10" width="110" height="70" rx="6" fill="#070b18" stroke="' + c + '" stroke-opacity=".6"/>' +
           repetir(6, function (i) { var h = [18, 30, 22, 44, 34, 54][i]; return '<rect class="barra" style="animation-delay:' + (-i * 0.4) + 's" x="' + (40 + i * 13) + '" y="' + (72 - h) + '" width="8" height="' + h + '" rx="2" fill="' + c + '"/>'; }) +
           '<text x="150" y="40" class="dato-cifra">0</text><text x="150" y="56" class="dato-etiqueta">destacan</text>',
-        fondo: maceta(16, 16) + caja(120, 40, 0, 64, 38, 32, "#dfe5f2") + caja(136, 44, 32, 34, 4, 24, "#0b1024") +
+        fondo: maceta(16, 16) + caja(120, 40, 0, 64, 38, 32, paleta().mueble) + caja(136, 44, 32, 34, 4, 24, paleta().pantalla) +
           enFrente(138, 48, 54, '<rect class="pantalla" width="30" height="20" fill="' + c + '" opacity=".75"/><circle cx="12" cy="9" r="5" fill="none" stroke="#fff" stroke-width="2"/><path d="M16 13l5 5" stroke="#fff" stroke-width="2"/>'),
         sitios: [[112, 134], [150, 110], [70, 160]]
       };
@@ -153,8 +157,8 @@
               '<text class="tb-etiqueta" x="' + f1(x + 10) + '" y="98" text-anchor="middle">' + etiquetas_[i] + "</text>" +
               (i < 6 ? '<path d="M' + f1(x + 23) + " 60l3 3-3 3" + '" fill="none" stroke="#fff" stroke-opacity=".3"/>' : "");
           }) + "</g>",
-        fondo: caja(70, 74, 0, 84, 52, 30, "#e2e8f4") +
-          poli([[80, 82, 30.5], [104, 82, 30.5], [104, 100, 30.5], [80, 100, 30.5]], "#ffffff") + poli([[112, 96, 30.5], [136, 96, 30.5], [136, 116, 30.5], [112, 116, 30.5]], "#fde68a") +
+        fondo: caja(70, 74, 0, 84, 52, 30, paleta().mueble) +
+          poli([[80, 82, 30.5], [104, 82, 30.5], [104, 100, 30.5], [80, 100, 30.5]], paleta().papel) + poli([[112, 96, 30.5], [136, 96, 30.5], [136, 116, 30.5], [112, 116, 30.5]], "#fde68a") +
           maceta(186, 30),
         sitios: [[112, 160], [176, 110], [52, 124]]
       };
@@ -164,10 +168,10 @@
       [6, 36, 66].forEach(function (z, n) { for (var i = 0; i < 6; i++) libros += caja(124 + i * 13, 6, z, 9, 12, 22 - (i % 2) * 4, colores[(i + n) % 6]); });
       var b = P(60, 70, 30), t = P(60, 70, 58);
       return {
-        der: '<rect x="20" y="4" width="84" height="96" rx="4" fill="#f8fafc"/><text x="28" y="18" class="muro-rotulo oscuro">GUION</text>' +
-          repetir(7, function (i) { return '<rect class="renglon" style="animation-delay:' + (i * 0.3) + 's" x="28" y="' + (26 + i * 10) + '" width="' + [62, 52, 66, 40, 58, 30, 48][i] + '" height="4" rx="2" fill="' + (i === 0 ? c : "#cbd5e1") + '"/>'; }),
-        fondo: caja(118, 0, 0, 84, 20, 96, "#a9774d") + libros + caja(30, 60, 0, 74, 40, 30, "#e2e8f4") + caja(70, 66, 30, 26, 18, 8, "#ffffff") +
-          linea(b, t, "#cbd5e1", 3) + '<path d="M' + f1(t[0] - 10) + " " + f1(t[1] + 8) + 'l10-12 10 12z" fill="' + c + '"/>' +
+        der: '<rect x="20" y="4" width="84" height="96" rx="4" fill="' + paleta().papel + '"/><text x="28" y="18" class="muro-rotulo oscuro">GUION</text>' +
+          repetir(7, function (i) { return '<rect class="renglon" style="animation-delay:' + (i * 0.3) + 's" x="28" y="' + (26 + i * 10) + '" width="' + [62, 52, 66, 40, 58, 30, 48][i] + '" height="4" rx="2" fill="' + (i === 0 ? c : paleta().gris) + '"/>'; }),
+        fondo: caja(118, 0, 0, 84, 20, 96, "#a9774d") + libros + caja(30, 60, 0, 74, 40, 30, paleta().mueble) + caja(70, 66, 30, 26, 18, 8, paleta().papel) +
+          linea(b, t, paleta().gris, 3) + '<path d="M' + f1(t[0] - 10) + " " + f1(t[1] + 8) + 'l10-12 10 12z" fill="' + c + '"/>' +
           enFrente(150, 110, 96, holo(56, 34, c, '<text x="8" y="22" class="dato-cifra peque">0</text><text x="30" y="22" class="dato-etiqueta">listos</text>')),
         sitios: [[90, 134], [150, 160], [60, 160]]
       };
@@ -200,10 +204,10 @@
           cil(110, 110, 0, T, 20, pal.torre, pal.torreTapa) +
           repetir(3, function (i) { var q = P(110, 110, 16 + i * 20); return '<ellipse class="torre-franja" style="animation-delay:' + (i * 0.4) + 's" cx="' + f1(q[0]) + '" cy="' + f1(q[1]) + '" rx="24.5" ry="14.1" fill="none" stroke="' + c + '" stroke-width="2"/>'; }) +
           '<polygon class="rayo-orbi" points="' + f1(cima[0] - 7) + "," + f1(cima[1]) + " " + f1(cima[0] + 7) + "," + f1(cima[1]) + " " + f1(cielo[0] + 2) + "," + f1(cielo[1]) + " " + f1(cielo[0] - 2) + "," + f1(cielo[1]) + '" fill="url(#rayo-orbi)"/>' +
-          cil(110, 110, T, T + G, 66, pal.estrado, "url(#estrado)", ' stroke="#8fb2ff" stroke-width="2.5" class="estrado"') +
-          aro(T + G + 0.5, 54, "estrado-oro", "#fbbf24") + aro(T + G + 0.5, 30, "estrado-anillo", c) +
+          cil(110, 110, T, T + G, 66, pal.estrado, "url(#estrado)", ' stroke="#3D7BFF" stroke-width="2.5" class="estrado"') +
+          aro(T + G + 0.5, 54, "estrado-oro", "#6f9bff") + aro(T + G + 0.5, 30, "estrado-anillo", c) +
           linea(mastil, baliza, "#8fb2ff", 2.5) + '<circle class="baliza" cx="' + f1(baliza[0]) + '" cy="' + f1(baliza[1]) + '" r="5" fill="#fbbf24"/>' +
-          caja(80, 76, T + G, 60, 20, 14, "#e2e8f4") + poli([[82, 78, T + G + 14], [138, 78, T + G + 14], [138, 90, T + G + 19], [82, 90, T + G + 19]], "#0b1024") +
+          caja(80, 76, T + G, 60, 20, 14, paleta().mueble) + poli([[82, 78, T + G + 14], [138, 78, T + G + 14], [138, 90, T + G + 19], [82, 90, T + G + 19]], paleta().pantalla) +
           repetir(5, function (i) { var q = P(90 + i * 10, 84, T + G + 16.5); return '<circle class="boton-luz" style="animation-delay:' + (i * 0.3) + 's" cx="' + f1(q[0]) + '" cy="' + f1(q[1]) + '" r="2.2" fill="' + ["#22d3ee", "#fbbf24", "#f472b6", "#34d399", "#60a5fa"][i] + '"/>'; }),
         frente: escalera + aro(T + G + 20, 70, "halo-orbi", c) +
           enFrente(196, 112, T + 124, holo(56, 40, "#fbbf24", '<text x="6" y="13" class="muro-rotulo">POR APROBAR</text><text x="8" y="34" class="dato-cifra peque">0</text>')),
@@ -212,7 +216,7 @@
       };
     },
     editor: function (c) {
-      var montaje = '<rect width="38" height="24" fill="#0b1024"/>' +
+      var montaje = '<rect width="38" height="24" fill=paleta().pantalla/>' +
         '<rect x="3" y="4" width="14" height="4" rx="1" fill="#f472b6"/><rect x="18" y="4" width="17" height="4" rx="1" fill="#60a5fa"/>' +
         '<rect x="3" y="11" width="22" height="4" rx="1" fill="' + c + '"/><rect x="26" y="11" width="9" height="4" rx="1" fill="#fbbf24"/>' +
         '<rect x="3" y="18" width="30" height="3" rx="1" fill="#334155"/><rect class="cabezal" x="10" y="2" width="1.6" height="20" fill="#fff"/>';
@@ -221,7 +225,7 @@
         fondo: enFrente(30, 14, 130, holo(150, 44, c,
             repetir(4, function (i) { return '<rect x="' + (10 + i * 34) + '" y="10" width="28" height="12" rx="2" fill="' + ["#f472b6", c, "#60a5fa", "#fbbf24"][i] + '" opacity=".85"/>'; }) +
             '<text x="10" y="38" class="dato-cifra peque">0</text><text x="40" y="38" class="dato-etiqueta">reels</text>')) +
-          caja(40, 40, 0, 124, 40, 30, "#e2e8f4") + caja(52, 44, 30, 40, 4, 26, "#0b1024") + caja(104, 44, 30, 40, 4, 26, "#0b1024") +
+          caja(40, 40, 0, 124, 40, 30, paleta().mueble) + caja(52, 44, 30, 40, 4, 26, paleta().pantalla) + caja(104, 44, 30, 40, 4, 26, paleta().pantalla) +
           enFrente(53, 48, 55, montaje) + enFrente(105, 48, 55, montaje) +
           linea(pie, aro, "#94a3b8", 3) + '<circle class="aro-luz" cx="' + f1(aro[0]) + '" cy="' + f1(aro[1]) + '" r="17" fill="none" stroke="#fff" stroke-width="5"/>',
         sitios: [[104, 124], [150, 116], [70, 164]]
@@ -229,7 +233,7 @@
     },
     comunidad: function (c) {
       return {
-        izq: '<rect x="20" y="4" width="120" height="84" rx="6" fill="#0b1024" stroke="' + c + '" stroke-opacity=".5"/>' +
+        izq: '<rect x="20" y="4" width="120" height="84" rx="6" fill=paleta().pantalla stroke="' + c + '" stroke-opacity=".5"/>' +
           repetir(4, function (i) { return '<rect class="dm" style="animation-delay:' + (i * 0.5) + 's" x="' + (i % 2 ? 56 : 28) + '" y="' + (12 + i * 18) + '" width="' + (i % 2 ? 76 : 70) + '" height="13" rx="6.5" fill="' + (i % 2 ? c : "#2a3460") + '"/>'; }) +
           '<text x="152" y="36" class="dato-cifra">0</text><text x="152" y="52" class="dato-etiqueta">leads</text>' +
           '<path class="corazon" d="M170 70c-4-6-15-3-12 4 1 4 12 11 12 11s11-7 12-11c3-7-8-10-12-4z" fill="' + c + '"/>',
@@ -248,7 +252,7 @@
             '<rect width="120" height="14" rx="6" fill="' + c + '" fill-opacity=".5"/><text x="8" y="10" class="muro-rotulo">ESTA SEMANA</text>' +
             repetir(12, function (i) { return '<text x="' + (10 + (i % 4) * 16) + '" y="' + (32 + Math.floor(i / 4) * 14) + '" class="check" fill="' + (i < 7 ? c : "#64748b") + '">' + (i < 7 ? "✓" : "·") + "</text>"; }) +
             '<text x="80" y="44" class="dato-cifra peque">0</text>')) +
-          caja(36, 70, 0, 52, 40, 28, "#e2e8f4") + caja(44, 76, 28, 24, 16, 2, "#0b1024") + caja(148, 148, 0, 36, 36, 10, "#cbd5e1") + cohete,
+          caja(36, 70, 0, 52, 40, 28, paleta().mueble) + caja(44, 76, 28, 24, 16, 2, paleta().pantalla) + caja(148, 148, 0, 36, 36, 10, paleta().gris) + cohete,
         sitios: [[110, 140], [80, 170], [150, 110]]
       };
     },
@@ -287,8 +291,8 @@
       '<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + paleta().cielo[0] + '"/><stop offset="1" stop-color="' + paleta().cielo[1] + '"/></linearGradient>' +
       '<linearGradient id="brillo-suelo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#8b9cff" stop-opacity=".06"/></linearGradient>' +
       (paleta() === PALETAS.claro
-        ? '<radialGradient id="estrado" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#eef3ff"/><stop offset=".7" stop-color="#a9c3ff"/><stop offset="1" stop-color="#6f9bff"/></radialGradient>'
-        : '<radialGradient id="estrado" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#2f56b8"/><stop offset=".7" stop-color="#1c3378"/><stop offset="1" stop-color="#122352"/></radialGradient>') +
+        ? '<radialGradient id="estrado" cx=".45" cy=".4" r=".65"><stop offset="0" stop-color="#fbf5ec"/><stop offset=".7" stop-color="#ead9c2"/><stop offset="1" stop-color="#d4bf9f"/></radialGradient>'
+        : '<radialGradient id="estrado" cx=".45" cy=".4" r=".65"><stop offset="0" stop-color="#f1e5d3"/><stop offset=".7" stop-color="#d9c6a8"/><stop offset="1" stop-color="#b8a281"/></radialGradient>') +
       '<linearGradient id="rayo-orbi" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#a9c3ff" stop-opacity=".75"/><stop offset="1" stop-color="#3D7BFF" stop-opacity="0"/></linearGradient>' +
       (paleta() === PALETAS.claro
         ? '<linearGradient id="rayo-ventana" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4" stop-opacity=".75"/><stop offset="1" stop-color="#ffe7a3" stop-opacity="0"/></linearGradient>' +

@@ -4,7 +4,7 @@
 {% block cabecera %}
 <script>/* La landing (y su oficina) siempre en oscuro: es el escaparate. */ document.documentElement.dataset.tono = "oscuro";</script>
 <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="/static/sala.css?v=73"><link rel="stylesheet" href="/static/landing.css?v=8">{% endblock %}
+<link rel="stylesheet" href="/static/sala.css?v=74"><link rel="stylesheet" href="/static/landing.css?v=10">{% endblock %}
 {% block clase_body %}landing{% endblock %}
 {% block cuerpo %}
 {# Página de venta de Orby. Orby (el director, en 3D de verdad) es la imagen del producto; la oficina, la prueba de que el
@@ -23,11 +23,11 @@
 <header class="ln-nav">
   <a class="ln-logo" href="/"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
   <nav class="ln-enlaces" aria-label="Secciones">
-    <a href="#producto">Producto</a><a href="#equipo">Equipo</a><a href="#abierto">Código abierto</a><a href="#como">Cómo funciona</a><a href="#implementacion">Implementación</a><a href="#preguntas">Preguntas</a>
+    <a href="#producto">Producto</a><a href="#equipo">Equipo</a><a href="#abierto">Código abierto</a><a href="#como">Cómo funciona</a><a href="#implementacion">Gratis o completo</a><a href="#preguntas">Preguntas</a>
   </nav>
   <div class="ln-nav-acciones">
     <a class="ln-entrar" href="/entrar">Entrar</a>
-    <a class="ln-btn ln-btn-primario ln-btn-peque" href="{{ solicitar }}">Solicitar implementación</a>
+    <a class="ln-btn ln-btn-primario ln-btn-peque" href="/registro">Empieza gratis</a>
   </div>
 </header>
 
@@ -40,10 +40,10 @@
       <h1 class="ln-entra" style="--d:.08s">Conoce a Orby.</h1>
       <p class="ln-entradilla ln-entra" style="--d:.16s">Investiga, planifica, escribe, edita, publica y responde. Tú grabas unos minutos y das el visto bueno. Y todo su código está abierto.</p>
       <div class="ln-ctas ln-entra" style="--d:.24s">
-        <a class="ln-btn ln-btn-primario" href="{{ solicitar }}">Solicitar implementación</a>
-        {% if URL_GITHUB %}<a class="ln-btn ln-btn-cristal" href="{{ URL_GITHUB }}" target="_blank" rel="noopener">{{ icono("externo") }} Ver el código en GitHub</a>
-        {% else %}<span class="ln-btn ln-btn-cristal ln-pronto" title="El repositorio se publica muy pronto">Ver en GitHub <small>pronto</small></span>{% endif %}
+        <a class="ln-btn ln-btn-primario" href="/registro">Empieza gratis</a>
+        <a class="ln-btn ln-btn-cristal" href="{{ solicitar }}">Solicitar implementación</a>
       </div>
+      <p class="ln-hero-nota ln-entra" style="--d:.3s">Gratis con tu propia clave de Claude. Sin tarjeta.</p>
     </div>
     <div class="ln-escenario" aria-hidden="true">
       <div class="ln-halo"></div>
@@ -170,32 +170,39 @@
   {# PENDIENTE: aquí van las pruebas reales —casos de clientes con su permiso, capturas o resultados—. No se inventa nada:
      cuando haya un caso real, va en esta sección. #}
 
-  {# ---------------------------------------------------------------- 6. implementación y precio #}
+  {# ---------------------------------------------------------------- 6. gratis o completo #}
+  {# Lo de «Gratis» es lo que deja el plan gratis (radar/planes.py); lo de «Completo», lo que lleva a sus puertas falsas. #}
   <section class="ln-seccion" id="implementacion">
     <div class="ln-cabeza ln-centrada" data-revela>
-      <p class="ln-antetitulo">Implementación</p>
-      <h2>Llave en mano.</h2>
-      <p>Dejamos a Orby y a su equipo trabajando en tu negocio: con tu voz, tu marca y tus canales.</p>
+      <p class="ln-antetitulo">Gratis o completo</p>
+      <h2>Empieza gratis.<br>Pásate a todo cuando quieras.</h2>
     </div>
-    <div class="ln-planes">
-      <div class="ln-plan ln-plan-destacado" data-revela>
-        <p class="ln-rol">Qué incluye</p>
-        <h3>De la primera llamada al primer «Graba hoy»</h3>
+    <div class="ln-planes ln-planes-par">
+      <div class="ln-plan" data-revela>
+        <p class="ln-rol">Gratis</p>
+        <h3>Orby te dice qué grabar</h3>
         <ul>
-          <li>De 2 a 3 llamadas de onboarding contigo.</li>
-          <li>Tu Kit de marca: voz, pruebas, ofertas, límites y las cuentas de tu nicho que hay que seguir.</li>
-          <li>Tu identidad visual: paleta, tipografía, logo y movimiento de los textos de tus vídeos.</li>
-          <li>Instalación y conexión de tus redes, tu publicación y tus mensajes.</li>
-          <li>El equipo trabajando desde el primer día, con tu visto bueno en cada paso.</li>
+          <li>Tu negocio, tu ficha y tu Kit de marca.</li>
+          <li>El plan de contenido de Plani: qué grabar y cuándo.</li>
+          <li>Los guiones y estructuras de Escri, con tu voz.</li>
+          <li>El resumen de Orby de lo que toca hoy.</li>
         </ul>
+        <a class="ln-btn ln-btn-primario" href="/registro">Empieza gratis</a>
+        <p class="ln-nota">Usas tu propia clave de Claude: pagas tu uso directamente a Anthropic, nosotros nada.</p>
       </div>
-      <div class="ln-plan ln-precio" data-revela style="--d:.08s">
-        <p class="ln-rol">Inversión</p>
+      <div class="ln-plan ln-plan-destacado" data-revela style="--d:.08s">
+        <p class="ln-rol">Completo · con implementación</p>
+        <h3>El equipo entero trabajando para ti</h3>
+        <ul>
+          <li>Todo lo del plan gratis.</li>
+          <li>Investigación diaria de tu nicho: los reels que despegan, desmontados.</li>
+          <li>Edición de tus vídeos, publicación automática y respuestas a tus comentarios y mensajes.</li>
+          <li>Piloto automático: el equipo trabaja solo cada día.</li>
+          <li>De 2 a 3 llamadas de onboarding, tu Kit de marca y tu identidad visual, y todo conectado.</li>
+        </ul>
+        <a class="ln-btn ln-btn-cristal" href="{{ solicitar }}">Solicitar implementación</a>
         {# PENDIENTE: el precio de la implementación (o «desde X €»). Hasta entonces, «a medida». #}
-        <h3>A medida</h3>
-        <p>Según tu negocio, tus redes y el volumen de contenido. Te damos el precio en la primera llamada, sin compromiso.</p>
-        <a class="ln-btn ln-btn-primario" href="{{ solicitar }}">Solicitar implementación</a>
-        <p class="ln-nota">Los servicios que conectas (Claude, Apify, Zernio, ManyChat) se pagan aparte, según uso y con tu propia cuenta.</p>
+        <p class="ln-nota">A medida según tu negocio; te lo damos en la primera llamada, sin compromiso. Los servicios que conectas (Claude, Apify, Zernio, ManyChat) se pagan aparte, con tu propia cuenta.</p>
       </div>
     </div>
   </section>
@@ -208,6 +215,7 @@
       <details><summary>¿Cuánto tiempo me lleva a la semana?</summary><p>Lo que tardes en grabar y en revisar lo que te propone el equipo. Investigar, escribir, editar, publicar y contestar es cosa suya.</p></details>
       <details><summary>¿Va a sonar a mí o a una IA?</summary><p>A ti. Todo sale de tu Kit de marca, que montamos con tus llamadas. Y si corriges algo a menudo, el equipo lo convierte en una regla.</p></details>
       <details><summary>¿En qué redes publica?</summary><p>Instagram, TikTok, YouTube y LinkedIn, cada pieza en su hueco y con su texto para cada red.</p></details>
+      <details><summary>¿Qué tiene la versión gratis?</summary><p>Tu Kit de marca, el plan de qué grabar y los guiones con tu voz, con tu propia clave de Claude. Investigar tu nicho, editar, publicar y responder van en la versión completa: si los pruebas, te contamos qué hacen y te avisamos.</p></details>
       <details><summary>¿Tengo que saber de tecnología?</summary><p>No. En la implementación lo dejamos todo funcionando. Tú grabas, revisas y apruebas.</p></details>
       <details><summary>Si es de código abierto, ¿qué pago?</summary><p>Puedes instalarlo tú: el código está en GitHub. Lo que contratas es que lo dejemos funcionando para tu marca: servidor, conectores, tu Kit de marca y el equipo ajustado a tu negocio.</p></details>
       <details><summary>¿Qué pasa con mis datos?</summary><p>El software es libre y de código abierto, y corre en tu servidor. Tu contenido, tu Kit de marca y tus contactos son tuyos.</p></details>
@@ -248,11 +256,12 @@
   <span class="ln-logo"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</span>
   <span>Tu director de contenido con IA.</span>
   {% if URL_GITHUB %}<a href="{{ URL_GITHUB }}" target="_blank" rel="noopener">Código abierto · MIT</a>{% else %}<span>Código abierto · MIT</span>{% endif %}
+  <a href="/privacidad">Privacidad</a>
   <a href="/entrar">Entrar</a>
 </footer>
 {% endblock %}
 {% block scripts %}
-<script src="/static/sala.js?v=73" defer></script>
+<script src="/static/sala.js?v=74" defer></script>
 <script type="module" src="/static/landing3d.js?v=5"></script>
 <script>
   // Cada bloque aparece al entrar en pantalla.

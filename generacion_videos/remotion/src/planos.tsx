@@ -1,6 +1,6 @@
 import React from 'react';
-import {AbsoluteFill, Easing, OffthreadVideo, interpolate, staticFile} from 'remotion';
-import {ANCHO, CLAMP, CV, CX, Destellos, EXPO, ESCENARIO, Tarjeta, fontFamily, pop, ramp, sombra, sombraTexto, suave, useEstilo} from './base';
+import {AbsoluteFill, Easing, Img, OffthreadVideo, interpolate, random, staticFile} from 'remotion';
+import {ANCHO, CLAMP, CV, CX, Destellos, EXPO, ESCENARIO, Filete, Tarjeta, Velo, fontFamily, pop, ramp, sombra, sombraTexto, suave, useEstilo} from './base';
 import {Defs, ILUSTRACIONES} from './ilustraciones';
 import {NOMBRES, Robot, colorDe} from './robot';
 import type {Plano} from './tipos';
@@ -36,9 +36,9 @@ const Ilus: React.FC<{nombre: string; lado: number; f: number; fps: number; i: n
   if (!Comp) return null;
   const e0 = entra ?? i * 5;
   const s = pop(f, fps, e0);
-  const estira = 1 + (1 - s) * 0.25; // aplastar y estirar al caer
-  const flota = Math.sin((f + i * 17) / 14) * 9;
-  const giro = interpolate(s, [0, 1], [-18 + i * 12, 0]) + Math.sin((f + i * 9) / 22) * 2.5;
+  const estira = 1; // sin aplastar ni estirar: entra, se asienta y respira
+  const flota = Math.sin((f + i * 17) / 24) * 4;
+  const giro = 0;
   return (
     <div style={{position: 'relative', width: lado, height: lado}}>
       <Destellos f={f - e0 - 3} color="#9cc4ff" radio={lado * 0.45} />
@@ -64,8 +64,8 @@ const Objetos: React.FC<P> = ({p, f, fps}) => {
           <div key={i} style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14}}>
             <Ilus nombre={o} lado={lado} f={f} fps={fps} i={i} entra={cuando(p, i, i * 5)} />
             {etiquetas[i] ? (
-              <div style={{fontFamily, fontWeight: 900, fontSize: 46, color: '#fff', background: e.acento, padding: '8px 26px', border: '4px solid #fff',
-                borderRadius: 999, boxShadow: sombra, transform: `scale(${pop(f, fps, cuando(p, i, i * 5) + 6)})`}}>{etiquetas[i]}</div>
+              <div style={{fontFamily, fontWeight: 800, fontSize: 42, color: '#fff', letterSpacing: 0.5, textShadow: sombraTexto,
+                opacity: ramp(f, cuando(p, i, i * 5) + 4, cuando(p, i, i * 5) + 10)}}>{etiquetas[i]}</div>
             ) : null}
           </div>
         ))}
@@ -96,7 +96,7 @@ const RobotPlano: React.FC<P> = ({p, f, fps}) => {
   const boc = texto(p.bocadillo);
   const obj = texto(p.objeto);
   const robot = (
-    <div style={{transform: `translateY(${(1 - s) * 260}px) scale(${0.6 + 0.4 * s})`, position: 'relative'}}>
+    <div style={{transform: `translateY(${(1 - s) * 60}px) scale(${0.92 + 0.08 * s})`, opacity: Math.min(1, s * 1.5), position: 'relative'}}>
       <Destellos f={f - 2} color={colorDe(quien)} radio={200} />
       <Robot clave={quien} f={f} tam={boc ? (obj ? 360 : 400) : 480} accion={texto(p.accion) || 'saluda'} />
     </div>
@@ -155,16 +155,37 @@ const Cifra: React.FC<P> = ({p, f, fps, dur}) => {
   const e = useEstilo();
   const valor = Number(p.valor ?? 0);
   const desde = Number(p.desde ?? 0);
-  const llega = Math.max(12, Math.min(dur * 0.6, 40));
+  // En «cazzap» el número acaba de contar antes: si es el gancho, en el fotograma 0 ya se lee entero.
+  const llega = e.diseno === 'cazzap' ? Math.max(12, Math.min(dur * 0.5, 26)) : Math.max(12, Math.min(dur * 0.6, 40));
   const k = ramp(f, 2, llega);
   const n = desde + (valor - desde) * k;
   const dec = Number(p.decimales ?? 0);
   const num = n.toLocaleString('es-ES', {minimumFractionDigits: dec, maximumFractionDigits: dec});
   const s = pop(f, fps, 0, 8);
-  const golpe = f > llega ? pop(f, fps, llega, 6) : 0; // el número da un golpe al llegar
+  const golpe = 0; // el número llega y se queda: sin golpe (un efecto a la vez)
   const r = 250;
   const largo = 2 * Math.PI * r;
   const color = p.malo ? e.malo : e.acento;
+  if (e.diseno === 'cazzap') {
+    // Sin aro: el número grande cuenta, la etiqueta debajo y la fuente pequeña, como un dato de informativo.
+    const grande = n.toLocaleString('es-ES', {minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: 'always'} as unknown as Intl.NumberFormatOptions);
+    const largoTxt = grande.length + texto(p.prefijo).length + texto(p.sufijo).length;
+    return (
+      <Caja>
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily, textAlign: 'center', opacity: ramp(f, 0, 6),
+          transform: `translateY(${(1 - ramp(f, 0, 10)) * 30}px)`}}>
+          <div style={{fontWeight: 800, fontSize: largoTxt > 7 ? 168 : 220, lineHeight: 1, letterSpacing: -3,
+            color: p.malo ? e.malo : '#fff', textShadow: '0 6px 40px rgba(0,0,0,0.35)'}}>
+            {texto(p.prefijo)}{grande}<span style={{fontSize: '0.5em', letterSpacing: 0}}>{texto(p.sufijo)}</span>
+          </div>
+          <div style={{fontWeight: 600, fontSize: 44, color: 'rgba(255,255,255,0.88)', marginTop: 18, maxWidth: 760, lineHeight: 1.15,
+            opacity: ramp(f, 8, 16)}}>{texto(p.etiqueta)}</div>
+          {p.fuente ? <div style={{fontWeight: 500, fontSize: 27, color: 'rgba(255,255,255,0.5)', marginTop: 22, opacity: ramp(f, 14, 22)}}>
+            Fuente · {texto(p.fuente)}</div> : null}
+        </div>
+      </Caja>
+    );
+  }
   return (
     <Caja>
       <div style={{position: 'relative', width: 600, height: 600, transform: `scale(${s})`}}>
@@ -178,7 +199,7 @@ const Cifra: React.FC<P> = ({p, f, fps, dur}) => {
         <div style={{position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', fontFamily, color: '#fff', textAlign: 'center'}}>
           <div style={{fontWeight: 900, fontSize: num.length > 4 ? 150 : 200, lineHeight: 1, letterSpacing: -4,
-            transform: `scale(${1 + golpe * 0.12 - (f > llega + 8 ? 0.12 * pop(f, fps, llega + 8, 12) : 0)})`, textShadow: sombraTexto}}>
+            transform: `scale(${1 + golpe})`, textShadow: sombraTexto, fontVariantNumeric: 'tabular-nums'}}>
             {texto(p.prefijo)}{num}<span style={{fontSize: '0.45em', letterSpacing: 0}}>{texto(p.sufijo)}</span>
           </div>
           <div style={{fontWeight: 800, fontSize: 40, color: e.subrayado, marginTop: 10, maxWidth: 420, lineHeight: 1.1}}>{texto(p.etiqueta)}</div>
@@ -201,7 +222,7 @@ const Grafica: React.FC<P> = ({p, f, fps, dur}) => {
     const bw = w / vals.length * 0.62;
     return (
       <Caja>
-        <Tarjeta style={{padding: '36px 40px 26px', transform: `scale(${0.9 + 0.1 * s})`, opacity: s}}>
+        <Velo><div style={{fontFamily, color: '#fff', transform: `scale(${0.97 + 0.03 * s})`, opacity: s}}>
           <div style={{fontWeight: 900, fontSize: 48, marginBottom: 18, color: e.subrayado}}>{texto(p.titulo)}</div>
           <div style={{display: 'flex', alignItems: 'flex-end', gap: w / vals.length * 0.38, height: h}}>
             {vals.map((v, i) => {
@@ -218,7 +239,7 @@ const Grafica: React.FC<P> = ({p, f, fps, dur}) => {
               );
             })}
           </div>
-        </Tarjeta>
+        </div></Velo>
       </Caja>
     );
   }
@@ -228,7 +249,7 @@ const Grafica: React.FC<P> = ({p, f, fps, dur}) => {
   const ultimo = pts[Math.min(pts.length - 1, Math.floor(k * (pts.length - 1) + 0.001))];
   return (
     <Caja>
-      <Tarjeta style={{padding: '36px 40px', transform: `scale(${0.9 + 0.1 * s})`, opacity: s}}>
+      <Velo><div style={{fontFamily, color: '#fff', transform: `scale(${0.97 + 0.03 * s})`, opacity: s}}>
         <div style={{fontWeight: 900, fontSize: 48, marginBottom: 14, color: e.subrayado}}>{texto(p.titulo)}</div>
         <svg width={w} height={h} style={{overflow: 'visible'}}>
           {[0.25, 0.5, 0.75].map((y) => <line key={y} x1="0" x2={w} y1={h * y} y2={h * y} stroke="rgba(150,185,255,0.15)" strokeWidth="2" />)}
@@ -243,7 +264,7 @@ const Grafica: React.FC<P> = ({p, f, fps, dur}) => {
         <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 34, color: 'rgba(255,255,255,0.8)', marginTop: 12}}>
           {etqs.map((t, i) => <span key={i}>{t}</span>)}
         </div>
-      </Tarjeta>
+      </div></Velo>
     </Caja>
   );
 };
@@ -304,15 +325,17 @@ const Suma: React.FC<P> = ({p, f, fps, dur}) => {
 
 // ---------------------------------------------------------------- listas y comparaciones
 
+/** Marca de línea (sin círculo relleno ni baldosa): el visto o la cruz se dibujan con un trazo. */
 const Marca: React.FC<{tipo: string; k: number; color: string}> = ({tipo, k, color}) => (
-  <svg width="70" height="70" viewBox="0 0 70 70">
-    <circle cx="35" cy="35" r="33" fill={color} />
+  <svg width="60" height="60" viewBox="0 0 70 70">
     {tipo === 'cruz'
-      ? <path d="M22 22 L48 48 M48 22 L22 48" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeDasharray="80" strokeDashoffset={80 * (1 - k)} />
-      : <path d="M19 36 L30 47 L52 24" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" fill="none" strokeDasharray="60" strokeDashoffset={60 * (1 - k)} />}
+      ? <path d="M20 20 L50 50 M50 20 L20 50" stroke={color} strokeWidth="8" strokeLinecap="round" fill="none" strokeDasharray="90" strokeDashoffset={90 * (1 - k)} />
+      : <path d="M16 37 L29 50 L54 22" stroke={color} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" strokeDasharray="64" strokeDashoffset={64 * (1 - k)} />}
   </svg>
 );
 
+/** Lista en texto plano: cada punto entra en su palabra (aparece y se asienta), con su marca de línea o su número en el
+ *  color de acento. Lo tachado se apaga. Sin tarjetas. */
 const Lista: React.FC<P> = ({p, f, fps, dur}) => {
   const e = useEstilo();
   const items = lista<string>(p.items);
@@ -320,30 +343,31 @@ const Lista: React.FC<P> = ({p, f, fps, dur}) => {
   const tipo = texto(p.marca) || 'check';
   return (
     <Caja>
-      <div style={{display: 'flex', flexDirection: 'column', gap: 22, width: ANCHO - 40}}>
-        {items.map((it, i) => {
-          const e0 = cuando(p, i, i * paso);
-          const s = pop(f, fps, e0, 11);
-          const k = ramp(f, e0 + 6, e0 + 16);
-          const tachado = tipo === 'cruz' ? ramp(f, e0 + 10, e0 + 20) : 0;
-          return (
-            <div key={i} style={{transform: `translateX(${(1 - s) * -500}px) rotate(${(1 - s) * -6}deg)`, opacity: Math.min(1, s * 2)}}>
-              <Tarjeta style={{display: 'flex', alignItems: 'center', gap: 26, padding: '22px 30px'}}>
+      <Velo fuerza={0.8}>
+        <div style={{display: 'flex', flexDirection: 'column', gap: 30, width: ANCHO - 40}}>
+          {items.map((it, i) => {
+            const e0 = cuando(p, i, i * paso);
+            const k0 = ramp(f, e0, e0 + 6);
+            const k = ramp(f, e0 + 3, e0 + 11);
+            const tachado = tipo === 'cruz' ? ramp(f, e0 + 6, e0 + 14) : 0;
+            return (
+              <div key={i} style={{display: 'flex', alignItems: 'center', gap: 24, opacity: Math.min(1, k0 * 1.6) * (1 - 0.45 * tachado),
+                transform: `translateY(${(1 - k0) * 16}px)`}}>
                 {tipo === 'num'
-                  ? <div style={{width: 70, height: 70, borderRadius: 35, background: e.acento, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontWeight: 900, fontSize: 42, flexShrink: 0}}>{i + 1}</div>
-                  : <div style={{flexShrink: 0, transform: `scale(${pop(f, fps, e0 + 5, 7)})`}}>
-                      <Marca tipo={tipo} k={k} color={tipo === 'cruz' ? e.malo : e.acento} /></div>}
-                <div style={{fontWeight: 800, fontSize: 52, lineHeight: 1.12, position: 'relative'}}>
+                  ? <div style={{width: 60, flexShrink: 0, fontFamily, fontWeight: 900, fontSize: 56, color: e.acento, textAlign: 'center',
+                      fontVariantNumeric: 'tabular-nums'}}>{i + 1}</div>
+                  : <div style={{flexShrink: 0}}><Marca tipo={tipo} k={k} color={tipo === 'cruz' ? e.malo : e.acento} /></div>}
+                <div style={{fontFamily, fontWeight: 800, fontSize: 56, lineHeight: 1.12, color: '#fff', position: 'relative',
+                  textShadow: '0 2px 18px rgba(0,0,0,0.4)'}}>
                   {it}
-                  {tipo === 'cruz' ? <div style={{position: 'absolute', left: 0, top: '52%', height: 7, borderRadius: 4,
+                  {tipo === 'cruz' ? <div style={{position: 'absolute', left: 0, top: '54%', height: 6, borderRadius: 3,
                     width: `${tachado * 100}%`, background: e.malo}} /> : null}
                 </div>
-              </Tarjeta>
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      </Velo>
     </Caja>
   );
 };
@@ -378,9 +402,8 @@ const Versus: React.FC<P> = ({p, f, fps, dur}) => {
             </div>
           );
         })}
-        <div style={{position: 'absolute', left: '50%', top: '42%', transform: `translate(-50%, -50%) scale(${pop(f, fps, 12, 7)}) rotate(-8deg)`,
-          width: 120, height: 120, borderRadius: 60, background: e.acento, border: '6px solid #fff', boxShadow: sombra,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily, fontWeight: 900, fontSize: 52, color: '#fff'}}>VS</div>
+        <div style={{position: 'absolute', left: '50%', top: '42%', transform: 'translate(-50%, -50%)', opacity: ramp(f, 10, 16),
+          fontFamily, fontWeight: 800, fontSize: 40, color: '#fff', letterSpacing: 2, textShadow: sombraTexto}}>vs</div>
       </div>
     </Caja>
   );
@@ -659,19 +682,18 @@ const Chat: React.FC<P> = ({p, f, fps, dur}) => {
 const PalabraPlano: React.FC<P> = ({p, f, fps}) => {
   const e = useEstilo();
   const t = texto(p.texto);
-  const s = pop(f, fps, 0, 7);
-  const tam = t.length <= 4 ? 260 : t.length <= 8 ? 190 : t.length <= 12 ? 140 : 110;
+  const k = ramp(f, 0, 7);
+  const tam = t.length <= 4 ? 250 : t.length <= 8 ? 184 : t.length <= 12 ? 136 : 108;
   const sub = texto(p.sub);
+  // Aparece de golpe con la voz y se asienta (escala 1,06 → 1). Sin giro, sin desenfoque, sin brillo que late.
   return (
     <Caja>
-      <div style={{fontFamily, fontWeight: 900, fontSize: tam, lineHeight: 0.95, color: p.malo ? e.malo : '#fff', textAlign: 'center',
-        letterSpacing: -3, transform: `scale(${(2.2 - 1.2 * s) * (1 + 0.035 * Math.sin(f / 7))}) rotate(${(1 - s) * -8 + Math.sin(f / 15) * 1.5}deg)`, opacity: Math.min(1, s * 1.5),
-        filter: `blur(${(1 - Math.min(1, s)) * 14}px)`, textShadow: `${sombraTexto}, 0 0 ${50 + 25 * Math.sin(f / 5)}px ${p.malo ? e.malo : e.acento}`}}>{t}</div>
-      {sub ? (
-        <div style={{marginTop: 40, transform: `scale(${pop(f, fps, 8)})`}}>
-          <Tarjeta style={{padding: '16px 34px', fontSize: 48, fontWeight: 800, textAlign: 'center'}}>{sub}</Tarjeta>
-        </div>
-      ) : null}
+      <Velo>
+        <div style={{fontFamily, fontWeight: 900, fontSize: tam, lineHeight: 0.95, color: p.malo ? e.malo : '#fff', textAlign: 'center',
+          letterSpacing: -1, transform: `scale(${1.06 - 0.06 * k + 0.012 * ramp(f, 8, 90, (x) => x)})`, opacity: Math.min(1, k * 2),
+          textShadow: '0 4px 30px rgba(0,0,0,0.45)'}}>{t}</div>
+      </Velo>
+      {sub ? <div style={{marginTop: 46}}><Filete texto={sub} k={ramp(f, 8, 16)} tam={40} mayus={false} ancho={140} /></div> : null}
     </Caja>
   );
 };
@@ -684,7 +706,7 @@ const Frase: React.FC<P> = ({p, f, fps, dur}) => {
   const fuera = p.tachar ? ramp(f, enTacha + 10, enTacha + 24) : 0;
   return (
     <Caja>
-      <div style={{transform: `rotate(${(1 - s) * 12 - 2 + fuera * 5 + Math.sin(f / 13) * 0.8}deg) scale(${s * (1 - 0.1 * fuera)}) translateY(${Math.sin(f / 11) * 6}px)`,
+      <div style={{transform: `scale(${(0.94 + 0.06 * s) * (1 - 0.06 * fuera)})`, opacity: Math.min(1, s * 1.5),
         position: 'relative', filter: `grayscale(${fuera * 0.8}) brightness(${1 - fuera * 0.25})`}}>
         <Tarjeta claro style={{padding: '56px 56px 48px', maxWidth: ANCHO, position: 'relative'}}>
           <div style={{position: 'absolute', top: -78, left: 26, fontSize: 190, fontWeight: 900, color: e.acento, lineHeight: 1}}>“</div>
@@ -724,7 +746,7 @@ const RelojPlano: React.FC<P> = ({p, f, fps, dur}) => {
       </svg>
       {p.texto ? (
         <div style={{marginTop: 18, transform: `scale(${pop(f, fps, 6)})`}}>
-          <Tarjeta style={{padding: '14px 34px', fontSize: 54, fontWeight: 900}}>{texto(p.texto)}</Tarjeta>
+          <Filete texto={texto(p.texto)} k={1} tam={54} mayus={false} />
         </div>
       ) : null}
     </Caja>
@@ -786,7 +808,7 @@ const Flujo: React.FC<P> = ({p, f, fps, dur}) => {
           const c = x.quien === 'tu' ? '#ffffff' : colorDe(x.quien);
           return (
             <div key={i} style={{display: 'flex', alignItems: 'center', gap: 18, opacity: f < entra[i] ? 0.25 : 1,
-              transform: `scale(${on ? 1.04 : 0.96}) translateX(${on ? 0 : 0}px)`}}>
+              transform: `translateX(${on ? 8 : 0}px)`}}>
               <div style={{width: 100, height: 100, flexShrink: 0, transform: `scale(${0.7 + 0.3 * s})`, display: 'flex',
                 alignItems: 'center', justifyContent: 'center'}}>
                 {x.quien === 'tu'
@@ -794,9 +816,8 @@ const Flujo: React.FC<P> = ({p, f, fps, dur}) => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: on ? '0 0 30px #fff' : 'none'}}>Tú</div>
                   : <Robot clave={x.quien} f={f} tam={92} accion={on ? 'trabaja' : hecho ? 'quieto' : 'duerme'} semilla={i} />}
               </div>
-              <div style={{flex: 1, fontFamily, borderRadius: 22, padding: '14px 22px', color: '#fff',
-                background: on ? `linear-gradient(90deg, ${c}55, rgba(20,40,110,0.7))` : 'rgba(20,40,110,0.45)',
-                border: `2px solid ${on ? c : 'rgba(150,185,255,0.18)'}`, boxShadow: on ? `0 0 34px ${c}88` : 'none'}}>
+              <div style={{flex: 1, fontFamily, padding: '6px 0 6px 22px', color: '#fff', opacity: on ? 1 : 0.62,
+                borderLeft: `6px solid ${on ? c : 'transparent'}`}}>
                 <div style={{fontWeight: 900, fontSize: 32, color: c}}>{x.quien === 'tu' ? 'Tú' : NOMBRES[x.quien]?.nombre ?? x.quien}</div>
                 <div style={{fontWeight: 800, fontSize: 38, lineHeight: 1.1}}>{x.texto}</div>
               </div>
@@ -828,7 +849,11 @@ const Pantalla: React.FC<P> = ({p, f, fps}) => {
       r = {t, x: es[i].x + (es[i + 1].x - es[i].x) * k, y: es[i].y + (es[i + 1].y - es[i].y) * k, w: es[i].w + (es[i + 1].w - es[i].w) * k};
     } else if (t > es[i + 1].t) r = es[i + 1];
   }
-  const escala = 1080 / r.w;
+  // «marco»: la grabación va dentro de una tarjeta bajo el subtítulo (webs: se ve entera, sin cortar por los lados ni
+  // quedar debajo del subtítulo). Sin marco, a pantalla completa.
+  const marco = Boolean(p.marco);
+  const M = {left: 70, top: 410, width: 940, height: 1060};
+  const escala = (marco ? M.width : 1080) / r.w;
   const cur = lista<Punto>(p.cursor).filter((x) => x.t <= t + 0.6);
   let cx: number | null = null, cy = 0, clic = 0;
   if (cur.length) {
@@ -838,7 +863,9 @@ const Pantalla: React.FC<P> = ({p, f, fps}) => {
     if (b.clic && t >= b.t) clic = Math.max(0, 1 - (t - b.t) / 0.4);
   }
   return (
-    <div style={{position: 'absolute', inset: 0, overflow: 'hidden', background: '#05070f'}}>
+    <div style={marco ? {position: 'absolute', ...M, overflow: 'hidden', background: '#fff', borderRadius: 26,
+      boxShadow: '0 40px 90px rgba(0,0,0,0.5)', opacity: ramp(f, 0, 6), transform: `translateY(${(1 - ramp(f, 0, 10)) * 40}px)`}
+      : {position: 'absolute', inset: 0, overflow: 'hidden', background: '#05070f'}}>
       <div style={{position: 'absolute', left: 0, top: 0, width: ancho, height: alto, transformOrigin: '0 0',
         transform: `translate(${-r.x * escala}px, ${-r.y * escala}px) scale(${escala})`}}>
         <OffthreadVideo src={staticFile(texto(p.archivo))} startFrom={Math.round(Number(p.desde ?? 0) * fps)} muted style={{width: ancho, height: alto}} />
@@ -852,7 +879,7 @@ const Pantalla: React.FC<P> = ({p, f, fps}) => {
           </div>
         ) : null}
       </div>
-      <div style={{position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(5,7,15,0.55) 0%, transparent 22%, transparent 62%, rgba(5,7,15,0.7) 100%)'}} />
+      {marco ? null : <div style={{position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(5,7,15,0.55) 0%, transparent 22%, transparent 62%, rgba(5,7,15,0.7) 100%)'}} />}
     </div>
   );
 };
@@ -863,41 +890,34 @@ const Cierre: React.FC<P> = ({p, f, fps}) => {
   const e = useEstilo();
   const clave = texto(p.palabra);
   const web = texto(p.web);
-  const s = pop(f, fps, 6, 8);
-  const late = 1 + 0.05 * Math.sin(f / 4);
+  const k = ramp(f, 6, 14);
+  // La marca arriba (su logo del Kit; si no hay, el muñeco de Orby) y una sola cosa que hacer, en texto plano.
+  const marca = e.logo
+    ? <Img src={staticFile(e.logo)} style={{height: 200, maxWidth: 520, objectFit: 'contain', opacity: ramp(f, 0, 8)}} />
+    : <Robot clave="jefa" f={f} tam={260} accion="saluda" />;
+  const grande = (t: React.ReactNode, tam: number) => (
+    <Velo>
+      <div style={{fontFamily, fontWeight: 900, fontSize: tam, lineHeight: 1.0, color: '#fff', textAlign: 'center', letterSpacing: 0,
+        textTransform: 'uppercase', opacity: Math.min(1, k * 1.6), transform: `scale(${1.05 - 0.05 * k})`, textShadow: '0 4px 30px rgba(0,0,0,0.45)'}}>{t}</div>
+    </Velo>
+  );
+  const pie = (t: string) => <div style={{fontFamily, fontWeight: 700, fontSize: 40, color: '#fff', marginTop: 26, textAlign: 'center',
+    maxWidth: ANCHO, opacity: ramp(f, 14, 22), textShadow: sombraTexto}}>{t}</div>;
+  const filete = <div style={{height: 8, width: 160 * ramp(f, 10, 20), borderRadius: 4, background: e.acento, marginTop: 22}} />;
   return (
     <Caja top={ESCENARIO.top - 80} alto={ESCENARIO.alto + 80}>
-      <Robot clave="jefa" f={f} tam={280} accion="saluda" />
+      {marca}
       {p.enlace ? (
-        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 4}}>
-          <svg width="90" height="90" viewBox="0 0 90 90" style={{transform: `translateY(${-Math.abs(Math.sin(f / 5)) * 22}px) scale(${pop(f, fps, 3)})`}}>
-            <path d="M45 8 L80 46 L58 46 L58 84 L32 84 L32 46 L10 46 Z" fill="#fff" stroke={e.acento} strokeWidth="5" strokeLinejoin="round" />
-          </svg>
-          <div style={{transform: `scale(${s * late}) rotate(-3deg)`, marginTop: 10, position: 'relative'}}>
-            <Destellos f={f - 8} color={e.subrayado} radio={280} n={10} />
-            <div style={{fontFamily, fontWeight: 900, fontSize: 84, color: '#fff', background: e.acento, padding: '10px 40px', borderRadius: 30,
-              border: '7px solid #fff', textAlign: 'center', lineHeight: 1.02, textTransform: 'uppercase',
-              boxShadow: `${sombra}, 0 0 ${50 + 20 * Math.sin(f / 4)}px ${e.acento}`}}>Enlace<br />en el perfil</div>
-          </div>
-          {p.texto ? <div style={{fontFamily, fontWeight: 800, fontSize: 44, color: '#fff', marginTop: 24, textShadow: sombraTexto, textAlign: 'center',
-            maxWidth: ANCHO, transform: `scale(${pop(f, fps, 14)})`}}>{texto(p.texto)}</div> : null}
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 18}}>
+          {grande(<>Enlace<br />en el perfil</>, 92)}{filete}{p.texto ? pie(texto(p.texto)) : null}
         </div>
       ) : clave ? (
-        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 6}}>
-          <div style={{fontFamily, fontWeight: 900, fontSize: 54, color: '#fff', textShadow: sombraTexto, transform: `scale(${pop(f, fps, 3)})`}}>Comenta</div>
-          <div style={{transform: `scale(${s * late}) rotate(-3deg)`, marginTop: 8, position: 'relative'}}>
-            <Destellos f={f - 8} color={e.subrayado} radio={260} n={10} />
-            <div style={{fontFamily, fontWeight: 900, fontSize: 120, color: '#fff', letterSpacing: 2, background: e.acento,
-              padding: '6px 46px', borderRadius: 30, border: '7px solid #fff', boxShadow: `${sombra}, 0 0 ${50 + 20 * Math.sin(f / 4)}px ${e.acento}`}}>{clave}</div>
-          </div>
-          <div style={{fontFamily, fontWeight: 800, fontSize: 44, color: '#fff', marginTop: 22, textShadow: sombraTexto,
-            transform: `scale(${pop(f, fps, 14)})`}}>{texto(p.texto) || 'y te mando el enlace'}</div>
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 18}}>
+          <div style={{fontFamily, fontWeight: 700, fontSize: 48, color: '#fff', opacity: ramp(f, 2, 8), textShadow: sombraTexto}}>Comenta</div>
+          {grande(clave, 132)}{filete}{pie(texto(p.texto) || 'y te mando el enlace')}
         </div>
-      ) : (
-        <div style={{transform: `scale(${s})`, marginTop: 10, fontFamily, fontWeight: 900, fontSize: 104, color: '#fff', letterSpacing: -2,
-          textShadow: `${sombraTexto}, 0 0 50px ${e.acento}`}}>{web}</div>
-      )}
-      {(clave || p.enlace) && web ? <div style={{fontFamily, fontWeight: 800, fontSize: 34, color: e.subrayado, marginTop: 14, opacity: pop(f, fps, 20)}}>{web}</div> : null}
+      ) : <div style={{marginTop: 18}}>{grande(web, 100)}</div>}
+      {(clave || p.enlace) && web ? <div style={{fontFamily, fontWeight: 700, fontSize: 34, color: e.subrayado, marginTop: 16, opacity: ramp(f, 20, 28)}}>{web}</div> : null}
     </Caja>
   );
 };
@@ -925,10 +945,405 @@ const Recurso: React.FC<P> = ({p, f, fps, dur}) => {
   );
 };
 
+// ---------------------------------------------------------------- escenas que cuentan (diseño «cazzap»)
+
+/** El sitio de una escena «cazzap»: de debajo del subtítulo hasta el suelo, a todo lo ancho. */
+const Lleno: React.FC<{children: React.ReactNode}> = ({children}) => (
+  <div style={{position: 'absolute', left: 40, width: 1000, top: 400, height: 1000, display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center'}}>{children}</div>
+);
+
+/** Una cosa que se multiplica (n copias que van apareciendo) y, si lleva «quedan», se vacía hasta quedar esas: los
+ * seguidores que no miran, los vídeos que se pierden, las horas que se van. «objeto» es una ilustración o «quien» un
+ * agente; «contador» enseña el número subiendo debajo. */
+const Multiplica: React.FC<P> = ({p, f, fps, dur}) => {
+  const e = useEstilo();
+  const n = Math.max(1, Math.min(48, Number(p.n ?? 12)));
+  const quedan = p.quedan === undefined ? n : Math.max(0, Math.min(n, Number(p.quedan)));
+  const g = Array.isArray(p.golpes) ? (p.golpes as number[]) : [];
+  const empieza = g[0] ?? 0;
+  const llena = Math.max(empieza + 10, Math.min(empieza + dur * 0.5, empieza + n * 3));
+  const vacia = quedan < n ? (g[1] ?? Math.round(dur * 0.58)) : Infinity;
+  const grande = e.diseno === 'cazzap';
+  const cols = Math.ceil(Math.sqrt(n * (grande ? 1.2 : 1.6)));
+  const filas = Math.ceil(n / cols);
+  // En «cazzap» la rejilla ocupa todo el ancho y el alto bajo el subtítulo, apoyada en el suelo.
+  const lado = grande ? Math.min(260, Math.floor(Math.min(1000 / cols, (p.contador ? 640 : p.etiqueta ? 800 : 960) / filas)))
+    : Math.min(150, Math.floor(Math.min((ANCHO - 20) / cols, 560 / filas)));
+  const Comp = texto(p.objeto) ? ILUSTRACIONES[texto(p.objeto)] : null;
+  const quien = texto(p.quien);
+  const visibles = Math.floor(interpolate(f, [empieza, llena], [0, n], CLAMP));
+  const cuenta = f < vacia ? visibles : Math.round(interpolate(f, [vacia, vacia + 18], [n, quedan], CLAMP));
+  const Marco = grande ? Lleno : Caja;
+  return (
+    <Marco>
+      <div style={{display: 'grid', gridTemplateColumns: `repeat(${cols}, ${lado}px)`, gap: 6, justifyContent: 'center'}}>
+        {Array.from({length: n}).map((_, i) => {
+          const entra = empieza + (llena - empieza) * (i / n);
+          const s = pop(f, fps, entra, 7);
+          // Se apagan de atrás hacia delante, una tras otra.
+          const fuera = i >= quedan ? ramp(f, vacia + (n - 1 - i) * 0.6, vacia + (n - 1 - i) * 0.6 + (grande ? 14 : 8)) : 0;
+          // En «cazzap» se caen: un pequeño salto hacia arriba, giran y caen fuera de la pantalla.
+          const cae = grande && fuera ? `translateY(${-30 * Math.sin(Math.PI * Math.min(1, fuera * 3)) + 900 * fuera * fuera}px) rotate(${(i % 2 ? 1 : -1) * 40 * fuera}deg)` : '';
+          return (
+            <div key={i} style={{width: lado, height: lado, transform: `${cae} scale(${s * (grande ? 1 : 1 - fuera * 0.25)})`,
+              opacity: f < entra ? 0 : grande ? 1 - fuera * 0.6 : 1 - fuera * 0.82, filter: fuera ? `grayscale(${fuera})` : undefined,
+              position: 'relative', zIndex: 1}}>
+              {quien ? <Robot clave={quien} f={f + i * 7} tam={lado} accion="quieto" semilla={i} />
+                : Comp ? <svg width={lado} height={lado} viewBox="0 0 400 400"><Defs /><Comp /></svg> : null}
+            </div>
+          );
+        })}
+      </div>
+      {p.contador || p.etiqueta ? (
+        <div style={{marginTop: 26, textAlign: 'center', fontFamily, color: '#fff', position: 'relative', zIndex: 2,
+          ...(grande ? {padding: '10px 40px', borderRadius: 30, background: 'radial-gradient(ellipse, rgba(5,12,35,0.85) 30%, transparent 75%)'} : {})}}>
+          {p.contador ? <div style={{fontWeight: 800, fontSize: grande ? 140 : 96, lineHeight: 1, color: f >= vacia ? e.malo : '#fff'}}>
+            {cuenta.toLocaleString('es-ES')}{texto(p.sufijo)}</div> : null}
+          {p.etiqueta ? <div style={{fontWeight: 600, fontSize: grande ? 48 : 40, color: 'rgba(255,255,255,0.85)', marginTop: 8}}>{texto(p.etiqueta)}</div> : null}
+        </div>
+      ) : null}
+    </Marco>
+  );
+};
+
+/** El equipo pasándose el trabajo: los agentes en fila y una cosa (el guion, el vídeo, el mensaje) que viaja de uno a
+ * otro según se nombra a cada uno (^nombre). El que tiene la cosa se adelanta y dice lo que hace. */
+const Cadena: React.FC<P> = (props) => {
+  const e = useEstilo();
+  return e.diseno === 'cazzap' ? <CadenaDeMontaje {...props} /> : <CadenaSimple {...props} />;
+};
+
+/** «cazzap»: la misma cadena, grande y apoyada en una cinta transportadora que avanza; lo que viaja deja estela. */
+const CadenaDeMontaje: React.FC<P> = ({p, f, dur}) => {
+  const e = useEstilo();
+  const pasos = lista<{quien: string; texto?: string; objeto?: string}>(p.pasos);
+  const n = Math.max(1, pasos.length);
+  // Con más de cuatro no caben grandes: la cinta avanza y la cámara sigue al que trabaja, que queda en el centro.
+  const larga = n > 4;
+  const ancho = larga ? 300 : Math.min(340, Math.floor(1000 / n));
+  const ent = (i: number) => cuando(p, i, Math.round((i * dur * 0.75) / n));
+  let activo = 0;
+  pasos.forEach((_, i) => { if (f >= ent(i)) activo = i; });
+  const viajeDe = (ff: number) => (activo > 0 ? ramp(ff, ent(activo), ent(activo) + 10) : 1);
+  const enCinta = (i: number) => 540 + (i - (n - 1) / 2) * ancho;
+  const camara = larga ? enCinta(Math.max(0, activo - 1)) + (enCinta(activo) - enCinta(Math.max(0, activo - 1))) * viajeDe(f) - 540 : 0;
+  const xDe = (i: number) => enCinta(i) - camara;
+  const pos = (v: number) => ({x: xDe(activo - 1) + (xDe(activo) - xDe(activo - 1)) * v, y: 560 - Math.sin(Math.PI * v) * 130});
+  const cosa = texto(pasos[activo]?.objeto) || texto(p.objeto) || 'libreta';
+  const Cosa = ILUSTRACIONES[cosa];
+  const cinta = 1300;
+  const tamCosa = 190;
+  return (
+    <AbsoluteFill>
+      {/* La cinta: una banda en el suelo con marcas que avanzan hacia la derecha. */}
+      <div style={{position: 'absolute', left: larga ? -40 : 60, width: larga ? 1160 : 960, top: cinta - 36, height: 52, borderRadius: 26,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.35))', border: `2px solid ${e.subrayado}33`, overflow: 'hidden'}}>
+        <div style={{position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(90deg, ${e.subrayado}40 0 6px, transparent 6px 60px)`,
+          backgroundPosition: `${((f * 3 - camara) % 60 + 60) % 60}px 0`}} />
+      </div>
+      {pasos.map((s, i) => {
+        const es = i === activo;
+        const tam = es ? ancho * 1.25 : ancho * 1.0;
+        const k = ramp(f, ent(i), ent(i) + 8);
+        return (
+          <div key={i} style={{position: 'absolute', left: xDe(i) - tam / 2, top: cinta - 10 - tam * 1.12, width: tam, display: 'flex',
+            flexDirection: 'column', alignItems: 'center', filter: es ? undefined : 'saturate(0.55) brightness(0.75)'}}>
+            <Robot clave={s.quien} f={f + i * 11} tam={tam} accion={es ? 'trabaja' : 'quieto'} semilla={i} />
+          </div>
+        );
+      })}
+      {pasos.map((s, i) => (
+        <div key={`t${i}`} style={{position: 'absolute', left: xDe(i) - ancho / 2 - 10, width: ancho + 20, top: cinta + 40, textAlign: 'center',
+          fontFamily, fontWeight: i === activo ? 800 : 600, fontSize: i === activo ? 44 : 34, lineHeight: 1.1,
+          color: i === activo ? '#fff' : 'rgba(255,255,255,0.55)', opacity: f >= ent(i) ? 0.5 + 0.5 * ramp(f, ent(i), ent(i) + 8) : 0}}>
+          {s.texto ?? NOMBRES[s.quien]?.nombre ?? ''}</div>
+      ))}
+      {Cosa ? [3, 2, 1, 0].map((d) => {
+        // Estela: copias de lo que viaja, unos fotogramas por detrás y más transparentes.
+        const v = viajeDe(f - d * 2);
+        if (d > 0 && (v <= 0 || v >= 1)) return null;
+        const q = pos(v);
+        return (
+          <svg key={d} width={tamCosa} height={tamCosa} viewBox="0 0 400 400" style={{position: 'absolute', left: q.x - tamCosa / 2,
+            top: q.y - tamCosa / 2, opacity: d ? 0.35 - d * 0.09 : 1, transform: `rotate(${(1 - v) * -18}deg) scale(${1 - d * 0.06})`,
+            filter: d ? 'blur(2px)' : 'drop-shadow(0 14px 22px rgba(0,0,0,0.4))'}}>
+            <Defs /><Cosa />
+          </svg>
+        );
+      }) : null}
+    </AbsoluteFill>
+  );
+};
+
+const CadenaSimple: React.FC<P> = ({p, f, fps, dur}) => {
+  const pasos = lista<{quien: string; texto?: string; objeto?: string}>(p.pasos);
+  const n = Math.max(1, pasos.length);
+  const ancho = Math.min(300, Math.floor((ANCHO + 160) / n));
+  // Sin ^nombre en el guion, el trabajo pasa de uno a otro repartido a lo largo del plano.
+  const ent = (i: number) => cuando(p, i, Math.round((i * dur * 0.75) / n));
+  let activo = 0;
+  pasos.forEach((_, i) => { if (f >= ent(i)) activo = i; });
+  const viaje = activo > 0 ? ramp(f, ent(activo), ent(activo) + 9) : 1;
+  const xDe = (i: number) => (i - (n - 1) / 2) * ancho;
+  const x = xDe(activo - 1) + (xDe(activo) - xDe(activo - 1)) * viaje;
+  const cosa = texto(pasos[activo]?.objeto) || texto(p.objeto) || 'libreta';
+  const Cosa = ILUSTRACIONES[cosa];
+  const salto = Math.sin(Math.PI * viaje) * 90;
+  return (
+    <Caja>
+      <div style={{position: 'relative', width: ancho * n, height: 560}}>
+        {pasos.map((s, i) => {
+          const es = i === activo;
+          const k = ramp(f, ent(i), ent(i) + 8);
+          const tam = es ? ancho * 0.95 : ancho * 0.72;
+          return (
+            <div key={i} style={{position: 'absolute', left: (ancho * n) / 2 + xDe(i) - tam / 2, bottom: 90, width: tam, display: 'flex',
+              flexDirection: 'column', alignItems: 'center', opacity: f < ent(0) - 4 && i > 0 ? 0.5 : 1,
+              filter: es ? undefined : 'saturate(0.6) brightness(0.8)', transition: 'none'}}>
+              <Robot clave={s.quien} f={f + i * 11} tam={tam} accion={es ? 'trabaja' : 'quieto'} semilla={i} />
+              <div style={{position: 'absolute', top: '100%', marginTop: 10, width: ancho + 40, textAlign: 'center', fontFamily,
+                fontWeight: es ? 800 : 600, fontSize: es ? 34 : 28, color: es ? '#fff' : 'rgba(255,255,255,0.6)', lineHeight: 1.1,
+                opacity: f >= ent(i) ? 0.5 + 0.5 * k : 0}}>{s.texto ?? NOMBRES[s.quien]?.nombre ?? ''}</div>
+            </div>
+          );
+        })}
+        {Cosa ? (
+          <svg width={150} height={150} viewBox="0 0 400 400" style={{position: 'absolute', left: (ancho * n) / 2 + x - 75,
+            top: -40 - salto, transform: `rotate(${(1 - viaje) * -18}deg)`, filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.35))'}}>
+            <Defs /><Cosa />
+          </svg>
+        ) : null}
+      </div>
+    </Caja>
+  );
+};
+
+// ---------------------------------------------------------------- lugares (diseño «cazzap»)
+
+// Silueta de la España peninsular (longitud, latitud), simplificada a mano: basta para que se reconozca.
+const ESPANA: [number, number][] = [
+  [-9.3, 43.2], [-8.0, 43.72], [-7.0, 43.55], [-5.8, 43.62], [-4.5, 43.42], [-3.8, 43.48], [-3.0, 43.36], [-1.8, 43.38],
+  [-1.4, 43.05], [-0.7, 42.8], [0.7, 42.82], [1.4, 42.5], [2.2, 42.45], [3.2, 42.35], [3.0, 41.9], [2.2, 41.4], [1.0, 41.05],
+  [0.8, 40.7], [0.0, 40.0], [-0.3, 39.5], [0.2, 38.75], [-0.5, 38.3], [-0.75, 37.6], [-1.6, 37.3], [-2.1, 36.75], [-3.0, 36.75],
+  [-4.4, 36.7], [-5.3, 36.1], [-5.6, 36.0], [-6.0, 36.3], [-6.3, 36.8], [-6.9, 37.2], [-7.4, 37.2], [-7.5, 37.6], [-7.0, 38.0],
+  [-7.3, 38.6], [-7.0, 39.0], [-7.5, 39.6], [-7.0, 40.0], [-6.8, 40.5], [-6.9, 41.0], [-6.2, 41.6], [-6.6, 41.95], [-7.2, 41.9],
+  [-8.1, 41.8], [-8.8, 41.9], [-8.9, 42.3], [-9.2, 42.9],
+];
+const CIUDADES: Record<string, [number, number]> = {
+  madrid: [-3.7, 40.42], barcelona: [2.17, 41.39], valencia: [-0.38, 39.47], sevilla: [-5.98, 37.39], bilbao: [-2.93, 43.26],
+  malaga: [-4.42, 36.72], zaragoza: [-0.88, 41.65], coruna: [-8.41, 43.36], valladolid: [-4.72, 41.65], murcia: [-1.13, 37.99],
+  alicante: [-0.48, 38.35], granada: [-3.6, 37.18], salamanca: [-5.66, 40.97], santander: [-3.8, 43.46], oviedo: [-5.85, 43.36],
+  pamplona: [-1.64, 42.81], cordoba: [-4.78, 37.88], toledo: [-4.02, 39.86],
+};
+const K_MAPA = 66;
+const enMapa = ([lon, lat]: [number, number]) => ({x: (lon + 9.6) * K_MAPA, y: (43.9 - lat) * K_MAPA * 1.3});
+const dentro = (x: number, y: number, pol: {x: number; y: number}[]) => {
+  let si = false;
+  for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) {
+    const a = pol[i], b = pol[j];
+    if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) si = !si;
+  }
+  return si;
+};
+
+/** El mapa de España: la silueta se dibuja, y luego aparecen ciudades («puntos»: nombre o [lon, lat] con «texto») o
+ * una nube de «n» puntos repartidos por todo el país (los accidentes, las cuentas, los negocios…). Arriba, una cifra
+ * opcional («valor», «etiqueta»). */
+const Mapa: React.FC<P> = ({p, f, fps, dur}) => {
+  const e = useEstilo();
+  const pol = ESPANA.map(enMapa);
+  const w = 12.9 * K_MAPA, h = 8.0 * K_MAPA * 1.3;
+  const camino = 'M' + pol.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' L') + ' Z';
+  const dibuja = ramp(f, 0, 18);
+  const puntos = lista<{ciudad?: string; lon?: number; lat?: number; texto?: string}>(p.puntos);
+  const n = Math.min(400, Number(p.n ?? 0));
+  const nube = React.useMemo(() => {
+    const out: {x: number; y: number}[] = [];
+    for (let s = 0; out.length < n && s < n * 20; s++) {
+      const x = random(`mx${s}`) * w, y = random(`my${s}`) * h;
+      if (dentro(x, y, pol)) out.push({x, y});
+    }
+    return out;
+  }, [n]);
+  const color = p.malo ? e.malo : e.subrayado;
+  return (
+    <Lleno>
+      {p.valor !== undefined ? (
+        <div style={{fontFamily, textAlign: 'center', color: '#fff', marginBottom: 30, opacity: ramp(f, 6, 14)}}>
+          <div style={{fontWeight: 800, fontSize: 130, lineHeight: 1}}>{texto(p.prefijo)}{Math.round(Number(p.valor) * ramp(f, 6, Math.min(40, dur * 0.5))).toLocaleString('es-ES')}{texto(p.sufijo)}</div>
+          {p.etiqueta ? <div style={{fontWeight: 600, fontSize: 44, color: 'rgba(255,255,255,0.85)', marginTop: 8}}>{texto(p.etiqueta)}</div> : null}
+        </div>
+      ) : null}
+      <svg width={w} height={h} viewBox={`-10 -10 ${w + 20} ${h + 20}`} style={{overflow: 'visible'}}>
+        <path d={camino} fill={`color-mix(in srgb, ${e.acento} ${18 * dibuja}%, transparent)`} stroke={e.subrayado} strokeWidth={4}
+          strokeOpacity={0.8} strokeLinejoin="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - dibuja} />
+        {nube.map((q, i) => {
+          const entra = 16 + (i / Math.max(1, nube.length)) * Math.max(20, dur * 0.55);
+          const s = ramp(f, entra, entra + 5);
+          return s ? <circle key={i} cx={q.x} cy={q.y} r={7 * s} fill={color} opacity={0.85} style={{filter: `drop-shadow(0 0 6px ${color})`}} /> : null;
+        })}
+        {puntos.map((pt, i) => {
+          const c = pt.ciudad ? CIUDADES[pt.ciudad.toLowerCase()] : [Number(pt.lon), Number(pt.lat)] as [number, number];
+          if (!c) return null;
+          const q = enMapa(c);
+          const entra = cuando(p, i, 16 + i * 8);
+          const s = pop(f, fps, entra, 8);
+          const onda = ((f - entra) % 40) / 40;
+          return f < entra ? null : (
+            <g key={i}>
+              <circle cx={q.x} cy={q.y} r={14 + onda * 46} fill="none" stroke={color} strokeWidth={3} opacity={1 - onda} />
+              <circle cx={q.x} cy={q.y} r={14 * s} fill={color} />
+              {pt.texto ? <text x={q.x} y={q.y - 30} textAnchor="middle" fontFamily={fontFamily} fontWeight={800} fontSize={38} fill="#fff"
+                opacity={s}>{pt.texto}</text> : null}
+            </g>
+          );
+        })}
+      </svg>
+    </Lleno>
+  );
+};
+
+/** La oficina del equipo: una mesa con su pantalla y los agentes detrás, trabajando. Se van animando según se nombra a
+ * cada uno (^nombre) y en la pantalla se escribe «pantalla». */
+const Oficina: React.FC<P> = ({p, f, dur}) => {
+  const e = useEstilo();
+  const quienes = lista<string>(p.quienes).length ? lista<string>(p.quienes) : ['guionista', 'jefa', 'editor'];
+  const n = quienes.length;
+  const ent = (i: number) => cuando(p, i, Math.round((i * dur * 0.6) / n));
+  let activo = -1;
+  quienes.forEach((_, i) => { if (f >= ent(i)) activo = i; });
+  const pantalla = texto(p.pantalla);
+  const letras = Math.round(interpolate(f, [10, 10 + pantalla.length * 1.2], [0, pantalla.length], CLAMP));
+  const mesaY = 1180;
+  const tam = Math.min(360, 1060 / n);
+  // La pantalla va a la derecha de la mesa, entre los dos últimos agentes, para no tapar al del centro.
+  const pantallaX = 540 + Math.max(0, (n - 2) / 2) * tam * 0.95 - (n === 1 ? 260 : 0);
+  return (
+    <AbsoluteFill>
+      {quienes.map((q, i) => {
+        const x = 540 + (i - (n - 1) / 2) * tam * 0.95;
+        const es = i === activo;
+        return (
+          <div key={i} style={{position: 'absolute', left: x - tam / 2, top: mesaY - tam * 1.1, width: tam,
+            filter: es ? undefined : 'saturate(0.7) brightness(0.85)', opacity: ramp(f, i * 3, i * 3 + 8)}}>
+            <Robot clave={q} f={f + i * 9} tam={tam} accion={es ? 'trabaja' : 'quieto'} semilla={i} />
+          </div>
+        );
+      })}
+      <svg width={1080} height={1920} style={{position: 'absolute', inset: 0}}>
+        <defs>
+          <linearGradient id="mesa" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#dfe8ff" /><stop offset="1" stopColor="#9fb4e6" />
+          </linearGradient>
+          <linearGradient id="frente" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2a3f78" /><stop offset="1" stopColor="#16244c" />
+          </linearGradient>
+        </defs>
+        {/* Mesa en perspectiva: tablero claro y frente oscuro, apoyada en el suelo. */}
+        <polygon points={`150,${mesaY} 930,${mesaY} 1010,${mesaY + 70} 70,${mesaY + 70}`} fill="url(#mesa)" />
+        <rect x={70} y={mesaY + 70} width={940} height={210} fill="url(#frente)" />
+        <rect x={110} y={mesaY + 280} width={30} height={150} fill="#0f1a38" />
+        <rect x={940} y={mesaY + 280} width={30} height={150} fill="#0f1a38" />
+        {/* Pantalla sobre la mesa */}
+        <g transform={`translate(${pantallaX - 147}, ${mesaY - 236}) scale(0.7)`} opacity={ramp(f, 4, 12)}>
+          <rect x={0} y={0} width={420} height={270} rx={18} fill="#0b1430" stroke="#9fb4e6" strokeWidth={8} />
+          <rect x={14} y={14} width={392} height={242} rx={8} fill={`color-mix(in srgb, ${e.acento} 35%, #0b1430)`} />
+          <rect x={190} y={270} width={40} height={50} fill="#9fb4e6" />
+          <rect x={140} y={316} width={140} height={16} rx={8} fill="#9fb4e6" />
+          <foreignObject x={30} y={30} width={360} height={210}>
+            <div style={{fontFamily, fontWeight: 700, fontSize: 34, lineHeight: 1.2, color: '#fff'}}>
+              {pantalla.slice(0, letras)}<span style={{opacity: Math.round(f / 8) % 2 ? 1 : 0}}>|</span>
+            </div>
+          </foreignObject>
+        </g>
+        {/* Una planta y una taza: que parezca un sitio, no una tarjeta. */}
+        <g transform={`translate(90, ${mesaY - 120})`}>
+          <rect x={0} y={60} width={80} height={70} rx={10} fill="#e9eefc" />
+          {[[-30, -10], [10, -40], [40, 0], [-5, 10]].map(([x, y], i) => (
+            <ellipse key={i} cx={40 + x} cy={50 + y} rx={22} ry={44} fill="#3ccf9a" transform={`rotate(${x} ${40 + x} ${50 + y})`} />
+          ))}
+        </g>
+        <g transform={`translate(880, ${mesaY - 60})`}>
+          <rect x={0} y={0} width={60} height={64} rx={8} fill="#ffffff" />
+          <path d="M60 14 q24 4 0 34" stroke="#ffffff" strokeWidth={8} fill="none" />
+        </g>
+      </svg>
+      {activo >= 0 && texto(p.textos?.[activo as never]) ? (
+        <div style={{position: 'absolute', top: mesaY + 120, left: 0, width: 1080, textAlign: 'center', fontFamily, fontWeight: 800,
+          fontSize: 48, color: '#fff'}}>{texto((p.textos as string[])[activo])}</div>
+      ) : null}
+    </AbsoluteFill>
+  );
+};
+
+/** Una hoja de papel con un texto que se va escribiendo (un poema, una nota): «autor» arriba, «lineas» en serif.
+ * «ia»: la hoja es una pantalla en vez de papel. «tachar»: las líneas se tachan en rojo a mitad del plano. */
+const Papel: React.FC<P> = ({p, f, dur}) => {
+  const e = useEstilo();
+  const lineas = lista<string>(p.lineas);
+  const ia = Boolean(p.ia);
+  const total = lineas.join('').length;
+  const escrito = Math.round(interpolate(f, [2, Math.max(8, dur * 0.4)], [0, total], CLAMP));
+  let resto = escrito;
+  const tacha = p.tachar ? ramp(f, dur * 0.6, dur * 0.6 + 10) : 0;
+  const giro = (Number(p.giro ?? (ia ? 0 : -3))) + Math.sin(f / 40) * 0.6;
+  const k = ramp(f, 0, 10);
+  return (
+    <Lleno>
+      <div style={{width: 760, minHeight: 820, padding: '70px 70px 60px', borderRadius: ia ? 34 : 6, position: 'relative',
+        background: ia ? `linear-gradient(180deg, #0f1b3d, #0a1430)` : 'linear-gradient(180deg, #fbf6ea, #efe5cf)',
+        border: ia ? `3px solid ${e.subrayado}66` : undefined,
+        boxShadow: '0 40px 80px rgba(0,0,0,0.45)', transform: `rotate(${giro}deg) translateY(${(1 - k) * 80}px)`, opacity: k}}>
+        <div style={{fontFamily: ia ? fontFamily : 'Georgia, "Times New Roman", serif', fontWeight: 700, fontSize: 40,
+          color: ia ? e.subrayado : '#7a5c2e', letterSpacing: ia ? 0 : 1, marginBottom: 34}}>{texto(p.autor)}</div>
+        {lineas.map((l, i) => {
+          const visible = l.slice(0, Math.max(0, resto));
+          resto -= l.length;
+          return (
+            <div key={i} style={{position: 'relative', fontFamily: ia ? fontFamily : 'Georgia, "Times New Roman", serif',
+              fontStyle: ia ? 'normal' : 'italic', fontSize: 50, lineHeight: 1.35, color: ia ? '#fff' : '#2b2216', minHeight: 68}}>
+              {visible}
+              {p.tachar && visible ? <div style={{position: 'absolute', left: 0, top: '52%', height: 6, borderRadius: 3, background: e.malo,
+                width: `${100 * Math.min(1, Math.max(0, tacha * lineas.length - i))}%`}} /> : null}
+            </div>
+          );
+        })}
+      </div>
+    </Lleno>
+  );
+};
+
+/** Una moneda que gira en el aire (cara o cruz) con la cifra que se compara con ella. */
+const Moneda: React.FC<P> = ({p, f, fps}) => {
+  const e = useEstilo();
+  const giro = Math.cos(f / 3.2);
+  const alto = Math.abs(Math.sin(f / 22)) * 90;
+  const s = pop(f, fps, 0, 8);
+  const valor = Number(p.valor ?? 0);
+  const dec = Number(p.decimales ?? 0);
+  const num = (valor * ramp(f, 2, 22)).toLocaleString('es-ES', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+  return (
+    <Lleno>
+      <div style={{fontFamily, textAlign: 'center', color: '#fff', marginBottom: 150, transform: `scale(${s})`}}>
+        <div style={{fontWeight: 800, fontSize: 190, lineHeight: 1, color: p.malo ? e.malo : '#fff'}}>{num}<span style={{fontSize: '0.45em'}}>{texto(p.sufijo)}</span></div>
+        {p.etiqueta ? <div style={{fontWeight: 600, fontSize: 44, color: 'rgba(255,255,255,0.88)', marginTop: 10}}>{texto(p.etiqueta)}</div> : null}
+      </div>
+      <div style={{transform: `translateY(${-alto}px)`}}>
+        <div style={{width: 300, height: 300, borderRadius: '50%', transform: `scaleX(${Math.max(0.06, Math.abs(giro))})`,
+          background: giro > 0 ? 'radial-gradient(circle at 35% 30%, #fff3b0, #e8b92f 55%, #a87912)' : 'radial-gradient(circle at 35% 30%, #fbe7a1, #d4a325 55%, #8f650c)',
+          boxShadow: 'inset 0 0 0 14px rgba(140,95,10,0.55), 0 30px 40px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', fontFamily, fontWeight: 900, fontSize: 110, color: 'rgba(110,70,5,0.75)'}}>{giro > 0 ? '€' : '1'}</div>
+      </div>
+      {p.compara ? <div style={{fontFamily, fontWeight: 700, fontSize: 40, color: 'rgba(255,255,255,0.75)', marginTop: 40}}>{texto(p.compara)}</div> : null}
+    </Lleno>
+  );
+};
+
 export const PLANOS: Record<string, React.FC<P>> = {
   objetos: Objetos, robot: RobotPlano, equipo: EquipoPlano, cifra: Cifra, grafica: Grafica, lista: Lista, versus: Versus,
   movil: Movil, chat: Chat, palabra: PalabraPlano, frase: Frase, reloj: RelojPlano, calendario: Calendario, flujo: Flujo,
-  cierre: Cierre, suma: Suma, venta: Venta, pantalla: Pantalla, recurso: Recurso,
+  cierre: Cierre, suma: Suma, venta: Venta, pantalla: Pantalla, recurso: Recurso, multiplica: Multiplica, cadena: Cadena, mapa: Mapa, oficina: Oficina, papel: Papel, moneda: Moneda,
 };
 
 /** Sello que cae encima de cualquier plano a mitad («MITO», «ERROR»). */
@@ -936,12 +1351,13 @@ export const Sello: React.FC<{texto: string; f: number; fps: number; dur: number
   const e = useEstilo();
   const llega = en ?? Math.round(dur * 0.5);
   if (f < llega) return null;
-  const s = pop(f, fps, llega, 9);
+  // Antes era un sello de goma girado; ahora, la palabra en el color de «malo» con su filete, sobre un velo.
   return (
-    <div style={{position: 'absolute', left: CV, top: ESCENARIO.top + ESCENARIO.alto * (abajo ? 0.7 : 0.45), transform:
-      `translate(-50%, -50%) rotate(-12deg) scale(${3 - 2 * s})`, opacity: Math.min(1, s * 2), fontFamily, fontWeight: 900,
-      fontSize: 120, color: e.malo, border: `12px solid ${e.malo}`, borderRadius: 26, padding: '6px 40px', letterSpacing: 4,
-      background: 'rgba(255,255,255,0.92)', boxShadow: sombra}}>{t}</div>
+    // Debajo de una palabra grande va lo bastante abajo para no pisarla aunque ocupe dos líneas.
+    // (en el diseño de siempre los subtítulos van abajo, en 1300: ahí el sello se queda justo encima de ellos)
+    <div style={{position: 'absolute', left: CV, top: ESCENARIO.top + ESCENARIO.alto * (abajo ? (e.diseno === 'cazzap' ? 0.98 : 0.88) : 0.9), transform: 'translate(-50%, -50%)'}}>
+      <Filete texto={<span style={{color: e.malo}}>{t}</span>} k={ramp(f, llega, llega + 7)} tam={84} color={e.malo} ancho={200} />
+    </div>
   );
 };
 

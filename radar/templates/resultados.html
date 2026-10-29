@@ -1,16 +1,15 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
+{% from "_ui.html" import icono, pestanas %}
 {% macro num(v) %}{{ ("%g" | format(v)) | replace(".", ",") }}{% endmacro %}
 {% block titulo %}Resultados · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 {% set ESTADOS_RITMO = {"cumplido": "Cumplido", "en_camino": "En camino", "en_riesgo": "En riesgo", "por_detras": "Por detrás"} %}
 {% set TIPOS_PM = {"despegue": "Despegó", "flop": "No funcionó", "record": "Tu récord"} %}
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Resultados</h1>
-    <p class="sub">Cada post se mide contra tu normal, no contra cuentas diez veces más grandes. Con eso, el equipo sabe qué ganchos, carriles y horas te funcionan y ajusta lo que propone.</p>
-  </div>
+<header class="pg-cabeza">
+  <div><h1>Publicar</h1>
+    <p class="pg-sub">Cada post medido contra tu normal: así el equipo sabe qué ganchos, temas y horas te funcionan.</p></div>
 </header>
+{{ pestanas([(base_n ~ "/publicacion", "Calendario", false, 0), (base_n ~ "/resultados", "Resultados", true, 0)]) }}
 
 <section class="panel" id="objetivo">
   <div class="panel-cabecera">

@@ -1,6 +1,6 @@
 // Extrae los fotogramas de un vídeo de iPhone en SDR (BT.709) y la silueta de la persona.
 // Uso: segmentar <video> <carpeta_salida> [rangos]
-// Escribe f_00000.jpg (fotograma) y m_00000.png (máscara en el canal alfa) por cada fotograma.
+// Escribe a 1080 de ancho como mucho f_00000.jpg (fotograma) y m_00000.png (máscara en el canal alfa) por cada fotograma.
 // [rangos]: «a-b,c-d» en números de fotograma; solo se escriben esos (brutos largos: los tramos que usan los reels).
 import AVFoundation
 import CoreImage
@@ -52,13 +52,19 @@ var i = 0
 while let sample = output.copyNextSampleBuffer() {
     guard let pb = CMSampleBufferGetImageBuffer(sample) else { continue }
     if !seUsa(i) { i += 1; continue }
-    let frame = CIImage(cvPixelBuffer: pb)
+    // Se trabaja a 1080 de ancho (la resolución del render): un 4K del iPhone ocuparía cuatro veces más en disco.
+    let original = CIImage(cvPixelBuffer: pb)
+    let escala = min(1.0, 1080.0 / original.extent.width)
+    let frame = escala < 1
+        ? original.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: escala, kCIInputAspectRatioKey: 1.0])
+            .cropped(to: CGRect(x: 0, y: 0, width: (original.extent.width * escala).rounded(), height: (original.extent.height * escala).rounded()))
+        : original
     let name = String(format: "%05d", i)
     try! ctx.writeJPEGRepresentation(
         of: frame, to: out.appendingPathComponent("f_\(name).jpg"), colorSpace: srgb,
         options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.98])
 
-    let handler = VNImageRequestHandler(cvPixelBuffer: pb, options: [:])
+    let handler = VNImageRequestHandler(ciImage: frame, options: [:])
     try! handler.perform([request])
     if let mask = request.results?.first?.pixelBuffer {
         var m = CIImage(cvPixelBuffer: mask)

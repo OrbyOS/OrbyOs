@@ -1,7 +1,7 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
+{% from "_ui.html" import icono, pestanas %}
 {% from "_estructura.html" import estructura with context %}
-{% block titulo %}Aprobaciones · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block titulo %}Por revisar · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 
 {# Un elemento suelto del borrador del Kit, sea texto o un objeto con su campo principal. #}
 {% macro texto_de(x) -%}
@@ -97,22 +97,25 @@
 {%- endmacro %}
 
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Aprobaciones</h1>
-    <p class="sub">Todo lo que tu equipo quiere cambiar o publicar pasa por aquí. Lo que apruebes sigue adelante; con «Pedir cambios», el agente lo rehace con tu nota. Cuánto hace cada agente sin ti se cambia en el <a href="{{ base_n }}/kit#autonomia">Kit de marca</a>.</p>
-  </div>
+{# Los borradores que Chati sustituye por uno nuevo salen como rechazados por Chati: no hace falta verlos. #}
+{% set ns_d = namespace(lista=[]) %}{% for a in decididas %}{% if not (a.decidido_por == "Chati" and a.estado.startswith("rechaz")) %}{% set ns_d.lista = ns_d.lista + [a] %}{% endif %}{% endfor %}
+{% set decididas = ns_d.lista %}
+<header class="pg-cabeza">
+  <div><h1>Por revisar</h1>
+    <p class="pg-sub">{% if pendientes %}{{ pendientes | length }} cosa{{ "s" if pendientes | length != 1 }} esperan tu OK. Lo que apruebes sigue adelante; con una nota, el agente lo rehace.{% else %}Nada esperando tu decisión.{% endif %}</p></div>
 </header>
+{{ pestanas([("#pendientes", "Pendientes", true, pendientes | length), ("#decididas", "Decididas", false, 0)]) }}
 
+<div class="pg-panel" data-panel="pendientes">
 {% if pendientes %}
 <div class="ap-pendientes">
   {% for a in pendientes %}
-  <article class="panel ap" id="{{ a.ref }}">
+  <article class="panel ap pr-ap" id="{{ a.ref }}" style="--c: var(--c-{{ a.agente }}, var(--accent))">
     <div class="panel-cabecera">
       <div>
-        <span class="kit-etiqueta">{{ a.tipo_nombre }}</span>
+        <span class="pr-ap-quien"><i></i>{{ a.agente_nombre }} · {{ a.tipo_nombre }}</span>
         <h2>{{ a.resumen }}</h2>
-        <p class="kit-meta">{{ a.ref }} · {{ a.agente_nombre }} · {{ a.creado | fecha }}{% if a.clave %} · Importante{% endif %}
+        <p class="kit-meta">{{ a.creado | fecha }}{% if a.clave %} · Importante{% endif %}
           {% if a.datos.a_mano %}<span class="ap-caduca">{% if a.datos.seguimiento %}Seguimiento {{ a.datos.seguimiento }} de 2: {% endif %}mándalo tú desde Instagram</span>{% endif %}
           {% set min = a.datos.caduca | quedan if a.tipo == "respuesta" and a.datos.caduca and not a.datos.a_mano else none %}
           {% if min is not none %}<span class="ap-caduca {{ 'urgente' if min < 180 }}">{% if min <= 0 %}Ya no se puede contestar{% elif min < 60 %}Caduca en {{ min }} min{% elif min < 180 %}Caduca en {{ min // 60 }} h {{ min % 60 }} min{% else %}Caduca en {{ min // 60 }} h{% endif %}</span>{% endif %}</p>
@@ -120,7 +123,7 @@
     </div>
     <div class="panel-cuerpo">{{ vista_previa(a) }}</div>
     <form class="form-pie ap-acciones" method="post" action="/negocios/{{ negocio.id }}/aprobaciones/{{ a.id }}">
-      <input name="nota" placeholder="Nota para el agente (obligatoria si pides cambios)" aria-label="Nota">
+      <input name="nota" placeholder="Nota (si pides cambios)" aria-label="Nota">
       <button class="btn btn-fantasma" name="decision" value="rechazar" type="submit">Rechazar</button>
       <button class="btn btn-secundario" name="decision" value="cambios" type="submit">Pedir cambios</button>
       <button class="btn btn-primario" name="decision" value="aprobar" type="submit">{{ icono("check") }} Aprobar</button>
@@ -129,25 +132,20 @@
   {% endfor %}
 </div>
 {% else %}
-<section class="panel"><div class="vacio">{{ icono("check") }}<p>No hay nada esperando tu decisión.</p></div></section>
+<div class="pg-vacio"><p><b>Todo revisado.</b> Cuando el equipo prepare algo, aparecerá aquí.</p></div>
 {% endif %}
+</div>
 
-{# Los borradores que Chati sustituye por uno nuevo salen como rechazados por Chati: no hace falta verlos. #}
-{% set ns_d = namespace(lista=[]) %}{% for a in decididas %}{% if not (a.decidido_por == "Chati" and a.estado.startswith("rechaz")) %}{% set ns_d.lista = ns_d.lista + [a] %}{% endif %}{% endfor %}
-{% set decididas = ns_d.lista %}
+<div class="pg-panel" data-panel="decididas">
+
 {% if decididas %}
-<section class="panel">
-  <div class="panel-cabecera"><h2>Decididas</h2></div>
-  <ul class="kit-lista">
-    {% for a in decididas %}
-    <li><div>
-      <strong>{{ a.resumen }}</strong>
-      <p class="kit-meta">{{ a.ref }} · {{ a.agente_nombre }} · {{ ESTADOS_AP[a.estado] }} por {{ a.decidido_por or "ti" }} el {{ a.decidido | fecha }}{% if a.nota %} · «{{ a.nota }}»{% endif %}</p>
-    </div></li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
+<ul class="pg-filas">
+  {% for a in decididas %}
+  <li><b>{{ a.resumen }}</b><span>{{ a.agente_nombre }} · {{ ESTADOS_AP[a.estado] }} por {{ a.decidido_por or "ti" }} el {{ a.decidido | fecha }}{% if a.nota %} · «{{ a.nota }}»{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% else %}<div class="pg-vacio"><p>Todavía no has decidido nada.</p></div>{% endif %}
+</div>
 <script>
   // «Copiar»: lo que se manda a mano, al portapapeles.
   document.querySelectorAll("[data-copia]").forEach(function (b) {

@@ -300,8 +300,7 @@ def test_instalacion_nueva_primera_cuenta_y_primer_negocio(app_aislada):
     assert r.headers["location"].startswith("/negocios/1/kit")
     assert cliente.get("/app", follow_redirects=False).headers["location"] == "/negocios/1/hoy"
     pagina = cliente.get("/negocios/1/hoy").text
-    for seccion in ("Graba hoy", "Estructuras", "Producción", "Publicación", "Comunidad", "Resultados", "Investigación",
-                    "Aprobaciones", "Kit de marca"):
+    for seccion in ("Inicio", "Por revisar", "Ideas", "Grabar", "Editar", "Publicar", "Comunidad", "Kit de marca"):
         assert seccion in pagina
     for vieja in ("Funnel y oferta", "/equipo", "/contenido\"", "Ventas"):
         assert vieja not in pagina

@@ -13,6 +13,7 @@ Pasos:
 3. montaje: Remotion (generacion_videos/remotion).
 """
 import base64
+import functools
 import hashlib
 import json
 import os
@@ -27,17 +28,62 @@ from . import generacion_sonidos as sonidos
 REMOTION_DIR = Path(__file__).resolve().parents[2] / "generacion_videos" / "remotion"
 FPS = 30
 # Un render pesado a la vez y con 2 hilos de Remotion como mucho: con más, el Mac se queda sin memoria.
-PAUSA = 0.28  # silencio entre escenas, en segundos
+PAUSA = 0.15  # silencio entre escenas, en segundos
+# Pausas de oratoria, metidas en el montaje como silencio exacto (la voz no las respeta siempre): tras el gancho, antes
+# de una cifra o de un giro (el plano lleva "pausa" o es una cifra) y antes del cierre.
+PAUSA_GANCHO, PAUSA_CIFRA, PAUSA_CIERRE = 0.35, 0.15, 0.25
+PAUSA_FRASE, PAUSA_COMA = 0.25, 0.12  # el aire que deja quien habla al cerrar una frase o en una coma
+PAUSA_PLANO = 0.0  # un respiro cuando cambia lo que se ve
+# Ritmo objetivo en palabras por minuto: si un guion sale más rápido, se estiran todas las pausas a la vez (la voz no
+# cambia ni se vuelve a pagar) hasta entrar en el margen; si sale lento, se acortan.
+RITMO = (182, 192)
+PAUSA_MAX = 0.55  # ninguna pausa más larga: más, y suena a frases sueltas
+AIRE_MAX = 1.3
+AIRE_MIN = 0.7  # nunca menos: sin respirar entre frases suena a robot; antes se acelera la voz
+AIRE = 1.0  # multiplicador de todas las pausas; lo ajusta generar()
+TEMPO = 1.0  # si ni sin pausas llega al ritmo, la voz se acelera un poco (sin cambiar el tono ni pagarla otra vez)
+ANTICIPA = 2  # fotogramas que cada cosa entra antes de su palabra (como un editor: ni a la vez ni tarde)
 # Las voces pagadas se guardan aquí: volver a montar un vídeo con el mismo texto no gasta créditos otra vez.
 VOCES_DIR = REMOTION_DIR.parent / "voces"
 # Los muñecos del equipo (renders de la app): el montaje los lee de su carpeta pública.
 AGENTES_DIR = Path(__file__).resolve().parents[1] / "static" / "marca" / "agentes"
-# Ajustes de la voz en ElevenLabs: algo más rápida que la natural, para el ritmo de un reel.
-AJUSTES_VOZ = {"stability": 0.45, "similarity_boost": 0.8, "style": 0.25, "use_speaker_boost": True, "speed": 1.08}
+# Ajustes de la voz en ElevenLabs: casi a la velocidad natural (a 1.08 iba atropellada; a 0.86 sonaba a robot) y cada
+# escena con el texto de la anterior y de la siguiente, para que la entonación siga y no se reinicie.
+AJUSTES_VOZ = {"stability": 0.45, "similarity_boost": 0.8, "style": 0.3, "use_speaker_boost": True, "speed": 1.0}
 
-# Punto de partida: los azules de Orby. Cada negocio lo cambia con su identidad visual.
+# Punto de partida (los azules de Orby, la cuenta de la casa). Cada negocio usa el suyo: estilo_de_marca().
 ESTILO = {"mesa": "#12275c", "veta": "rgba(120, 160, 255, 0.07)", "acento": "#3D7BFF", "texto": "#ffffff",
           "subrayado": "#9cc4ff", "caja": "rgba(5, 10, 28, 0.85)", "malo": "#ff5d73"}
+
+
+def estilo_de_marca(negocio_id: int, publica: Path | None = None) -> dict:
+    """El estilo de los vídeos de un negocio, sacado de su identidad visual del Kit (lo mismo que usa Monti): el color
+    principal es el acento, el fondo es ese tono muy oscuro, la tipografía de titulares y el logo. Sin identidad, los
+    puntos de partida neutros de ESTILO. Con `publica`, copia la tipografía y el logo a la carpeta del render."""
+    from . import identidad
+    from ..editor import flujo
+    ident = identidad.leer(negocio_id)
+    if not ident["colores"] and not ident["tipografias"] and not flujo.logo(negocio_id):
+        return dict(ESTILO)
+    kit = identidad.kit_motor(negocio_id)
+    c = kit["colores"]
+    principal = ident["colores"][0]["hex"] if ident["colores"] else ESTILO["acento"]
+    estilo = {**ESTILO, "acento": principal, "subrayado": c["acento"], "texto": c["texto"],
+              "mesa": identidad._hls(principal, 0.2), "caja": c["fondo"] + "D9",
+              "veta": "rgba({}, {}, {}, 0.07)".format(*(int(principal[i:i + 2], 16) for i in (1, 3, 5)))}
+    if isinstance(kit["fuentes"].get("titular"), str):  # una del catálogo por nombre (la serif de titular, por ejemplo)
+        estilo["titular"] = kit["fuentes"]["titular"]
+    if publica:
+        titular = kit["fuentes"].get("titular")
+        if isinstance(titular, dict) and Path(titular["archivo"]).exists():
+            destino = publica / ("fuente" + Path(titular["archivo"]).suffix.lower())
+            shutil.copyfile(titular["archivo"], destino)
+            estilo["fuente"] = destino.name
+        logo = flujo.logo(negocio_id)
+        if logo:
+            shutil.copyfile(logo, publica / ("logo" + logo.suffix.lower()))
+            estilo["logo"] = "logo" + logo.suffix.lower()
+    return estilo
 
 
 def activa() -> bool:
@@ -97,11 +143,12 @@ def voz_mac(texto: str, destino: Path) -> list[dict]:
     return _palabras_repartidas(texto, _duracion(destino))
 
 
-def voz_elevenlabs(texto: str, destino: Path, clave: str, voz: str) -> list[dict]:
+def voz_elevenlabs(texto: str, destino: Path, clave: str, voz: str, antes: str = "", despues: str = "") -> list[dict]:
     """La voz del negocio en ElevenLabs, con el tiempo exacto de cada carácter."""
     r = httpx.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voz}/with-timestamps",
                    headers={"xi-api-key": clave}, timeout=120,
-                   json={"text": texto, "model_id": "eleven_multilingual_v2", "voice_settings": AJUSTES_VOZ})
+                   json={"text": texto, "model_id": os.getenv("ELEVENLABS_MODELO", "eleven_multilingual_v2"), "voice_settings": AJUSTES_VOZ,
+                         **({"previous_text": antes} if antes else {}), **({"next_text": despues} if despues else {})})
     r.raise_for_status()
     datos = r.json()
     mp3 = destino.with_suffix(".mp3")
@@ -112,15 +159,36 @@ def voz_elevenlabs(texto: str, destino: Path, clave: str, voz: str) -> list[dict
                                    al["character_end_times_seconds"])
 
 
-def _voz(texto: str, destino: Path, borrador: bool = False) -> list[dict]:
-    clave, voz = os.getenv("ELEVENLABS_API_KEY", ""), os.getenv("ELEVENLABS_VOZ", "")
+# Voz de los explicativos: el clon profesional de la cuenta, buscado por su nombre (ELEVENLABS_VOZ_NOMBRE en el entorno o en
+# la configuración del cliente), con el modelo eleven_v4_exp. ELEVENLABS_VOZ_FORZADA, ELEVENLABS_VOZ y ELEVENLABS_MODELO mandan
+# sobre esto. Sin nombre, la voz de ELEVENLABS_VOZ.
+MODELO_VOZ = "eleven_v4_exp"
+
+
+@functools.lru_cache(maxsize=1)
+def _voz_por_nombre(clave: str, nombre: str) -> str:
+    try:
+        vs = httpx.get("https://api.elevenlabs.io/v1/voices", headers={"xi-api-key": clave}, timeout=30).json()["voices"]
+        return next((v["voice_id"] for v in vs if v["name"] == nombre), "")
+    except Exception:
+        return ""
+
+
+def _voz(texto: str, destino: Path, borrador: bool = False, antes: str = "", despues: str = "") -> list[dict]:
+    clave = os.getenv("ELEVENLABS_API_KEY", "")
+    forzada = os.getenv("ELEVENLABS_VOZ_FORZADA", "")
+    nombre_voz = os.getenv("ELEVENLABS_VOZ_NOMBRE", "")
+    voz = forzada or (_voz_por_nombre(clave, nombre_voz) if clave and nombre_voz else "") or os.getenv("ELEVENLABS_VOZ", "")
     if borrador or not (clave and voz):
         return voz_mac(texto, destino)
-    nombre = hashlib.sha1(f"{voz}\n{json.dumps(AJUSTES_VOZ, sort_keys=True)}\n{texto}".encode()).hexdigest()[:16]
+    modelo = os.getenv("ELEVENLABS_MODELO") or (MODELO_VOZ if not forzada and voz != os.getenv("ELEVENLABS_VOZ", "") else "eleven_multilingual_v2")
+    os.environ.setdefault("ELEVENLABS_MODELO", modelo)
+    # El modelo cuenta en la caché solo si no es el de siempre: así las voces ya pagadas siguen valiendo.
+    nombre = hashlib.sha1(f"{voz}\n{json.dumps(AJUSTES_VOZ, sort_keys=True)}\n{antes}\n{texto}\n{despues}{'' if modelo == 'eleven_multilingual_v2' else chr(10) + modelo}".encode()).hexdigest()[:16]
     wav, tiempos = VOCES_DIR / f"{nombre}.wav", VOCES_DIR / f"{nombre}.json"
     if not (wav.exists() and tiempos.exists()):
         VOCES_DIR.mkdir(parents=True, exist_ok=True)
-        tiempos.write_text(json.dumps(voz_elevenlabs(texto, wav, clave, voz), ensure_ascii=False))
+        tiempos.write_text(json.dumps(voz_elevenlabs(texto, wav, clave, voz, antes, despues), ensure_ascii=False))
     shutil.copyfile(wav, destino)
     return json.loads(tiempos.read_text())
 
@@ -227,6 +295,152 @@ def _pantalla(ve: dict, publica: Path) -> dict:
     return {k: v for k, v in ve.items() if k not in ("fuente", "medidas")} | {"archivo": fuente.name, "encuadres": encuadres}
 
 
+def _dicho(escena: dict) -> str:
+    """Lo que se dice en una escena, sin las marcas del guion."""
+    return " ".join(w for p in escena["planos"] for w, _, _ in _fichas(p["di"]))
+
+
+def _pausa(plano: dict, base: float = 0.0) -> float:
+    """Silencio antes de un plano: el que pida el guion ("pausa") o el de oratoria según lo que enseña."""
+    if "pausa" in plano:
+        return float(plano["pausa"])
+    tipo = plano["ve"]["tipo"]
+    return max(base, PAUSA_CIERRE if tipo == "cierre" else PAUSA_CIFRA if tipo == "cifra" else PAUSA_PLANO)
+
+
+FUNDIDO = 0.012  # s de fundido en cada borde de un trozo de voz: sin él, el corte suena seco
+
+
+def _punto_callado(x, i: int, desde: int) -> int:
+    """La muestra más callada (ventanas de 10 ms) entre 250 ms antes y 50 ms después de i, sin pasar de «desde»."""
+    sr = sonidos.SR
+    a, b = max(desde + 1, i - int(0.25 * sr)), min(len(x) - 1, i + int(0.05 * sr))
+    if b - a < int(0.02 * sr):
+        return max(desde + 1, min(i, len(x) - 1))
+    paso = int(0.005 * sr)
+    v = int(0.01 * sr)
+    mejor, energia = i, float("inf")
+    for c in range(a, b - v, paso):
+        e = float(sonidos.np.mean(x[c:c + v] ** 2))
+        if e < energia:
+            mejor, energia = c + v // 2, e
+    # Un poco más dentro de la pausa (20 ms): si la palabra empieza con una consonante fuerte, su arranque no se queda fuera.
+    return max(desde + 1, mejor - int(0.02 * sr))
+
+
+def _puerta(x, umbral_db: float = -62):
+    """Deja en silencio de verdad lo que está por debajo de -62 dB (el siseo que deja acelerar o frenar la voz), con
+    rampas de 5 ms para que la puerta no se oiga."""
+    sr = sonidos.SR
+    v = sr // 100
+    n = len(x) // v
+    if n < 3:
+        return x
+    rms = sonidos.np.sqrt(sonidos.np.mean(x[:n * v].reshape(n, v) ** 2, axis=1))
+    abierto = (20 * sonidos.np.log10(rms + 1e-12) > umbral_db).astype(float)
+    # Abierta también una ventana antes y después de la voz, para no recortar colas ni arranques.
+    abierto = sonidos.np.maximum.reduce([abierto, sonidos.np.roll(abierto, 1), sonidos.np.roll(abierto, -1)])
+    mascara = sonidos.np.repeat(abierto, v)
+    suave = int(0.005 * sr)
+    mascara = sonidos.np.convolve(mascara, sonidos.np.ones(suave) / suave, mode="same")
+    y = x.copy()
+    y[:len(mascara)] *= mascara
+    return y
+
+
+def _suavizar_arranques(x, ataque: float = 0.035):
+    """La voz de ElevenLabs a veces trae silencio digital entre frases y la palabra siguiente arranca de golpe (de nada a
+    voz plena en menos de 5 ms): suena a corte. En cada arranque así se pone un ataque de 35 ms, sin tocar lo demás."""
+    sr = sonidos.SR
+    v = sr // 1000
+    n = len(x) // v
+    if n < 10:
+        return x
+    db = 20 * sonidos.np.log10(sonidos.np.sqrt(sonidos.np.mean(x[:n * v].reshape(n, v) ** 2, axis=1)) + 1e-12)
+    x = x.copy()
+    m = int(ataque * sr)
+    rampa = sonidos.np.linspace(0, 1, m) ** 2
+    ultimo = -10 ** 9
+    for i in range(n - 6):
+        if db[i] < -58 and db[i + 1:i + 6].max() > -42 and i - ultimo > 50:
+            a = i * v
+            b = min(len(x), a + m)
+            x[a:b] *= rampa[:b - a]
+            ultimo = i
+    return x
+
+
+def _con_fundidos(trozo, entrada: float = 0.025):
+    n = min(len(trozo) // 2, int(FUNDIDO * sonidos.SR))
+    m = min(len(trozo) // 2, int(entrada * sonidos.SR))
+    if n < 2 or m < 2:
+        return trozo
+    trozo = trozo.copy()
+    trozo[:m] *= sonidos.np.linspace(0, 1, m) ** 2
+    trozo[-n:] *= sonidos.np.linspace(1, 0, n)
+    return trozo
+
+
+def _con_pausas(x, ws: list[dict], idx: list[int], fichas: list, planos: list[dict], ei: int):
+    """Mete silencio dentro de la voz de una escena justo antes de los planos que lo piden y corre las palabras."""
+    primera: dict[int, int] = {}
+    for k, j in enumerate(idx):
+        primera.setdefault(fichas[j][0], k)
+    cortes = []
+    for pi in range(1, len(planos)):
+        p = PAUSA_GANCHO if ei == 0 and pi == 1 else _pausa(planos[pi])
+        k = primera.get(pi)
+        if p > 0 and k:
+            cortes.append((k, min(PAUSA_MAX, p * AIRE)))
+    # Y el aire de quien explica al cerrar una frase o en una coma (la voz lo encadena todo casi sin respirar).
+    ya = {k for k, _ in cortes}
+    for k in range(1, len(ws)):
+        fin = ws[k - 1]["texto"].rstrip("»”\"'")
+        p = PAUSA_FRASE if fin.endswith((".", "?", "!", ":")) else PAUSA_COMA if fin.endswith((",", ";")) else 0
+        if p and k not in ya:
+            cortes.append((k, min(PAUSA_MAX, p * AIRE)))
+    cortes.sort()
+    if not cortes:
+        return _con_fundidos(x), ws
+    trozos, ant = [], 0
+    for k, p in cortes:
+        # Las marcas de tiempo de la voz a veces llegan tarde: cortar en ellas se come el principio de la palabra. Se corta
+        # en el punto más callado entre 250 ms antes y 50 ms después de la marca, con un fundido corto a cada lado.
+        i = _punto_callado(x, int(ws[k]["t"] * sonidos.SR), ant)
+        trozos += [_con_fundidos(x[ant:i]), sonidos.np.zeros(int(p * sonidos.SR))]
+        ant = i
+    trozos.append(_con_fundidos(x[ant:]))
+    corre, nuevas = 0.0, []
+    for k, w in enumerate(ws):
+        corre += sum(p for kk, p in cortes if kk == k)
+        nuevas.append({**w, "t": w["t"] + corre, "fin": w["fin"] + corre})
+    return sonidos.np.concatenate(trozos), nuevas
+
+
+MUSICA_DB = -28  # la música de fondo, respecto a la voz cuando suena
+
+
+def _musica(archivo: Path, voz, nivel_db: float):
+    """Música de fondo suave y constante (sin derechos, Pixabay Music), en bucle durante todo el vídeo, a `nivel_db` de la
+    voz: se mide la voz solo donde suena. Entra en 0,3 s y se va en 1,2 s al final."""
+    sr = sonidos.SR
+    pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(archivo), "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                         capture_output=True, check=True).stdout
+    m = sonidos.np.frombuffer(pcm, dtype=sonidos.np.float32).astype(float)
+    m = sonidos.np.tile(m, len(voz) // max(1, len(m)) + 1)[:len(voz)]
+    v = sr // 20
+    n = len(voz) // v
+    rms = sonidos.np.sqrt(sonidos.np.mean(voz[:n * v].reshape(n, v) ** 2, axis=1))
+    suena = rms[rms > rms.max() * 0.1]
+    rms_voz = float(sonidos.np.sqrt(sonidos.np.mean(suena ** 2))) if len(suena) else 0.1
+    rms_m = float(sonidos.np.sqrt(sonidos.np.mean(m ** 2))) or 1.0
+    m *= rms_voz * 10 ** (nivel_db / 20) / rms_m
+    ent, sal = int(0.3 * sr), int(1.2 * sr)
+    m[:ent] *= sonidos.np.linspace(0, 1, min(ent, len(m)))
+    m[-sal:] *= sonidos.np.linspace(1, 0, min(sal, len(m)))
+    return m
+
+
 def preparar(guion: dict, carpeta: Path, borrador: bool = False) -> dict:
     """Pone la voz a cada escena, reparte los planos sobre las palabras, mezcla los efectos y devuelve las props."""
     publica = carpeta / "publica"
@@ -237,13 +451,24 @@ def preparar(guion: dict, carpeta: Path, borrador: bool = False) -> dict:
     for ei, esc in enumerate(guion["escenas"]):
         fichas = [(pi, w, enf, g) for pi, pl in enumerate(esc["planos"]) for w, enf, g in _fichas(pl["di"])]
         audio = carpeta / f"escena_{ei}.wav"
-        ws = _voz(" ".join(w for _, w, _, _ in fichas), audio, borrador)
-        dur = _duracion(audio)
-        voces.append((t, sonidos.leer_wav(audio)))
+        ws = _voz(" ".join(w for _, w, _, _ in fichas), audio, borrador,
+                  antes=_dicho(guion["escenas"][ei - 1]) if ei else "",
+                  despues=_dicho(guion["escenas"][ei + 1]) if ei + 1 < len(guion["escenas"]) else "")
+        if TEMPO != 1.0:
+            rapida = audio.with_name(audio.stem + "_rapida.wav")
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(audio), "-filter:a", f"atempo={TEMPO:.4f}",
+                            "-ar", str(sonidos.SR), "-ac", "1", str(rapida)], check=True)
+            audio.unlink()
+            audio = rapida
+            ws = [{**w, "t": w["t"] / TEMPO, "fin": w["fin"] / TEMPO} for w in ws]
+        x = sonidos.leer_wav(audio)
         audio.unlink()
         # Las palabras de la voz y las del guion casi siempre coinciden una a una; si no, se reparten en proporción.
         idx = (list(range(len(fichas))) if len(ws) == len(fichas)
                else [min(len(fichas) - 1, round(i * len(fichas) / max(1, len(ws)))) for i in range(len(ws))])
+        x, ws = _con_pausas(x, ws, idx, fichas, esc["planos"], ei)
+        dur = len(x) / sonidos.SR
+        voces.append((t, x))
         inicios: dict[int, float] = {}
         golpes: dict[int, list[float]] = {}
         for w, j in zip(ws, idx):
@@ -259,15 +484,20 @@ def preparar(guion: dict, carpeta: Path, borrador: bool = False) -> dict:
                 # (como mucho 2,5 s, para que no se quede quieto).
                 ini = max(ini, min(golpes[pi][0] - 0.35, ini + 2.5))
             ve = _pantalla(pl["ve"], publica) if pl["ve"]["tipo"] == "pantalla" else pl["ve"]
-            if ve["tipo"] == "recurso":  # vídeo de banco, tratado con el color de la marca
+            viral = guion.get("estilo", {}).get("diseno") == "viral"
+            if ve["tipo"] == "recurso":  # vídeo de banco, tratado con el color de la marca (en «viral», con el suyo)
                 from . import generacion_banco
-                ve = {**ve, "archivo": generacion_banco.preparar_recurso(ve, publica)}
+                ve = {**ve, "archivo": generacion_banco.preparar_recurso({"natural": viral, **ve}, publica)}
+            elif ve["tipo"] == "imagen":
+                from . import generacion_banco
+                ve = {**ve, "archivo": generacion_banco.preparar_imagen(ve, publica)}
             plano = {**ve, "inicio": round(ini, 3)}
             if pi in golpes and (ei or pi):  # en fotogramas desde el inicio del plano, un poco antes de la palabra
                 # (el primer plano del vídeo ya sale entero: es la portada)
-                plano["golpes"] = [max(0, round((g - ini) * FPS) - 3) for g in golpes[pi]]
+                plano["golpes"] = [max(0, round((g - ini) * FPS) - ANTICIPA) for g in golpes[pi]]
             planos.append(plano)
-        fin = t + dur + PAUSA
+        fin = t + dur + min(PAUSA_MAX, AIRE * (max(PAUSA, PAUSA_GANCHO) if ei == 0 else _pausa(guion["escenas"][ei + 1]["planos"][0], PAUSA)
+                                if ei + 1 < len(guion["escenas"]) else PAUSA))
         if esc.get("rotulo"):
             rotulos.append({"inicio": round(t, 3), "fin": round(fin, 3), "texto": esc["rotulo"]})
         if ei == 0:
@@ -279,15 +509,23 @@ def preparar(guion: dict, carpeta: Path, borrador: bool = False) -> dict:
     for t0, x in voces:
         i = int(t0 * sonidos.SR)
         voz[i:i + len(x)] += x[:len(voz) - i]
+    voz = _suavizar_arranques(_puerta(voz))
+    m = min(len(voz), int(0.06 * sonidos.SR))  # el vídeo no empieza con la voz de golpe
+    voz[:m] *= sonidos.np.linspace(0, 1, m) ** 2
+    viral = guion.get("estilo", {}).get("diseno") == "viral"
+    if guion.get("musica"):
+        voz = voz + _musica(Path(guion["musica"]).expanduser(), voz, guion.get("musica_db", MUSICA_DB))
     mezcla = carpeta / "mezcla.wav"
-    sonidos.escribir_wav(mezcla, sonidos.mezclar(voz, eventos_de_sonido(planos), t))
+    # En «viral» no hay barridos ni golpes: con un cambio de plano cada dos segundos serían ruido; manda la música.
+    sonidos.escribir_wav(mezcla, sonidos.mezclar(voz, [] if viral else eventos_de_sonido(planos), t))
     # Volumen de redes (-14 LUFS), con margen para que no sature.
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mezcla), "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
                     "-ar", str(sonidos.SR), str(publica / "audio.wav")], check=True)
     mezcla.unlink()
     return {"fps": FPS, "total": int(t * FPS) + 1, "audio": "audio.wav",
             "titulo": {**guion["titulo"], "fin": round(fin_titulo, 3)}, "planos": planos, "rotulos": rotulos,
-            "palabras": palabras, "estilo": {**ESTILO, **guion.get("estilo", {})}}
+            "palabras": palabras, "estilo": {**(estilo_de_marca(guion["negocio_id"], publica) if guion.get("negocio_id") else ESTILO),
+                                              **guion.get("estilo", {})}}
 
 
 # ---------------------------------------------------------------- montaje
@@ -300,16 +538,104 @@ def render(props: dict, carpeta: Path, salida: Path, escala: float = 1.0) -> Pat
     subprocess.run(["npx", "remotion", "render", "src/index.ts", "Explicativo", str(salida.resolve()),
                     f"--props={ruta_props.resolve()}", f"--public-dir={(carpeta / 'publica').resolve()}",
                     f"--scale={escala}", "--log=error", "--concurrency=2"], cwd=REMOTION_DIR, check=True)
+    normalizar_volumen(salida)
+    comprobar_voz(salida)
     return salida
+
+
+class VozConCortes(Exception):
+    pass
+
+
+def arranques_secos(video: Path, sr: int = 48000) -> list[float]:
+    """Momentos en que el sonido pasa de menos de -55 dB a más de -28 dB en 5 ms o menos: un corte sin ataque, que se oye
+    como si se comiera el principio de la palabra. Solo cuenta si los 20 ms de antes estaban callados (todos por debajo
+    de -50 dB): con música de fondo, los huecos de 1 ms entre golpes de la música no son un corte."""
+    pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(video), "-map", "0:a", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                         capture_output=True, check=True).stdout
+    x = sonidos.np.frombuffer(pcm, dtype=sonidos.np.float32)
+    v = sr // 1000
+    n = len(x) // v
+    db = 20 * sonidos.np.log10(sonidos.np.sqrt(sonidos.np.mean(x[:n * v].reshape(n, v) ** 2, axis=1)) + 1e-9)
+    malos: list[float] = []
+    for i in range(n - 5):
+        if db[i] < -55 and db[i + 1:i + 6].max() > -28 and db[max(0, i - 20):i + 1].max() < -50 and (not malos or i / 1000 - malos[-1] > 0.05):
+            malos.append(round(i / 1000, 2))
+    return malos
+
+
+def comprobar_voz(video: Path) -> None:
+    """Control de calidad del sonido: con un solo arranque seco el vídeo no se entrega (se renombra a _FALLIDO)."""
+    malos = arranques_secos(video)
+    if malos:
+        fallido = video.with_name(video.stem + "_FALLIDO" + video.suffix)
+        video.replace(fallido)
+        raise VozConCortes(f"{len(malos)} arranques secos en la voz ({', '.join(f'{m} s' for m in malos[:8])}): {fallido.name}")
+
+
+def normalizar_volumen(video: Path) -> None:
+    """Deja el vídeo final a -14 LUFS (pico -1,5 dBTP). Hace falta aquí, al final: al codificar el vídeo el audio pierde
+    algo más de 1 dB aunque la mezcla saliera ya a -14. La imagen se copia tal cual."""
+    tmp = video.with_suffix(".sin_normalizar.mp4")
+    video.replace(tmp)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(tmp), "-c:v", "copy", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
+                    "-ar", "48000", "-c:a", "aac", "-b:a", "192k", str(video)], check=True)
+    tmp.unlink()
 
 
 def generar(guion: dict, carpeta: Path, salida: Path, borrador: bool = False, escala: float = 1.0) -> Path:
     """Guion → voz y efectos → vídeo. La carpeta de trabajo se borra al acabar."""
     carpeta.mkdir(parents=True, exist_ok=True)
     try:
-        return render(preparar(guion, carpeta, borrador), carpeta, salida, escala)
+        return render(_preparar_a_ritmo(guion, carpeta, borrador), carpeta, salida, escala)
     finally:
         shutil.rmtree(carpeta, ignore_errors=True)
+
+
+def palabras_por_minuto(guion: dict, props: dict) -> float:
+    palabras = sum(len(_fichas(p["di"])) for e in guion["escenas"] for p in e["planos"])
+    return palabras / (props["total"] / FPS) * 60
+
+
+def _preparar_a_ritmo(guion: dict, carpeta: Path, borrador: bool = False) -> dict:
+    """preparar(), estirando o encogiendo las pausas hasta que el ritmo cae en RITMO. La voz sale de la caché desde la
+    segunda vuelta, así que reintentar no gasta créditos."""
+    global AIRE, TEMPO
+
+    def a_ritmo() -> tuple[dict, float, float]:
+        """Con el TEMPO de ahora, el AIRE que deja el ritmo en el centro de RITMO. Devuelve también el ritmo sin estirar."""
+        global AIRE
+        AIRE = 1.0
+        props = preparar(guion, carpeta, borrador)
+        ppm1 = ppm = palabras_por_minuto(guion, props)
+        if not (RITMO[0] <= ppm <= RITMO[1] or borrador):
+            # La duración crece en línea recta con el multiplicador: con dos medidas sale el que hace falta.
+            d1 = props["total"] / FPS
+            AIRE = 2.0
+            pausas = preparar(guion, carpeta, borrador)["total"] / FPS - d1
+            objetivo = ppm * d1 / (sum(RITMO) / 2)
+            # Como mucho 1,3 veces las pausas: antes 190-195 ppm con pausas naturales que frases sueltas.
+            AIRE = max(AIRE_MIN, min(AIRE_MAX, 1 + (objetivo - d1) / max(pausas, 0.1)))
+            props = preparar(guion, carpeta, borrador)
+            ppm = palabras_por_minuto(guion, props)
+        return props, ppm, ppm1
+
+    try:
+        props, ppm, ppm1 = a_ritmo()
+        if AIRE >= AIRE_MAX and ppm > RITMO[1] and not borrador:
+            # Una voz rápida con las pausas muy estiradas suena a frases sueltas: mejor frenarla un poco (hasta un 8 %)
+            # y dejar las pausas cerca de lo natural.
+            TEMPO = max(0.95, min(1.0, (sum(RITMO) / 2) / ppm1 * 1.04))
+            props, ppm, _ = a_ritmo()
+        if ppm < RITMO[0] and AIRE <= AIRE_MIN + 0.01 and not borrador:
+            # Ni con las pausas al mínimo: se acelera la voz lo justo (como mucho un 6 %) y se vuelven a ajustar las pausas.
+            # (un guion puede permitir algo más con "acelerar_max", p. ej. 1.10: atempo cambia el ritmo, no el tono)
+            TEMPO = min(float(guion.get("acelerar_max", 1.06)), (sum(RITMO) / 2) / ppm * 1.01)
+            props, ppm, _ = a_ritmo()
+        print(f"ritmo: {ppm:.0f} palabras por minuto (pausas x{AIRE:.2f}, voz x{TEMPO:.2f})")
+        return props
+    finally:
+        AIRE, TEMPO = 1.0, 1.0
 
 
 if __name__ == "__main__":

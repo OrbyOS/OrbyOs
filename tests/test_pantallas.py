@@ -129,7 +129,7 @@ def test_la_landing_sale_en_la_raiz_sin_sesion(app_aislada, monkeypatch):
     r = anonimo.get("/", follow_redirects=False)
     assert r.status_code == 200 and "Conoce a Orby." in r.text and "Solicitar implementación" in r.text
     assert "data-orby3d" in r.text and "/static/landing3d.js" in r.text  # Orby en 3D en la portada
-    assert "Ver en GitHub" in r.text  # el segundo botón de la portada lleva al repositorio
+    assert "Ver el código en GitHub" in r.text and 'href="/registro">Empieza gratis' in r.text  # gratis arriba; GitHub en «Código abierto»
     assert "data-escaparate" in r.text and "/static/escaparate/sala.json" in r.text  # la oficina de verdad, con datos de ejemplo
     for seccion in ("producto", "equipo", "como", "control", "implementacion", "preguntas", "solicitar"):
         assert f'id="{seccion}"' in r.text, seccion
@@ -185,3 +185,107 @@ def test_administracion_ensena_las_solicitudes(app_aislada):
     pagina = app_aislada.get("/admin").text
     assert 'id="solicitudes"' in pagina and "Laura" in pagina and "Quiero publicar más" in pagina and "1 nueva" in pagina
     assert f'action="/admin/solicitudes/{sid}"' in pagina and 'name="notas"' in pagina
+
+
+def test_instagram_sin_manychat_en_conectores_y_comunidad(app_aislada):
+    from radar.agentes import instagram_dm
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    conectores = cliente.get(f"/negocios/{nid}/conectores").text
+    assert 'id="instagram"' in conectores and 'name="token" type="password"' in conectores and 'name="secreto" type="password"' in conectores
+    assert "Desconectar Instagram" not in conectores
+    comunidad = cliente.get(f"/negocios/{nid}/comunidad").text
+    assert 'id="instagram"' in comunidad and f'{nid}/conectores#instagram' in comunidad and "data-ig-palabra>" not in comunidad
+
+    # Conectado (sin llamar a Meta): el token no se vuelve a enseñar y salen las palabras, los ajustes y los envíos.
+    instagram_dm._guardar(nid, {"token": "IGAA-secreto", "secreto": "s3", "usuario": "marca", "id": "17", "suscrito": True})
+    instagram_dm.poner_palabra(nid, "guía", "https://ejemplo.test/guia", mensaje="Toma {enlace}")
+    conectores = cliente.get(f"/negocios/{nid}/conectores").text
+    assert "Conectado con @marca" in conectores and "IGAA-secreto" not in conectores and "Desconectar Instagram" in conectores
+    comunidad = cliente.get(f"/negocios/{nid}/comunidad").text
+    assert "<strong>GUIA</strong>" in comunidad and "En todos los reels" in comunidad and "data-ig-palabra>" in comunidad
+    assert f'action="/negocios/{nid}/comunidad/instagram/ajustes"' in comunidad and "IGAA-secreto" not in comunidad
+
+
+def test_paginas_publicas_de_privacidad_y_borrado(app_aislada):
+    cliente, _ = _negocio_con_cliente(app_aislada)
+    cliente.cookies.clear()
+    privacidad = cliente.get("/privacidad")
+    assert privacidad.status_code == 200 and "No guardamos el texto de tu comentario" in privacidad.text
+    assert "hola@orbyos.es" in privacidad.text and 'href="/borrar-datos"' in privacidad.text
+    borrar = cliente.get("/borrar-datos")
+    assert borrar.status_code == 200 and "Borrar mis datos" in borrar.text and "nombre de usuario de Instagram" in borrar.text
+
+
+def test_instagram_con_boton_si_la_instalacion_tiene_su_app(app_aislada, monkeypatch):
+    from radar.agentes import instagram_dm
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    monkeypatch.setattr(instagram_dm, "boton_disponible", lambda: True)
+    pagina = cliente.get(f"/negocios/{nid}/conectores").text
+    assert f'href="/negocios/{nid}/conectores/instagram/conectar"' in pagina and "Conectar Instagram" in pagina
+    assert "Pegar el token a mano" in pagina and 'name="token" type="password"' in pagina
+
+
+def test_ideas_adaptar_a_mi_voz_y_grabar_enlaza_su_estructura(app_aislada):
+    from radar import db
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    with db.conexion() as con:
+        cid = con.execute("INSERT INTO cuentas (negocio_id, plataforma, usuario, propia, nivel) VALUES (?, 'instagram', 'ana', 0, 2)", (nid,)).lastrowid
+        pid = con.execute("INSERT INTO posts (negocio_id, cuenta_id, plataforma, url, publicado, texto, vistas, x, destaca, ritmo, despega, encaje, actualizado) "
+                          "VALUES (?, ?, 'instagram', 'https://instagram.com/p/x', '2026-10-27T10:00:00', 'Un reel que despega', 9000, 4, 1, 4, 1, 'si', '2026-10-27T10:00:00')",
+                          (nid, cid)).lastrowid
+    ideas = cliente.get(f"/negocios/{nid}/investigacion").text
+    assert f'action="/negocios/{nid}/investigacion/posts/{pid}/adaptar"' in ideas and "Adaptar a mi voz" in ideas
+
+
+def test_comunidad_regalos_en_tarjetas_con_sus_numeros(app_aislada):
+    from radar.agentes import regalos
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    pagina = cliente.get(f"/negocios/{nid}/comunidad").text
+    assert '<a href="#regalos"' in pagina and "Aún no tienes regalos" in pagina and f'action="/negocios/{nid}/regalos"' in pagina
+    r = regalos.guardar(nid, palabra="skill", destino="https://ejemplo.test/skills", activa=True, exacta=False)
+    pagina = cliente.get(f"/negocios/{nid}/comunidad").text
+    assert '<b class="rg-palabra">SKILL</b>' in pagina and "/r/" in pagina and "privados" in pagina
+    assert f'action="/negocios/{nid}/regalos/{r["id"] if isinstance(r, dict) else r}/quitar"' in pagina
+
+
+def test_panel_en_vivo_con_regalos_y_newsletter(app_aislada):
+    from radar import newsletter
+    from radar.agentes import regalos
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    pagina = cliente.get(f"/negocios/{nid}/panel").text
+    assert f'href="/negocios/{nid}/panel"' in pagina and "Aún no hay palabras clave" in pagina and "?parcial=1" in pagina
+    regalos.guardar(nid, palabra="skill", destino="https://ejemplo.test/skills", activa=True, exacta=False)
+    newsletter.poner_formulario("demo", "1")
+    datos = newsletter.ajustes_listas()
+    datos["demo"]["negocio"] = nid
+    newsletter._listas_archivo().write_text(__import__("json").dumps(datos))
+    newsletter.suscribir("demo", {"nombre": "Ana", "email": "ana@ejemplo.test", "acepto": "si", "origen": "SKILL"}, "127.0.0.1")
+    parcial = cliente.get(f"/negocios/{nid}/panel?parcial=1").text
+    assert 'id="panel-vivo"' in parcial and "<html" not in parcial
+    assert "<b>SKILL</b>" in parcial and "Newsletter · demo" in parcial and "SKILL</b><span>1 alta" in parcial
+
+
+def test_plan_gratis_puerta_falsa_y_candados(app_aislada):
+    from radar import db
+    from .test_radar import _dar_negocio, _otro_cliente, _registrar
+    _registrar(app_aislada, "admin@ejemplo.com")
+    cliente = _otro_cliente(app_aislada, "gratis@ejemplo.com")
+    db.actualizar_usuario(db.usuario_por_email("gratis@ejemplo.com")["id"], plan="gratis")
+    nid = _dar_negocio("gratis@ejemplo.com")
+    puerta = cliente.get(f"/negocios/{nid}/mejorar?funcion=edicion").text
+    assert "<h1>Edición de tus vídeos</h1>" in puerta and 'name="acepto" value="si" required' in puerta
+    assert f'action="/negocios/{nid}/mejorar"' in puerta and "Publicación automática" in puerta
+    assert "Te avisaremos" in cliente.get(f"/negocios/{nid}/mejorar?funcion=edicion&apuntado=1").text
+    ideas = cliente.get(f"/negocios/{nid}/investigacion").text
+    assert "pl-candado" in ideas and 'id="pl-aviso"' in ideas and 'value="gratis@ejemplo.com"' in ideas
+    r = cliente.post(f"/negocios/{nid}/investigacion/escanear", headers={"X-Orby-Puerta": "1"})
+    assert r.status_code == 402 and r.json()["plan"] == "premium"
+    from fastapi.testclient import TestClient
+    landing = TestClient(app_aislada.app).get("/").text
+    assert 'href="/registro">Empieza gratis' in landing and "Gratis o completo" in landing
+
+
+def test_sin_candados_fuera_del_plan_gratis(app_aislada):
+    cliente, nid = _negocio_con_cliente(app_aislada)
+    pagina = cliente.get(f"/negocios/{nid}/investigacion").text
+    assert "pl-candado" not in pagina and 'id="pl-aviso"' not in pagina

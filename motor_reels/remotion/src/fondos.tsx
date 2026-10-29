@@ -70,8 +70,47 @@ const Foto: React.FC<{archivo: string}> = ({archivo}) => {
   );
 };
 
+/** Color sólido del kit (el gancho con la palabra gigante): plano, con una viñeta muy suave para que no parezca un hueco. */
+const Solido: React.FC = () => {
+  const e = useEstilo();
+  return <AbsoluteFill style={{backgroundColor: e.fondoLuz, backgroundImage: `radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, ${e.fondo}99)`}} />;
+};
+
+/**
+ * Mosaico: capturas reales (miniaturas de vídeos, publicaciones) a pantalla completa por detrás de la persona, en
+ * cuadrícula un poco girada que entra en cascada y sube despacio. Sin desenfoque: se tienen que reconocer. Un velo del
+ * color de fondo arriba y abajo deja leer subtítulos y rótulos. Para cuando nombra «mil vídeos de YouTube» (cliente cero,
+ * 28/10/2026: mejor que la pantalla partida en estos casos).
+ */
+const Mosaico: React.FC<{archivos: string[]}> = ({archivos}) => {
+  const f = useCurrentFrame();
+  const e = useEstilo();
+  // Cinco columnas de miniaturas pequeñas: se tienen que ver muchos vídeos alrededor de él, no dos o tres (cliente cero).
+  const cols = 5, w = 300, h = 169, gap = 12, filas = 15;
+  const anchoTotal = cols * w + (cols - 1) * gap;
+  const deriva = -f * 0.9;
+  return (
+    <AbsoluteFill style={{backgroundColor: e.fondo, overflow: 'hidden'}}>
+      <div style={{position: 'absolute', left: (1080 - anchoTotal) / 2, top: -260 + deriva, width: anchoTotal,
+        transform: 'rotate(-7deg) scale(1.08)', transformOrigin: '50% 40%', display: 'flex', flexWrap: 'wrap', gap}}>
+        {Array.from({length: cols * filas}, (_, i) => {
+          const entra = Math.min(1, Math.max(0, (f - (i % 13) * 0.5) / 6));
+          return (
+            <div key={i} style={{width: w, height: h, borderRadius: 14, overflow: 'hidden', opacity: entra,
+              transform: `scale(${0.92 + 0.08 * entra})`, boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)'}}>
+              <Img src={staticFile(`imagenes/${archivos[i % archivos.length]}`)} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+            </div>
+          );
+        })}
+      </div>
+      <AbsoluteFill style={{background: `linear-gradient(to bottom, ${e.fondo}B0 0%, transparent 22%, transparent 60%, ${e.fondo}D0 100%)`}} />
+    </AbsoluteFill>
+  );
+};
+
 export const FondoAnimado: React.FC<{fondo?: Fondo; style?: React.CSSProperties}> = ({fondo, style}) => (
   <AbsoluteFill style={style}>
-    {fondo && typeof fondo === 'object' ? <Foto archivo={fondo.foto} /> : fondo === 'rejilla' ? <Rejilla /> : <Luz />}
+    {fondo && typeof fondo === 'object' && 'mosaico' in fondo ? <Mosaico archivos={fondo.mosaico} />
+      : fondo && typeof fondo === 'object' ? <Foto archivo={fondo.foto} /> : fondo === 'rejilla' ? <Rejilla /> : fondo === 'solido' ? <Solido /> : <Luz />}
   </AbsoluteFill>
 );

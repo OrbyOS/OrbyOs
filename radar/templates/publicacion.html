@@ -1,13 +1,12 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
-{% block titulo %}Publicación · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% from "_ui.html" import icono, pestanas %}
+{% block titulo %}Publicar · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Publicación</h1>
-    <p class="sub">Cada vídeo aprobado sale en tus redes en su siguiente hueco, con un enlace de seguimiento y sin publicarse nunca dos veces. Instagram lo publicas tú, para poder poner audio en tendencia: a su hora te lo dejamos listo aquí.</p>
-  </div>
+<header class="pg-cabeza">
+  <div><h1>Publicar</h1>
+    <p class="pg-sub">{% if te_toca %}Hoy te toca publicar {{ te_toca | length }} a mano.{% elif pendientes %}{{ pendientes | length }} vídeo{{ "s" if pendientes | length != 1 }} listo{{ "s" if pendientes | length != 1 }} para programar.{% else %}Cada vídeo aprobado sale solo en su siguiente hueco.{% endif %}{% if not conectado %} <a href="{{ base_n }}/conectores#zernio">Conecta Zernio</a> para programar.{% endif %}</p></div>
 </header>
+{{ pestanas([(base_n ~ "/publicacion", "Calendario", true, 0), (base_n ~ "/resultados", "Resultados", false, 0)]) }}
 
 {% set rp = reels_prueba_de(negocio.id) %}
 {% if rp.activa and not rp.comprobado %}
@@ -17,7 +16,7 @@
 
 {% if te_toca %}
 <section class="panel pb-toca">
-  <div class="panel-cabecera"><div><h2>{{ icono("alerta") }} Te toca publicarlo</h2><p class="tenue">Descarga el vídeo, copia el texto y publícalo desde el móvil. Después, márcalo como publicado.</p></div></div>
+  <div class="panel-cabecera"><div><h2>{{ icono("alerta") }} Te toca publicarlo</h2><p class="tenue">Descarga el vídeo, copia el texto, publícalo desde el móvil y márcalo.</p></div></div>
   <ul class="kit-lista">
     {% for p in te_toca %}
     <li>
@@ -64,7 +63,7 @@
   {% endfor %}
 </div>
 {% elif not videos %}
-<section class="panel"><div class="vacio"><p>Cuando apruebes un vídeo en <a href="{{ base_n }}/produccion">Producción</a>, aparecerá aquí para publicarlo.</p></div></section>
+<section class="panel"><div class="vacio"><p>Cuando apruebes un vídeo en <a href="{{ base_n }}/produccion">Editar</a>, aparecerá aquí.</p></div></section>
 {% endif %}
 
 <section class="panel">
@@ -87,14 +86,10 @@
   {% endif %}
 </section>
 
-<section class="panel" id="conexion">
-  <div class="panel-cabecera"><div><h2>Zernio <span class="cx-estado {{ 'on' if conectado }}">{{ "Conectado" if conectado else "Sin conectar" }}</span></h2>
-    <p class="tenue">{% if conectado %}Publi publica en tus redes a través de Zernio.{% else %}Hasta que conectes Zernio, Publi no puede programar nada.{% endif %} La clave y tus cuentas se gestionan en Conectores.</p></div>
-    <a class="btn btn-secundario btn-peque" href="{{ base_n }}/conectores#zernio">{{ icono("enchufe") }} Conectores</a></div>
-</section>
 
-<section class="panel" id="plan">
-  <div class="panel-cabecera"><div><h2>Cuándo se publica</h2><p class="tenue">Días y horas de cada red. Publi coge el siguiente hueco libre.</p></div></div>
+
+<details class="pg-plegable" id="plan">
+  <summary>{{ icono("calendario") }} Días y horas de cada red · Zernio {{ "conectado" if conectado else "sin conectar" }}</summary>
   <form method="post" action="/negocios/{{ negocio.id }}/publicacion/plan">
     <div class="panel-cuerpo pb-plan">
       {% for r, nombre in REDES.items() %}{% set p = plan[r] %}
@@ -106,9 +101,9 @@
       </div>
       {% endfor %}
     </div>
-    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+    <div class="form-pie"><a class="btn btn-fantasma" href="{{ base_n }}/conectores#zernio">{{ icono("enchufe") }} Zernio en Conectores</a><button class="btn btn-primario" type="submit">Guardar</button></div>
   </form>
-</section>
+</details>
 
 <script>
 document.querySelectorAll("[data-boton-copiar]").forEach(function (b) {

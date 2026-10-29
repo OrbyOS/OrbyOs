@@ -1,105 +1,111 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
-{% block titulo %}Graba hoy · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% from "_ui.html" import icono, pestanas %}
+{% block titulo %}Grabar · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 
+{# Una pieza para grabar: lo que hace falta a la vista (título, cuándo y el gancho) y el resto, al abrirla. #}
 {% macro tarjeta(p) -%}
-<article class="panel gh-pieza" id="pieza-{{ p.id }}">
-  <div class="panel-cabecera">
-    <div>
-      <span class="kit-etiqueta">{% if p.datos.clase %}{{ CLASES_PIEZA.get(p.datos.clase, p.datos.clase) }} · {% endif %}{{ p.tipo_nombre }} · {{ carriles.get(p.carril, p.carril) }} · {{ p.etapa | upper }}</span>
-      <h2>{{ p.titulo }}</h2>
-      {% if p.angulo %}<p class="tenue">{{ p.angulo }}</p>{% endif %}
-    </div>
-    <span class="badge {{ 'badge-listo' if p.estado == 'aprobada' else 'badge-azul' }}">{{ p.estado_nombre }}</span>
+<article class="gb-pieza gb-{{ p.estado }}" id="pieza-{{ p.id }}">
+  <div class="gb-pieza-cab">
+    <span class="gb-estado">{{ p.estado_nombre }}</span>
+    <span class="gb-meta">{% if p.datos.clase %}{{ CLASES_PIEZA.get(p.datos.clase, p.datos.clase) }} · {% endif %}{{ p.tipo_nombre }} · {{ carriles.get(p.carril, p.carril) }}</span>
   </div>
-  <div class="panel-cuerpo">
-    {% if p.datos.referencia %}<p class="gh-ref">{{ icono("prueba") }} <a href="{{ p.datos.url }}" target="_blank" rel="noopener">{{ p.datos.referencia }}</a></p>{% endif %}
-    <p><b>Formato:</b> {{ p.formato }}</p>
-    {% set f = nombre_formula(p.datos.formula) %}{% if f and f != "Sin fórmula" %}<p><b>Gancho:</b> {{ f }}</p>{% endif %}
-    {% if p.datos.grabar_antes %}{% set min = p.datos.grabar_antes | quedan %}<p class="gh-hora {{ 'kit-falta' if min is not none and min < 120 }}"><b>Grábalo antes de las {{ p.datos.grabar_antes[11:16] }}</b>{% if p.datos.grabar_antes[:10] != (p.dia or "")[:10] %} del {{ p.datos.grabar_antes[8:10] }}/{{ p.datos.grabar_antes[5:7] }}{% endif %}{% if min is not none and min <= 0 %} · ya pasó la hora{% endif %}</p>{% endif %}
-    {% if p.datos.rodaje %}<div class="gh-rodaje"><b>Al grabar</b><ul>{% for r in p.datos.rodaje %}<li>{{ r }}</li>{% endfor %}</ul></div>{% endif %}
-    {% if p.esquema %}<ol class="gh-esquema">{% for paso in p.esquema %}<li>{{ paso }}</li>{% endfor %}</ol>{% endif %}
-  </div>
+  <h2>{{ p.titulo }}</h2>
+  {% if p.datos.grabar_antes %}{% set min = p.datos.grabar_antes | quedan %}
+  <p class="gb-hora {{ 'gb-tarde' if min is not none and min < 120 }}">{{ icono("camara") }} Antes de las {{ p.datos.grabar_antes[11:16] }}{% if p.datos.grabar_antes[:10] != (p.dia or "")[:10] %} del {{ p.datos.grabar_antes[8:10] }}/{{ p.datos.grabar_antes[5:7] }}{% endif %}{% if min is not none and min <= 0 %} · ya pasó la hora{% endif %}</p>
+  {% endif %}
+  {% set gid = (guion_de or {}).get(p.id) %}
+  {% if gid %}<a class="gb-abrir" href="{{ base_n }}/guiones/{{ gid }}">{{ icono("ficha") }} Abrir la estructura</a>{% endif %}
+  <details class="gb-mas">
+    <summary>Cómo grabarlo</summary>
+    {% if p.angulo %}<p>{{ p.angulo }}</p>{% endif %}
+    {% set f = nombre_formula(p.datos.get("formula")) %}
+    <p class="gb-dato"><b>Formato</b> {{ p.formato }}{% if f and f != "Sin fórmula" %} · <b>Gancho</b> {{ f }}{% endif %}</p>
+    {% if p.esquema %}<ol class="gb-esquema">{% for paso in p.esquema %}<li>{{ paso }}</li>{% endfor %}</ol>{% endif %}
+    {% if p.datos.rodaje %}<ul class="gb-rodaje">{% for r in p.datos.rodaje %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    {% if p.datos.referencia %}<p class="gb-ref">{{ icono("prueba") }} Rehace <a href="{{ p.datos.url }}" target="_blank" rel="noopener">{{ p.datos.referencia }}</a></p>{% endif %}
+  </details>
   {% if p.estado in ["propuesta", "aprobada"] %}
-  <form class="form-pie ap-acciones" method="post" action="/negocios/{{ negocio.id }}/estrategia/piezas/{{ p.id }}/descartar">
-    <input name="motivo" placeholder="Por qué no (opcional)" aria-label="Motivo">
-    <button class="btn btn-fantasma btn-peque" type="submit">No me convence</button>
-  </form>
+  <details class="gb-no">
+    <summary>No me convence</summary>
+    <form class="gb-no-form" method="post" action="/negocios/{{ negocio.id }}/estrategia/piezas/{{ p.id }}/descartar">
+      <input name="motivo" placeholder="Por qué (opcional)" aria-label="Motivo">
+      <button class="btn btn-secundario btn-peque" type="submit">Descartar</button>
+    </form>
+  </details>
   {% endif %}
 </article>
 {%- endmacro %}
 
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Graba hoy</h1>
-    <p class="sub">Plani elige qué grabar según lo que falta de cada carril esta semana y el reparto por etapas. La mayoría de las piezas rehacen un post que ya funcionó, con tu tema y tu voz.</p>
+{% set es_guion = modo_de(negocio.id) == "guion" %}
+<header class="pg-cabeza">
+  <div><h1>Grabar</h1>
+    <p class="pg-sub">{% if estado_estratega.trabajando %}<i class="hero-vivo"></i> Plani está preparando el plan…{% elif de_hoy %}{{ de_hoy | length }} pieza{{ "s" if de_hoy | length != 1 }} para hoy.{% else %}Aún no hay plan para hoy.{% endif %}</p></div>
+  <div class="pg-acciones">
+    <form method="post" action="/negocios/{{ negocio.id }}/estrategia/planificar"><input type="hidden" name="lote" value="1">
+      <button class="btn btn-secundario" type="submit" {% if estado_estratega.trabajando %}disabled{% endif %}>Planificar la semana</button></form>
+    <form method="post" action="/negocios/{{ negocio.id }}/estrategia/planificar">
+      <button class="btn btn-primario" type="submit" {% if estado_estratega.trabajando %}disabled{% endif %}>{{ icono("chispa") }} {{ "Rehacer el plan" if de_hoy else "Planificar hoy" }}</button></form>
   </div>
 </header>
+{{ pestanas([(base_n ~ "/estrategia", "Hoy", true, 0), (base_n ~ "/guiones", "Guiones" if es_guion else "Estructuras", false, 0)]) }}
+<div {% if estado_estratega.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/estrategia/estado"{% endif %}></div>
 
-<section class="panel" {% if estado_estratega.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/estrategia/estado"{% endif %}>
-  <div class="panel-cabecera">
-    <div>
-      <h2>{% if estado_estratega.trabajando %}<i class="hero-vivo"></i>Preparando el plan{% elif de_hoy %}Plan de hoy{% else %}Aún no hay plan para hoy{% endif %}</h2>
-      <p class="tenue">{{ n_candidatos }} post{{ "s" if n_candidatos != 1 }} que ya funcionaron listos para rehacer. Si faltan, escanea en <a href="{{ base_n }}/investigacion">Investigación</a>.</p>
-    </div>
-    <div class="gh-botones">
-      <form method="post" action="/negocios/{{ negocio.id }}/estrategia/planificar"><input type="hidden" name="lote" value="1">
-        <button class="btn btn-secundario btn-peque" type="submit" {% if estado_estratega.trabajando %}disabled{% endif %}>Planificar la semana</button></form>
-      <form method="post" action="/negocios/{{ negocio.id }}/estrategia/planificar">
-        <button class="btn btn-primario btn-peque" type="submit" {% if estado_estratega.trabajando %}disabled{% endif %}>{{ icono("chispa") }} {{ "Rehacer el plan de hoy" if de_hoy else "Planificar hoy" }}</button></form>
-    </div>
-  </div>
-  {% if estado_estratega.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_estratega.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
-</section>
+{% if estado_estratega.avisos %}<div class="aviso">{{ icono("alerta") }}<ul class="avisos">{% for a in avisos_para(estado_estratega.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
 
 {% if de_hoy %}
 {% if de_hoy | selectattr("estado", "equalto", "propuesta") | list %}
-<div class="aviso aviso-azul">{{ icono("check") }}<div>El plan espera tu visto bueno en <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>. Hasta entonces no se escribe ningún guion.</div></div>
+<a class="pg-arranque" href="{{ base_n }}/aprobaciones">
+  <span class="pg-arranque-texto"><small>Antes de escribir nada</small><b>Dale el OK al plan de hoy</b></span>
+  <span class="btn btn-primario btn-peque">Revisar {{ icono("flecha") }}</span>
+</a>
 {% endif %}
-<div class="gh-piezas">{% for p in de_hoy %}{{ tarjeta(p) }}{% endfor %}</div>
+<div class="gb-piezas">{% for p in de_hoy %}{{ tarjeta(p) }}{% endfor %}</div>
+{% else %}
+<div class="pg-vacio">
+  <p><b>Sin plan para hoy.</b> Plani elige qué grabar a partir de {{ n_candidatos }} post{{ "s" if n_candidatos != 1 }} que ya funcionaron en tu nicho.</p>
+  {% if not n_candidatos %}<a class="btn btn-secundario btn-peque" href="{{ base_n }}/investigacion">Buscar ideas primero</a>{% endif %}
+</div>
+{% endif %}
+
+{% if pendientes_grabar %}
+<h2 class="pg-titulo">Aprobadas de otros días</h2>
+<ul class="pg-filas">{% for p in pendientes_grabar %}<li><b>{{ p.titulo }}</b><span>{{ p.tipo_nombre }} · del {{ p.dia[8:10] }}/{{ p.dia[5:7] }}</span></li>{% endfor %}</ul>
 {% endif %}
 
 {% set hist = historias_de_hoy(negocio.id) %}
 {% if de_hoy and hist and hist.marcos %}
-<section class="panel" id="historias">
-  <div class="panel-cabecera"><div><h2>Historias de hoy</h2><p class="tenue">{{ hist.marcos | length }} historias atadas a lo que grabas hoy, con una sola pegatina (como tarde en la cuarta, que más allá casi nadie la ve).{% if hist.provisional %} Es una plantilla de partida: con Claude conectado, Plani las escribe para tu tema.{% endif %}</p></div></div>
-  <ol class="gh-historias">{% for m in hist.marcos %}
+<details class="pg-plegable" id="historias">
+  <summary>{{ icono("pantalla") }} Historias de hoy · {{ hist.marcos | length }}</summary>
+  <ol class="gh-historias pg-dentro">{% for m in hist.marcos %}
     <li><span class="gh-h-num">{{ loop.index }}</span><div><p class="kit-meta">{{ m.imagen }}</p><p>{{ m.se_dice }}</p>{% if PEGATINAS.get(m.pegatina) %}<span class="cx-estado on">{{ PEGATINAS[m.pegatina] }}</span>{% endif %}</div></li>{% endfor %}
   </ol>
-  {% if hist.despues %}<p class="panel-cuerpo tenue"><b>Después:</b> {{ hist.despues }}</p>{% endif %}
-</section>
+  {% if hist.despues %}<p class="pg-dentro tenue"><b>Después:</b> {{ hist.despues }}</p>{% endif %}
+</details>
 {% endif %}
 
-<section class="panel" id="reaprovechar">
-  <div class="panel-cabecera"><div><h2>Reaprovechar una grabación larga</h2><p class="tenue">Un directo, un podcast o un vídeo de YouTube: pega la transcripción y Plani saca de 4 a 6 piezas (reels, carruseles o historias), con lo más fuerte primero. Llegan a Aprobaciones.</p></div></div>
-  <form method="post" action="/negocios/{{ negocio.id }}/estrategia/reaprovechar">
-    <div class="panel-cuerpo campos">
-      <label class="c"><span>Título <small>De qué va la grabación</small></span><input name="titulo" maxlength="160" placeholder="Directo: cómo cobrar más sin perder clientes"></label>
-      <label class="c"><span>¿Es un vídeo tuyo?</span><select name="video_propio"><option value="1">Sí: se pueden cortar trozos del vídeo</option><option value="0">No: solo el texto, hay que grabarlo</option></select></label>
-      <label class="c ancho"><span>La transcripción <small>Entera: hacen falta al menos 150 palabras</small></span><textarea name="texto" rows="8" required placeholder="Pega aquí la transcripción"></textarea></label>
+<details class="pg-plegable" id="reaprovechar">
+  <summary>{{ icono("actualizar") }} Sacar piezas de un directo, podcast o vídeo largo</summary>
+  <form method="post" action="/negocios/{{ negocio.id }}/estrategia/reaprovechar" class="pg-dentro">
+    <div class="campos">
+      <label class="c"><span>Título</span><input name="titulo" maxlength="160" placeholder="Directo: cómo cobrar más sin perder clientes"></label>
+      <label class="c"><span>¿Es un vídeo tuyo?</span><select name="video_propio"><option value="1">Sí: se pueden cortar trozos</option><option value="0">No: solo el texto</option></select></label>
+      <label class="c ancho"><span>La transcripción <small>Al menos 150 palabras</small></span><textarea name="texto" rows="6" required placeholder="Pega aquí la transcripción"></textarea></label>
     </div>
     <div class="form-pie"><button class="btn btn-primario" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} Sacar las piezas</button></div>
   </form>
-</section>
+</details>
 
-{% if pendientes_grabar %}
-<section class="panel">
-  <div class="panel-cabecera"><div><h2>Aprobadas de otros días, sin grabar</h2></div></div>
-  <ul class="kit-lista">{% for p in pendientes_grabar %}<li><div><strong>{{ p.titulo }}</strong><p class="kit-meta">{{ p.tipo_nombre }} · {{ carriles.get(p.carril, p.carril) }} · del {{ p.dia }}</p></div></li>{% endfor %}</ul>
-</section>
-{% endif %}
-
-<section class="panel">
-  <div class="panel-cabecera"><div><h2>Esta semana</h2><p class="tenue">Piezas aprobadas por carril frente a su cuota. Las cuotas se cambian en el <a href="{{ base_n }}/kit#carriles">Kit de marca</a>.</p></div></div>
-  <div class="panel-cuerpo gh-semana">
+<details class="pg-plegable">
+  <summary>{{ icono("grafico") }} Esta semana por carril</summary>
+  <div class="gh-semana pg-dentro">
     {% for c in semana if c.cuota > 0 %}
     <div class="gh-carril">
       <div class="gh-carril-nombre"><span>{{ c.nombre }}</span><span class="tenue">{{ c.hechas }} / {{ c.cuota }}</span></div>
       <div class="gh-barra"><i style="width: {{ [100, (100 * c.hechas / c.cuota) | round] | min }}%"></i></div>
     </div>
     {% endfor %}
-    <p class="tenue gh-mezcla">Último mes por etapas: {% for e, n in ETAPAS_KIT.items() %}{{ n }} {{ reparto[e] }} % (objetivo {{ mezcla[e] }} %){{ " · " if not loop.last }}{% endfor %}</p>
+    <p class="tenue gh-mezcla">Último mes: {% for e, n in ETAPAS_KIT.items() %}{{ n }} {{ reparto[e] }} % (objetivo {{ mezcla[e] }} %){{ " · " if not loop.last }}{% endfor %}. Las cuotas se cambian en el <a href="{{ base_n }}/kit#carriles">Kit</a>.</p>
   </div>
-</section>
+</details>
 {% endblock %}

@@ -124,6 +124,8 @@
 .ln-plan-destacado { background: radial-gradient(500px 280px at 0 0, rgba(61, 123, 255, .22), transparent 70%), linear-gradient(180deg, #0c0f18, #050608); }
 .ln-precio h3 { font-size: 64px; letter-spacing: -.05em; line-height: 1; }
 .ln-precio > p:not(.ln-rol):not(.ln-nota) { font-size: 16px; line-height: 1.55; color: var(--ln-texto-2); }
+.ln-planes-par { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ln-hero-nota { margin: 14px 0 0; font-size: 13.5px; color: var(--ln-texto-3); }
 .ln-nota { font-size: 13px; line-height: 1.55; color: var(--ln-texto-3); }
 
 /* Preguntas */
@@ -183,6 +185,16 @@
 .ln-abierto-puntos h3 { font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
 .ln-abierto-puntos p { font-size: 15.5px; line-height: 1.5; color: var(--ln-texto-2); }
 #abierto .ln-ctas { margin-top: 40px; }
+
+/* ---------------------------------------------------------------- páginas legales (privacidad y borrar datos) */
+.ln-legal { max-width: 760px; margin: 0 auto; padding: 140px 18px 110px; }
+.ln-legal h1 { margin-top: 12px; font-size: clamp(36px, 5vw, 56px); line-height: 1.05; font-weight: 700; letter-spacing: -.045em; }
+.ln-legal h2 { margin-top: 46px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.ln-legal p, .ln-legal li { font-size: 17px; line-height: 1.65; color: var(--ln-texto-2); }
+.ln-legal p { margin-top: 14px !important; }
+.ln-legal .ln-legal-entrada { margin-top: 24px !important; font-size: 20px; color: var(--ln-texto); }
+.ln-legal ul, .ln-legal ol { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 8px; }
+.ln-legal a { color: var(--ln-marca-claro); text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 1000px) {
   .ln-enlaces { display: none; }

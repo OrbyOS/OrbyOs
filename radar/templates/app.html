@@ -18,17 +18,21 @@
     </div>
 
     {% set n_pend = pendientes_de(negocio.id) %}
+    {# El menú sigue el trabajo de cada día: lo de hoy, lo que espera tu OK y el camino de una pieza (idea → grabar →
+       editar → publicar → comunidad). El onboarding queda aparte, plegado. #}
+    {% set en_grabar = vista in ("estrategia", "guiones") %}
+    {% set en_publicar = vista in ("publicacion", "resultados") %}
     <nav class="nav">
-      <a href="{{ base_n }}/hoy" class="{{ 'activo' if vista == 'hoy' }}">{{ icono("sol") }} Hoy</a>
-      <a href="{{ base_n }}/estrategia" class="{{ 'activo' if vista == 'estrategia' }}">{{ icono("chispa") }} Graba hoy</a>
-      <a href="{{ base_n }}/guiones" class="{{ 'activo' if vista == 'guiones' }}">{{ icono("ficha") }} {{ "Guiones" if modo_de(negocio.id) == "guion" else "Estructuras" }}</a>
-      <a href="{{ base_n }}/produccion" class="{{ 'activo' if vista == 'produccion' }}">{{ icono("edicion") }} Producción</a>
-      <a href="{{ base_n }}/publicacion" class="{{ 'activo' if vista == 'publicacion' }}">{{ icono("externo") }} Publicación</a>
-      <a href="{{ base_n }}/comunidad" class="{{ 'activo' if vista == 'comunidad' }}">{{ icono("cuenta") }} Comunidad</a>
-      <a href="{{ base_n }}/resultados" class="{{ 'activo' if vista == 'resultados' }}">{{ icono("resumen") }} Resultados</a>
-      <a href="{{ base_n }}/investigacion" class="{{ 'activo' if vista == 'investigacion' }}">{{ icono("contenido") }} Investigación</a>
+      <a href="{{ base_n }}/hoy" class="{{ 'activo' if vista == 'hoy' }}">{{ icono("inicio") }} Inicio</a>
+      <a href="{{ base_n }}/panel" class="{{ 'activo' if vista == 'panel' }}">{{ icono("grafico") }} Panel</a>
+      <a href="{{ base_n }}/aprobaciones" class="{{ 'activo' if vista == 'aprobaciones' }}">{{ icono("bandeja") }} Por revisar{% if n_pend %} <span class="nav-contador">{{ n_pend }}</span>{% endif %}</a>
       <div class="nav-separador"></div>
-      <a href="{{ base_n }}/aprobaciones" class="{{ 'activo' if vista == 'aprobaciones' }}">{{ icono("check") }} Aprobaciones{% if n_pend %} <span class="nav-contador">{{ n_pend }}</span>{% endif %}</a>
+      <a href="{{ base_n }}/investigacion" class="{{ 'activo' if vista == 'investigacion' }}">{{ icono("bombilla") }} Ideas</a>
+      <a href="{{ base_n }}/estrategia" class="{{ 'activo' if en_grabar }}">{{ icono("camara") }} Grabar</a>
+      <a href="{{ base_n }}/produccion" class="{{ 'activo' if vista == 'produccion' }}">{{ icono("tijeras") }} Editar</a>
+      <a href="{{ base_n }}/publicacion" class="{{ 'activo' if en_publicar }}">{{ icono("calendario") }} Publicar</a>
+      <a href="{{ base_n }}/comunidad" class="{{ 'activo' if vista == 'comunidad' }}">{{ icono("mensaje") }} Comunidad</a>
+      <div class="nav-separador"></div>
       {% set en_config = vista in ("onboarding", "kit", "conectores") %}
       <details class="nav-grupo" {{ 'open' if en_config }}>
         <summary class="{{ 'dentro' if en_config }}">{{ icono("ajustes") }} Onboarding<span class="nav-flecha" aria-hidden="true"></span></summary>
@@ -112,11 +116,33 @@
     document.querySelectorAll("[data-menu-plegar]").forEach(function (b) { b.addEventListener("click", function () { menu(true); }); });
     document.querySelectorAll("[data-menu-abrir]").forEach(function (b) { b.addEventListener("click", function () { menu(false); }); });
     // Un enlace a una parte plegada (#telegram) la abre.
-    if (location.hash) {
+    function abrirAncla() {
+      if (!location.hash) return;
       var destino = document.querySelector(location.hash.replace(/[^#\w-]/g, ""));
       var plegable = destino && destino.closest("details");
-      if (plegable) plegable.open = true;
+      if (plegable && !plegable.open) { plegable.open = true; destino.scrollIntoView({ block: "start" }); }
     }
+    // Pestañas dentro de una misma página (enlaces «#algo»): enseñan su panel y esconden los demás.
+    var paneles = document.querySelectorAll("[data-panel]");
+    function mostrarPanel() {
+      if (!paneles.length) return;
+      var h = (location.hash || "").slice(1), elegido = null;
+      paneles.forEach(function (p) { if (p.dataset.panel === h) elegido = p; });
+      if (!elegido && h) { var el = document.getElementById(h); elegido = el && el.closest("[data-panel]"); }
+      elegido = elegido || paneles[0];
+      paneles.forEach(function (p) { p.hidden = p !== elegido; });
+      document.querySelectorAll('.pg-pestanas a[href^="#"]').forEach(function (a) {
+        var activa = a.getAttribute("href").slice(1) === elegido.dataset.panel;
+        a.classList.toggle("activa", activa);
+        if (activa) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      });
+    }
+    document.querySelectorAll('.pg-pestanas a[href^="#"]').forEach(function (a) {
+      a.addEventListener("click", function (ev) { ev.preventDefault(); history.replaceState(null, "", a.getAttribute("href")); mostrarPanel(); });
+    });
+    mostrarPanel();
+    abrirAncla();
+    window.addEventListener("hashchange", function () { mostrarPanel(); abrirAncla(); });
     var tarjeta = document.querySelector("[data-estado-url]");
     if (tarjeta) {
       var firma = null;
@@ -149,4 +175,77 @@
     });
   })();
 </script>
+{% if es_gratis(usuario) %}
+<dialog class="pl-aviso" id="pl-aviso" aria-labelledby="pl-aviso-titulo">
+  <form method="dialog" class="pl-cerrar-f"><button class="pl-cerrar" aria-label="Cerrar">&times;</button></form>
+  <span class="pl-etiqueta">{{ icono("candado") }} Plan premium</span>
+  <h2 id="pl-aviso-titulo"></h2>
+  <p class="pl-que"></p>
+  <div data-paso="pedir">
+    <p class="pl-texto"></p>
+    <form class="pl-form" method="post" action="{{ base_n }}/mejorar">
+      <input type="hidden" name="funcion">
+      <label class="pl-campo"><span>Tu correo</span><input type="email" name="email" value="{{ usuario.email }}" required autocomplete="email"></label>
+      <label class="pl-casilla"><input type="checkbox" name="acepto" value="si" required> Quiero que me aviséis por correo cuando abra.</label>
+      <button class="btn btn-primario" type="submit">Avisadme</button>
+    </form>
+  </div>
+  <div data-paso="hecho" hidden><p class="pl-hecho">{{ icono("check") }} <b>Apuntado.</b> Te escribiremos en cuanto lo abramos.</p></div>
+</dialog>
+<script>
+  // Plan gratis: los botones de las funciones premium llevan una etiqueta discreta y, al pulsarlos, abren el aviso
+  // en vez de lanzar el trabajo. La petición va con X-Orby-Puerta: el servidor apunta el intento y devuelve el texto (402).
+  (function () {
+    const puertas = {{ PUERTAS | tojson }}.map((p) => new RegExp(p));
+    const dePago = (url) => { const m = (url || "").match(/^\/negocios\/\d+(\/[^?#]*)/); return !!m && puertas.some((r) => r.test(m[1])); };
+    const marcar = (el) => {  // desactivado o no, en gratis abre el aviso: nunca lanza el trabajo
+      if (!el || el.querySelector(".pl-candado")) return;
+      el.disabled = false;
+      el.insertAdjacentHTML("beforeend", ' <span class="pl-candado">Premium</span>');
+    };
+    const dlg = document.getElementById("pl-aviso");
+    const form = dlg.querySelector(".pl-form");
+
+    async function abrir(url, metodo) {
+      let d = null;
+      try {
+        const r = await fetch(url, { method: metodo, headers: { "Accept": "application/json", "X-Orby-Puerta": "1" }, credentials: "same-origin" });
+        if (r.status === 402) d = await r.json();
+      } catch (e) {}
+      if (!d) { location.href = url; return; }  // sin respuesta del aviso: la página de siempre
+      dlg.querySelector("h2").textContent = d.nombre;
+      dlg.querySelector(".pl-que").textContent = d.que_hace || "";
+      dlg.querySelector(".pl-texto").textContent = d.texto || "";
+      form.funcion.value = d.puerta;
+      dlg.querySelector('[data-paso="pedir"]').hidden = false;
+      dlg.querySelector('[data-paso="hecho"]').hidden = true;
+      dlg.showModal();
+    }
+
+    document.querySelectorAll("form[action]").forEach((f) => {
+      const ruta = new URL(f.action, location.href).pathname;
+      if (f === form || !dePago(ruta)) return;
+      f.querySelectorAll("button[type=submit], button:not([type])").forEach(marcar);
+      f.addEventListener("submit", (e) => { e.preventDefault(); e.stopImmediatePropagation(); abrir(ruta, "POST"); }, true);
+    });
+    document.querySelectorAll("a[href]").forEach((a) => {
+      if (!dePago(a.getAttribute("href"))) return;
+      marcar(a);
+      a.addEventListener("click", (e) => { e.preventDefault(); abrir(a.getAttribute("href"), "GET"); });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const r = await fetch(form.action, { method: "POST", body: new URLSearchParams(new FormData(form)),
+                                             headers: { "Accept": "application/json" }, credentials: "same-origin" });
+        if (!r.ok) throw new Error(r.status);
+        dlg.querySelector('[data-paso="pedir"]').hidden = true;
+        dlg.querySelector('[data-paso="hecho"]').hidden = false;
+      } catch (err) { form.submit(); }
+    });
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });  // clic fuera: se cierra
+  })();
+</script>
+{% endif %}
 {% endblock %}

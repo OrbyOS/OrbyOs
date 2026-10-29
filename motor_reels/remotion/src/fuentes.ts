@@ -13,7 +13,7 @@ import type {Fuente} from './tipos';
  * Catálogo cerrado de fuentes para cuando el cliente no ha subido las suyas. Son pocas a propósito:
  * todas funcionan en titular gigante y en subtítulo pequeño.
  */
-type Loader = {loadFont: (style?: any, opts?: any) => {fontFamily: string}};
+type Loader = {loadFont: (style?: any, opts?: any) => {fontFamily: string; waitUntilDone: () => Promise<unknown>}};
 const CATALOGO: Record<string, {mod: Loader; pesos: string[]; cursiva: boolean}> = {
   InstrumentSerif: {mod: InstrumentSerif, pesos: ['400'], cursiva: true},
   PlayfairDisplay: {mod: PlayfairDisplay, pesos: ['400', '700'], cursiva: true},
@@ -54,7 +54,11 @@ export const fuente = (f: Fuente): string => {
   const c = CATALOGO[f];
   if (!c) throw new Error(`Fuente fuera del catálogo: ${f}`);
   const opts = {weights: c.pesos, subsets: ['latin', 'latin-ext']};
-  cargadas[clave] = c.mod.loadFont('normal', opts).fontFamily;
-  if (c.cursiva) c.mod.loadFont('italic', opts);
+  // Las del catálogo cargan solas, pero medir antes de que lleguen da medidas de la fuente de reserva (el titular salía
+  // estrecho y descentrado): fuentesListas también las espera.
+  const normal = c.mod.loadFont('normal', opts);
+  pendientes.push(normal.waitUntilDone().catch(() => undefined));
+  cargadas[clave] = normal.fontFamily;
+  if (c.cursiva) pendientes.push(c.mod.loadFont('italic', opts).waitUntilDone().catch(() => undefined));
   return cargadas[clave];
 };

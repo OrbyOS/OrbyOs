@@ -9,5 +9,10 @@ export const CAJAS = datos.cajas as Record<keyof typeof datos.cajas, CajaZona>;
 export const enCaja = (c: CajaZona): React.CSSProperties => ({
   position: 'absolute', left: c.x0, width: c.x1 - c.x0, top: c.y0, height: c.y1 - c.y0,
 });
-/** Solo los márgenes laterales de la zona segura (para lo que fija su propia altura). */
-export const LADOS = {left: ZONA.x0, right: 1080 - ZONA.x1};
+/**
+ * Márgenes laterales de todo lo centrado (subtítulos, titulares, rótulos, tarjetas): simétricos, con el centro en x=540.
+ * Con los de la zona segura (60 y 230) el centro caía en 455 y se notaba torcido (28/10/2026). El ancho que
+ * queda (800) es el del titular; lo que va pegado a un lado sigue usando ZONA.
+ */
+export const CENTRO = 540;
+export const LADOS = {left: CENTRO - 400, right: 1080 - CENTRO - 400};

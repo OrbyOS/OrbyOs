@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 
 from . import imagenes, sonido
+from .validar import INTERFAZ
 
 RAIZ = Path(__file__).resolve().parent.parent
 REMOTION = RAIZ / "remotion"
@@ -30,6 +31,10 @@ SFX_REGLAS = {"latigo": (5, "whoosh", 0.5), "fondo": (5, "whoosh", 0.45), "titul
 
 
 def _run(cmd, **kw):
+    # Con MOTOR_REELS_HILOS (p. ej. 2), ffmpeg usa menos hilos: un Mac modesto se cuelga si todo va a tope.
+    hilos = os.environ.get("MOTOR_REELS_HILOS")
+    if hilos and cmd and cmd[0] == "ffmpeg":
+        cmd = ["ffmpeg", "-threads", hilos, *cmd[1:]]
     subprocess.run(cmd, check=True, **kw)
 
 
@@ -50,7 +55,11 @@ def cargar_kit(nombre: str) -> dict:
 def preparacion(trabajo: Path) -> Path:
     """Dónde están los fotogramas y la transcripción del bruto: en la carpeta del montaje o, si el bruto da para
     varios reels (cada uno en su subcarpeta), en la carpeta del bruto. Se prepara una vez y se monta varias."""
-    return trabajo if (trabajo / "frames").is_dir() or not (trabajo.parent / "frames").is_dir() else trabajo.parent
+    # Con «preparar --solo-transcribir» aún no hay fotogramas: entonces manda dónde está la transcripción.
+    padre = trabajo.parent
+    if (trabajo / "frames").is_dir() or (trabajo / "transcripcion.json").exists():
+        return trabajo
+    return padre if (padre / "frames").is_dir() or (padre / "transcripcion.json").exists() else trabajo
 
 
 def palabras_del_bruto(m: dict, trabajo: Path) -> list[dict]:
@@ -136,6 +145,7 @@ def reglas_de(kit: dict) -> dict:
 def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple[dict, list]:
     planos, sonidos, at, efectos = [], [], 0, []
     sin_subtitulos = reglas_de(kit)["subtitulos"] == "sin"
+    limpios = (kit.get("estilo") or {}).get("subtitulos") == "limpio"
     reparto = repartir(palabras_bruto, m["planos"])
     for i, p in enumerate(m["planos"]):
         a, b = p["src"]
@@ -153,6 +163,12 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
                 kicker = g.get("kicker", [])
                 grafico = {"tipo": tipo, "palabra": g["palabra"], "f": max(0, local(g["en"]) - ANTICIPA),
                            "kicker": [{"w": k, "f": max(0, w["f"] - ANTICIPA)} for k, w in zip(kicker, palabras)]}
+                for k in ("entero", "sans", "esquinas", "encima", "cursiva"):
+                    if g.get(k):
+                        grafico[k] = g[k]
+                # El kit puede fijar que el gancho vaya siempre encima de la cabeza (p. ej. el del cliente cero, 28/10/2026).
+                if i == 0 and (kit.get("estilo") or {}).get("ganchoEncima") and not g.get("entero"):
+                    grafico["encima"] = True
                 if i == 0:  # el gancho: entero y ya asentado en el fotograma 0, que es la portada en el feed
                     grafico["f"] = -GANCHO_ASENTADO
                     grafico["kicker"] = [{**k, "f": -GANCHO_ASENTADO} for k in grafico["kicker"]]
@@ -169,6 +185,25 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
             elif tipo == "icono":
                 grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "icono": g["icono"],
                            "texto": g.get("texto", ""), "lado": g.get("lado", "izquierda")}
+            elif tipo == "logos":
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA),
+                           "logos": [n if Path(n).suffix else f"{n}.png" for n in g.get("logos", [])]}
+                if g.get("tachar"):
+                    grafico["tachar"] = True
+            elif tipo == "rotulo":
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "palabra": g["palabra"], "cursiva": g.get("cursiva", "")}
+            elif tipo == "prompt":
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "etiqueta": g.get("etiqueta", ""), "texto": g["texto"]}
+            elif tipo == "terminal":
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "titulo": g.get("titulo", ""),
+                           "lineas": [{"texto": x["texto"], "f": max(0, local(x.get("en", g["en"])) - ANTICIPA)} for x in g["lineas"]]}
+            elif tipo == "cta":
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "texto": g["texto"], "palabra": g["palabra"],
+                           "cuenta": g.get("cuenta", ""), "envio": local(g.get("envio", g["en"]))}
+            elif tipo == "sello":
+                sello = (kit.get("estilo") or {}).get("sello") or {}
+                grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA),
+                           "texto": g.get("texto") or sello.get("texto") or "", "cinta": g.get("cinta") or sello.get("cinta", "")}
             elif tipo == "imagen":
                 grafico = {"tipo": tipo, "f": max(0, local(g["en"]) - ANTICIPA), "archivo": g["archivo"],
                            "pie": g.get("pie", ""), "credito": g.get("credito", ""), "forma": g.get("forma", "tarjeta")}
@@ -177,6 +212,10 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
                 sonidos.append((momento, "titular"))
             elif tipo in ("chat", "ficha", "fondo", "icono"):
                 sonidos.append((momento, tipo))
+            elif tipo in ("rotulo", "prompt", "terminal", "cta"):
+                sonidos.append((momento, {"rotulo": "titular", "prompt": "chat", "terminal": "ficha", "cta": "chat"}[tipo]))
+            elif tipo in ("logos", "sello", "imagen"):
+                sonidos.append((momento, {"logos": "icono", "sello": "titular", "imagen": "efecto"}[tipo]))
         entrada = p.get("entrada", "corte")
         siguiente = m["planos"][i + 1] if i + 1 < len(m["planos"]) else {}
         anterior = m["planos"][i - 1] if i else {}
@@ -192,14 +231,22 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
             "zoom": p.get("zoom", 1.0), "y": p.get("y", 0), "entrada": entrada,
             "salida": salida,
             "palabras": palabras,
-            # Con titular o imagen no hay subtítulos: el gráfico ya cuenta lo que se dice.
-            "subtitulos": sin_subtitulos is False and p.get("subtitulos", p["modo"] == "real"
-                                and not (g and g["tipo"] in ("titular", "imagen", "efecto"))),
+            # Con titular o imagen no hay subtítulos: el gráfico ya cuenta lo que se dice. Con subtítulos limpios
+            # (estilo del kit), siempre que se vea la persona, también con pantallas, logos o sello.
+            "subtitulos": sin_subtitulos is False and p.get("subtitulos", p["modo"] == "real" and (
+                not (g and g["tipo"] in ("titular", "imagen", "efecto"))
+                or (limpios and g["tipo"] != "titular" and not (g["tipo"] == "efecto" and g.get("lugar") == "completa")))),
         }
         if grafico:
             plano["grafico"] = grafico
-        if g and g["tipo"] == "titular":  # en recorte y sobre vídeo real: la cabeza tapa solo la base del titular
-            plano["cabeza"] = altura_cabeza(frames, src_in, dur)
+            if tipo == "imagen" and grafico["forma"] == "pantalla":
+                # La captura arriba y la persona abajo, con la cara centrada en su mitad (como un efecto partido).
+                plano["composicion"] = "partida"
+                plano["cara"] = centro_cara(frames, src_in, dur)
+        if (g and g["tipo"] == "titular") or i == 0:  # la cabeza tapa solo la base del titular; en el primer plano,
+            plano["cabeza"] = altura_cabeza(frames, src_in, dur)  # siempre: el panel de Montaje puede ponerle uno
+        if i == 0 and "cara" not in plano:
+            plano["cara"] = centro_cara(frames, src_in, dur)
         if p.get("fondo"):
             plano["fondo"] = p["fondo"]
         if "sacudida" in p:
@@ -233,7 +280,9 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
         lugar = g.get("lugar", "encima")
         for j in grupo:
             planos[j]["composicion"] = lugar
-            planos[j]["subtitulos"] = False
+            # La interfaz del lienzo deja la mitad de abajo libre: ahí siguen los subtítulos (como en la referencia).
+            if g["clase"] not in INTERFAZ:
+                planos[j]["subtitulos"] = False
             if lugar == "partida":
                 planos[j]["cara"] = centro_cara(frames, planos[j]["srcIn"], planos[j]["dur"])
         capa = {"tipo": "efecto", "clase": g["clase"], "lugar": lugar,
@@ -248,13 +297,44 @@ def props(m: dict, kit: dict, palabras_bruto: list[dict], frames: Path) -> tuple
         superpuestos.append(capa_props)
         sonidos.append((desde + capa["f"], "efecto"))
 
-    # Efectos de sonido: primero los de más prioridad; se descarta el que cae a menos de la separación.
+    datos = {"kit": kit, "planos": planos, "superpuestos": superpuestos, "total": at, "fps": FPS}
+    return datos, sonidos_de_props(datos)
+
+
+def sonidos_de_props(datos: dict) -> list[tuple[float, str, float]]:
+    """Los efectos de sonido de un reel a partir de sus props (también de las que cambia el panel de Montaje): un
+    remate por gráfico, golpe o transición; primero los de más prioridad, y fuera el que cae a menos de la separación."""
+    sonidos = []
+    for p in datos["planos"]:
+        at, g = p["from"], p.get("grafico")
+        if g:
+            momento = at + (g["f"] if "f" in g else g["filas"][0]["f"])
+            if g["tipo"] == "titular":
+                if g["f"] > 3:  # el titular de portada (fotograma 0) no lleva golpe
+                    sonidos.append((momento, "titular"))
+            elif g["tipo"] in ("chat", "ficha", "fondo", "icono"):
+                sonidos.append((momento, g["tipo"]))
+            elif g["tipo"] in ("logos", "sello", "imagen"):
+                sonidos.append((momento, {"logos": "icono", "sello": "titular", "imagen": "efecto"}[g["tipo"]]))
+        if "sacudida" in p:
+            sonidos.append((at + p["sacudida"], "sacudida"))
+        if "golpe" in p:
+            sonidos.append((at + p["golpe"], "golpe"))
+        if p.get("salida") == "revela":
+            sonidos.append((at + p["dur"] - 10, "revela"))
+        if p.get("entrada") == "latigo":
+            sonidos.append((at - 5, "latigo"))
+        elif p.get("entrada") in ("tiras", "desliza"):
+            sonidos.append((at, "tiras"))
+        elif p.get("entrada") == "destello":
+            sonidos.append((at, "revela"))
+    for capa in datos.get("superpuestos") or []:
+        sonidos.append((capa["from"] + capa["grafico"]["f"], "efecto"))
     elegidos = []
     for f, k in sorted(sonidos, key=lambda s: -SFX_REGLAS[s[1]][0]):
         if all(abs(f - g) / FPS >= SFX_SEPARACION for g, _ in elegidos):
             elegidos.append((f, k))
-    eventos = [(f / FPS, SFX_REGLAS[k][1], SFX_REGLAS[k][2]) for f, k in sorted(elegidos)]
-    return {"kit": kit, "planos": planos, "superpuestos": superpuestos, "total": at, "fps": FPS}, eventos
+    return [(f / FPS, SFX_REGLAS[k][1], SFX_REGLAS[k][2]) for f, k in sorted(elegidos)]
 
 
 def _enlazar(enlace: Path, destino: Path):
@@ -272,6 +352,12 @@ def _carpeta_publica(trabajo: Path, kit: dict) -> tuple[Path, dict]:
     _enlazar(pub / "grano", REMOTION / "public" / "grano")
     (trabajo / "imagenes").mkdir(exist_ok=True)
     _enlazar(pub / "imagenes", trabajo / "imagenes")
+    # Logos de apps del estilo del cliente (kit «estilo.logos»: su carpeta), copiados como las fuentes.
+    carpeta_logos = Path((kit.get("estilo") or {}).get("logos") or "")
+    if str(carpeta_logos) not in ("", ".") and carpeta_logos.is_dir():
+        (pub / "logos").mkdir(exist_ok=True)
+        for logo in carpeta_logos.glob("*.png"):
+            shutil.copyfile(logo, pub / "logos" / logo.name)
     fuentes = pub / "fuentes"
     fuentes.mkdir(exist_ok=True)
     kit = {**kit, "fuentes": dict(kit.get("fuentes") or {})}
@@ -311,8 +397,34 @@ def velocidad_de(m: dict, palabras_bruto: list[dict]) -> float:
     return ACELERADO if dur and n / dur < RITMO_MIN else 1.0
 
 
-def montar(montaje_path: Path, salida: Path, *, kit: dict | None = None, propias: dict[str, Path] | None = None) -> dict:
-    """`kit`: el kit ya cargado (el SaaS lo guarda por negocio); si no, el de `kits/<montaje.kit>.json`.
+VISTA = (540, 960)  # fotogramas de la vista previa del estudio: la mitad, para que el Player vaya fluido en un portátil
+
+
+def fotogramas_vista(datos: dict, frames: Path, destino: Path) -> int:
+    """Copias a media resolución de los fotogramas (y siluetas) que usa el reel, para la vista previa del estudio.
+    El render final sigue usando los originales. Devuelve cuántos ha hecho (los que ya estaban no se repiten)."""
+    from concurrent.futures import ThreadPoolExecutor
+    destino.mkdir(exist_ok=True)
+    usados = {i for p in datos["planos"] for i in range(p["srcIn"], p["srcIn"] + p["dur"] + 1)}
+
+    def uno(i: int) -> int:
+        hechos = 0
+        for nombre, calidad in ((f"f_{i:05d}.jpg", 78), (f"m_{i:05d}.png", None)):
+            origen, salida = frames / nombre, destino / nombre
+            if origen.exists() and not salida.exists():
+                with Image.open(origen) as im:
+                    im = im.resize(VISTA, Image.BILINEAR)
+                    im.save(salida, quality=calidad) if calidad else im.save(salida, optimize=False)
+                hechos += 1
+        return hechos
+    with ThreadPoolExecutor(max_workers=4) as hilos:
+        return sum(hilos.map(uno, sorted(usados)))
+
+
+def preparar_vista(montaje_path: Path, *, kit: dict | None = None, propias: dict[str, Path] | None = None) -> dict:
+    """Todo lo de un reel menos el render: imágenes, carpeta pública, props.json, la voz montada y los efectos de sonido.
+    La voz y los efectos quedan también en la carpeta pública (voz.wav, sfx.wav) para verlo en directo en Montaje.
+    `kit`: el kit ya cargado (el SaaS lo guarda por negocio); si no, el de `kits/<montaje.kit>.json`.
     `propias`: {nombre: ruta} con las fotos y capturas del cliente, para los gráficos «imagen»."""
     m = json.loads(montaje_path.read_text(encoding="utf-8"))
     trabajo = montaje_path.resolve().parent
@@ -326,12 +438,7 @@ def montar(montaje_path: Path, salida: Path, *, kit: dict | None = None, propias
     palabras_bruto = palabras_del_bruto(m, trabajo)
     velocidad = velocidad_de(m, palabras_bruto)
     datos, eventos = props(m, kit, palabras_bruto, preparacion(trabajo) / "frames")
-    props_path = trabajo / "props.json"
-    props_path.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
-
-    video = trabajo / "video.mp4"
-    _run(["npx", "remotion", "render", "src/index.ts", "Reel", str(video), f"--props={props_path}",
-          f"--public-dir={publica}", "--log=error"], cwd=REMOTION)
+    (trabajo / "props.json").write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
 
     tramos = tramos_de_voz(datos["planos"])
     partes = [f"[0:a]atrim=start={ini:.4f}:duration={dur:.4f},asetpts=PTS-STARTPTS,"
@@ -341,22 +448,67 @@ def montar(montaje_path: Path, salida: Path, *, kit: dict | None = None, propias
         f"concat=n={len(tramos)}:v=0:a=1,aresample=48000[v]"
     voz = trabajo / "voz.wav"
     _run(["ffmpeg", "-y", "-v", "error", "-i", str(bruto), "-filter_complex", filtro, "-map", "[v]", "-ac", "2", str(voz)])
-
     if not reglas_de(kit)["sonidos"]:  # el cliente no quiere efectos de sonido: pista en silencio
         eventos = []
+    sonido.write_wav(str(trabajo / "sfx.wav"), sonido.build_track(eventos, datos["total"] / FPS))
+    for nombre in ("voz.wav", "sfx.wav"):
+        shutil.copyfile(trabajo / nombre, publica / nombre)
+    fotogramas_vista(datos, preparacion(trabajo) / "frames", trabajo / "frames_vista")
+    _enlazar(publica / "frames_vista", trabajo / "frames_vista")
+    # «titulo»: el nombre que se enseña (en el panel de Montaje), nunca el del archivo del bruto.
+    vista = {"velocidad": velocidad, "avisos": avisos, "kit": kit, "titulo": m.get("titulo", "")}
+    (trabajo / "vista.json").write_text(json.dumps(vista, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {**vista, "datos": datos, "eventos": eventos, "trabajo": trabajo, "publica": publica}
+
+
+def renderizar_props(trabajo: Path, datos: dict, salida: Path, *, velocidad: float = 1.0,
+                     musica: Path | None = None, musica_lufs: float = -30.0, sfx: float = 0.5,
+                     eventos: list | None = None) -> dict:
+    """Render de unas props ya hechas (las del montaje o las que deja el panel de Montaje) y mezcla final: voz a
+    -14 LUFS, efectos de sonido a `sfx` (0 = sin) y la música, si la hay, continua a `musica_lufs` sin acelerar."""
+    publica = trabajo / "public"
+    props_path = trabajo / "props_render.json"
+    props_path.write_text(json.dumps(datos, ensure_ascii=False), encoding="utf-8")
+    video = trabajo / "video.mp4"
+    # En un Mac que se cuelga con varios renders, se limita con MOTOR_REELS_CONCURRENCIA (p. ej. 2).
+    concurrencia = os.environ.get("MOTOR_REELS_CONCURRENCIA")
+    _run(["npx", "remotion", "render", "src/index.ts", "Reel", str(video), f"--props={props_path}",
+          f"--public-dir={publica}", "--log=error"] + ([f"--concurrency={concurrencia}"] if concurrencia else []), cwd=REMOTION)
+    eventos = sonidos_de_props(datos) if eventos is None else eventos
     efectos = trabajo / "sfx.wav"
-    sonido.write_wav(str(efectos), sonido.build_track(eventos, datos["total"] / FPS))
+    sonido.write_wav(str(efectos), sonido.build_track(eventos if sfx > 0 else [], datos["total"] / FPS))
 
     salida.parent.mkdir(parents=True, exist_ok=True)
-    mezcla = "[1:a]loudnorm=I=-14:TP=-1.5:LRA=9[vz];[2:a]volume=0.5[fx];[vz][fx]amix=inputs=2:normalize=0:duration=first"
-    if velocidad == 1.0:
-        filtro, video_args = mezcla + "[a]", ["-map", "0:v", "-c:v", "copy"]
+    voz_fx = (f"[1:a]loudnorm=I=-14:TP=-1.5:LRA=9[vz];[2:a]volume={sfx:.3f}[fx];"
+              "[vz][fx]amix=inputs=2:normalize=0:duration=first")
+    if velocidad != 1.0:  # todo el reel a la vez, sin cambiar el tono de la voz
+        voz_fx += f",atempo={velocidad}"
+    entradas = ["-i", str(video), "-i", str(trabajo / "voz.wav"), "-i", str(efectos)]
+    if musica and musica.is_file():
+        fin = datos["total"] / FPS / velocidad
+        entradas += ["-stream_loop", "-1", "-i", str(musica)]
+        filtro = (f"{voz_fx}[vf];[3:a]loudnorm=I={musica_lufs:.0f}:TP=-8,afade=t=in:d=0.6[mu];"
+                  f"[vf][mu]amix=inputs=2:normalize=0:duration=first,afade=t=out:st={max(0.0, fin - 0.8):.2f}:d=0.8[a]")
     else:
-        # Todo el reel a la vez (imagen, voz y efectos), sin cambiar el tono de la voz; se recodifica sin pérdida visible.
-        filtro = f"{mezcla},atempo={velocidad}[a];[0:v]setpts=PTS/{velocidad},fps={FPS}[v]"
+        filtro = voz_fx + "[a]"
+    if velocidad == 1.0:
+        video_args = ["-map", "0:v", "-c:v", "copy"]
+    else:
+        filtro += f";[0:v]setpts=PTS/{velocidad},fps={FPS}[v]"
         video_args = ["-map", "[v]", "-c:v", "libx264", "-crf", "15", "-preset", "slow", "-pix_fmt", "yuv420p"]
-    _run(["ffmpeg", "-y", "-v", "error", "-i", str(video), "-i", str(voz), "-i", str(efectos), "-filter_complex",
+    _run(["ffmpeg", "-y", "-v", "error", *entradas, "-filter_complex",
           filtro, *video_args, "-map", "[a]", "-c:a", "aac", "-b:a", "192k",
           "-movflags", "+faststart", "-shortest", str(salida)])
     return {"salida": str(salida), "duracion": datos["total"] / FPS / velocidad, "velocidad": velocidad,
-            "sonidos": [(round(t, 2), k) for t, k, _ in eventos], "avisos": avisos}
+            "sonidos": [(round(t, 2), k) for t, k, _ in eventos]}
+
+
+def montar(montaje_path: Path, salida: Path, *, kit: dict | None = None, propias: dict[str, Path] | None = None) -> dict:
+    """Montaje → reel terminado (preparar_vista + renderizar_props). La música, la del kit («estilo.musica»)."""
+    v = preparar_vista(montaje_path, kit=kit, propias=propias)
+    kit = v["kit"]
+    musica = Path((kit.get("estilo") or {}).get("musica") or "")
+    con_musica = str(musica) not in ("", ".") and musica.is_file() and reglas_de(kit)["musica"] is not False
+    hecho = renderizar_props(v["trabajo"], v["datos"], salida, velocidad=v["velocidad"],
+                             musica=musica if con_musica else None, eventos=v["eventos"])
+    return {**hecho, "avisos": v["avisos"]}

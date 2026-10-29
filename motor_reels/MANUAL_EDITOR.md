@@ -11,6 +11,8 @@ La pregunta de control es siempre la misma: **¿esto lo haría un editor profesi
 
 ## 0. Del bruto al reel
 
+- **Lo pesado, por turno (obligatorio en el Mac del equipo).** Toda orden pesada (extraer fotogramas, Whisper, render de Remotion, ffmpeg) se lanza con `bash "$TURNO_PESADO" <orden…> (la ruta del script de turno del equipo, en la variable TURNO_PESADO)`: un solo turno en todo el equipo, espera a que el Mac esté tranquilo (carga < 4 y memoria libre ≥ 25 %) y lo lanza con nice 15 y QoS de segundo plano. Además, `MOTOR_REELS_HILOS=2` (ffmpeg -threads 2) y `MOTOR_REELS_CONCURRENCIA=2` (o 1). Un paso pesado a la vez y temporales borrados al acabar cada uno. La limpieza nocturna (23:45) borra fotogramas y temporales de más de un día y las versiones superadas de ENTREGA.
+
 - El bruto puede durar 4-5 minutos, con repeticiones, pruebas y tomas falsas. El editor se queda con **la mejor toma de cada parte** y monta el reel entero.
 - **El gancho**: normalmente es lo primero que se dice. Si en el bruto hay una frase mejor para abrir (más concreta, más sorprendente, con una cifra), se usa esa como gancho, aunque esté más adelante. Es la única parte que puede cambiar de sitio, y no se repite después.
 - **Duración**: la que pida la idea bien contada. Son reels de valor: no tienen por qué ser cortos, pero cada segundo tiene que aportar. Se corta lo que se repite, lo que se va por las ramas y lo que no suma.
@@ -57,9 +59,28 @@ Cada efecto va en una de estas tres composiciones. Se alternan según lo que pid
 
 Partida y completa **empiezan cuando entra su primer elemento**: lo que se dice antes va con la cara entera, nunca con el panel vacío esperando a que se diga.
 
+### Centrado
+
+Todo lo que va centrado (subtítulos, titulares, rótulos, tarjetas, barras de prompt, CTA) tiene el centro en **x=540**, con márgenes simétricos (`LADOS` en `remotion/src/zona.ts`). Con los márgenes de la zona segura (60 y 230) el centro caía en 455 y se veía torcido. Solo lo que va pegado a un lado usa la zona. `qa` lo mide en el render: ±2 px o no se entrega.
+
+### Logos e iconos
+
+Fuera, de momento, en el kit del cliente: los logos de apps (tachados o no) y los iconos «quedan súper cutres» (28/10/2026). El kit los pone a máximo 0 y `validar` da error si aparecen.
+
 ### Zona segura
 
 Instagram tapa la cabecera, el pie con el texto y los botones de la derecha. En 1080×1920, **ningún texto** fuera de x 60-850 e y 230-1440 (los 230 px de la derecha, libres). Las cajas de cada pieza están en `zona_segura.json`; el motor las pinta y `validar.py` comprueba que ninguna se salga.
+
+### Estilo propio del cliente (kit «estilo»)
+
+Un cliente puede pedir un estilo de edición distinto del de este manual (por ejemplo, el de una cuenta de referencia). Va en el bloque `estilo` de su kit y manda sobre este manual en lo que diga; en lo demás, el manual sigue valiendo:
+- `subtitulos: "limpio"`: blancos, pequeños, sin caja; también sobre pantallas, logos y sello.
+- `lienzo` (un color) y `lienzoAcento`: la mitad de arriba de la pantalla partida es un lienzo liso. Las capturas van como tarjeta y los efectos, en tinta oscura con la fila activa en el acento.
+- `logos` (una carpeta de PNG): el gráfico `logos` hace saltar los de las apps que se nombran alrededor de la cabeza.
+- `sello` ({texto, cinta}): el gráfico `sello` presenta su serie.
+- `musica` (un archivo con licencia): continua bajo la voz, a -30 LUFS.
+- `montaje`: `gancho: "libre"` (sin titular obligatorio), `corte` (segundos por plano) y `maximos` (sus propios máximos por minuto).
+- **Formato raw** (kit del cliente desde el 29/10/2026): cortes limpios, letras sencillas y alguna animación por detrás, y ya. `maximos` a 0 para `efecto`, `tarjeta`, `imagen`, `partida`, `mosaico`, `esquinas` (portada de revista), `rotulo`, `prompt`, `terminal`, `cta`, `logos`, `icono` y `sello`: `validar` los bloquea. Quedan: subtítulos limpios en la sans, el gancho encima de la cabeza en la sans (dos líneas, sin cursiva ni pastilla), 2-3 recortes por minuto con la luz azul moviéndose detrás (2-3 s, nunca en cada frase) y la palabra del CTA como texto sencillo. Siguen las reglas fijas: cero repeticiones, centrado medido, sin logos y música a -38 LUFS.
 
 ## 2. Nada literal y nada de plantilla
 
@@ -79,6 +100,8 @@ Instagram tapa la cabecera, el pie con el texto y los botones de la derecha. En 
 
   **Nunca de Google Imágenes**: tienen dueño y los reels se usan en anuncios.
 - En reels que vayan a anuncios, ninguna foto de personas conocidas: puede parecer que avalan el producto.
+
+- **Cuando nombra mucho contenido** («mil vídeos de YouTube», «todos los reels virales»): capturas reales a pantalla completa por detrás de él, no pantalla partida (cliente, 28/10/2026). Plano `recorte` abierto (zoom 1,0) con `fondo: {"mosaico": [...]}`: un mosaico denso (cinco columnas) con muchas miniaturas distintas, unas 40, sacadas de una búsqueda real. Se tienen que ver muchos ejemplos, no dos o tres. La pantalla partida sigue para enseñar una cosa concreta que hay que leer.
 
 ## 3. Movimiento
 
@@ -103,11 +126,13 @@ Instagram tapa la cabecera, el pie con el texto y los botones de la derecha. En 
 ## 5. Corte
 
 - Se quitan silencios, muletillas, repeticiones y tomas falsas. El orden del discurso no se toca, salvo el gancho (sección 0).
+- **Cero repeticiones, siempre** (cliente, 28/10/2026: «esto no puede pasar nunca, en ningún vídeo»). Se trabaja con la transcripción palabra a palabra y se corta toda palabra dicha dos veces, arranque en falso, frase reempezada y muletilla, también en la junta entre dos tramos («…es esta. | Es dejar…»: el segundo tramo empieza en «dejar»). Los cortes se ajustan con la energía del audio, no con el tiempo de Whisper (adelanta hasta 0,4 s). `validar` lo comprueba con la transcripción del bruto y da error; `qa` vuelve a transcribir el render, en literal, y sin «Repeticiones: ninguna» no se entrega. Ojo: la transcripción del bruto pega las retomas («es… es dejar de» salió como «es dejar de»). Antes de montar, cada tramo elegido se vuelve a transcribir en literal (Whisper con un ejemplo de muletillas en el prompt) y el corte se pone en el valle de energía entre la retoma y la frase buena.
 - El cambio de encuadre va sobre la palabra fuerte o en la respiración, nunca a mitad de palabra.
 - Todo silencio de más de 0,3 s se corta, también dentro de un plano, y el corte se tapa cambiando el encuadre (punch-in). Un salto sin cambio de encuadre se nota.
 - **Ritmo de la voz**: si, ya sin silencios, va a menos de 3,3 palabras por segundo, todo el reel va a x1,1 (imagen, voz y efectos, sin cambiar el tono). Más de x1,2 nunca: se nota.
 - Hay que alternar real ↔ recorte, abierto ↔ cerrado y las tres composiciones: dos planos seguidos iguales no son un corte, son un salto.
-- El primer fotograma ya tiene que enseñar el gancho (texto visible): es la portada en el feed. El titular del gancho puede ir sobre el vídeo real (en la pared, por detrás de la cabeza) o sobre el color de fondo del kit; hay que alternar. El titular del gancho está entero desde el fotograma 0.
+- El primer fotograma ya tiene que enseñar el gancho (texto visible): es la portada en el feed. Si el kit lo pide (`estilo.ganchoEncima`, el del cliente), el texto del gancho va **encima de la cabeza**, entero y delante, con la persona bajada hasta quedar justo debajo; nunca detrás.
+- **El texto del gancho tiene que enganchar por sí solo** (cliente, 28/10/2026: «no puede ser solo "lo malo"; en todos los reels tenemos que generar engagement con ese título»). Nunca una palabra que resume («TAN MALO»): es un titular con tensión que habla al que mira, en dos líneas con el diseño del reel. Arriba, en sans gruesa y gigante, a quién o a qué afecta (1-2 palabras, mejor con «tu»: «TU IA», «TUS REELS», «TU WEB»). Debajo, en cursiva serif sobre una pastilla del acento, el giro o el problema («escribe fatal.», «no venden.», «huele a IA.»). Sale de lo que dice en el gancho, sin prometer nada que el vídeo no cuente. En el montaje: titular `sans` + `cursiva`. **Mejor aún: que prometa el destino del reel y lo identifique** (lo que se consigue al final, con la herramienta o el tema del vídeo): «CLAUDE / escribiendo contenido de 10.». Corto. Nunca fórmulas genéricas («así lo arreglas», «te lo explico»). El titular del gancho puede ir sobre el vídeo real (en la pared, por detrás de la cabeza) o sobre el color de fondo del kit; hay que alternar. El titular del gancho está entero desde el fotograma 0.
 
 ## 6. Subtítulos
 
@@ -128,4 +153,8 @@ Instagram tapa la cabecera, el pie con el texto y los botones de la derecha. En 
 3. Contar recursos frente a los máximos por minuto.
 4. Leer los gráficos sin audio: ¿alguno repite la frase literal? ¿Hay emoticonos que su voz no use? ¿Algún texto fuera de la zona segura?
 5. Cada imagen real: ¿es exactamente lo que se nombra?
+6. **Repeticiones**: la transcripción literal del render (`qa/transcripcion_render.json`) no tiene ninguna palabra repetida seguida ni arranques en falso. Se lee entera además del informe.
+7. **Centrado medido**: subtítulos, pastillas, tarjetas y titulares blancos con el centro a ±2 px de x=540 en todos los fotogramas muestreados.
+8. Volumen: -14 LUFS y pico por debajo de -1 dB.
+Si `qa` dice «Entregable: NO», no se entrega.
 6. Volumen: -14 LUFS ±1.

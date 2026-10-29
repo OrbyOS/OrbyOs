@@ -1,0 +1,41 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}{{ nombre_funcion }} · {{ APP }}{% endblock %}
+
+{# La puerta falsa del plan gratis (radar/planes.py): cuenta qué hace la función, apunta el interés y ofrece la
+   versión completa. Con ?apuntado=1 ya ha pedido el aviso. #}
+{% block contenido %}
+{% set apuntado = request.query_params.get("apuntado") == "1" %}
+{% set solicitar = "/#solicitar" if ruta_existe("/solicitar") else URL_SOLICITAR %}
+<section class="mj-puerta">
+  <span class="mj-etiqueta">{{ icono("candado") }} Plan premium</span>
+  <h1>{{ nombre_funcion }}</h1>
+  <p class="mj-que">{{ que_hace }}</p>
+
+  {% if apuntado %}
+  <div class="mj-hecho">{{ icono("check") }}<div><b>Te avisaremos.</b><p>Hemos apuntado que te interesa. Mientras, puedes seguir con tu plan y tus guiones, o pedir que te lo dejemos funcionando.</p></div></div>
+  <div class="mj-acciones">
+    <a class="btn btn-primario" href="{{ solicitar }}">Solicitar implementación</a>
+    <a class="btn btn-secundario" href="{{ base_n }}/hoy">Volver a Inicio</a>
+  </div>
+  {% else %}
+  <p class="mj-texto">Tu cuenta es gratis: tiene tu Kit de marca, el plan de qué grabar y los guiones. Esto es del plan premium: todavía no lo hemos abierto.</p>
+  <form class="mj-form" method="post" action="{{ ruta }}">
+    <input type="hidden" name="funcion" value="{{ funcion }}">
+    <label class="mj-casilla"><input type="checkbox" name="acepto" value="si" required> Avísame por correo cuando esté o si quiero la implementación.</label>
+    <div class="mj-acciones">
+      <button class="btn btn-primario" type="submit">Quiero que me aviséis</button>
+      <a class="btn btn-secundario" href="{{ solicitar }}">Solicitar implementación</a>
+    </div>
+  </form>
+  {% endif %}
+
+  {% set otras = FUNCIONES.items() | rejectattr("0", "equalto", funcion) | list %}
+  {% if otras %}
+  <div class="mj-otras">
+    <h2 class="pg-titulo">También en el plan premium</h2>
+    <ul class="pg-filas">{% for clave, f in otras %}<li><b>{{ f[0] }}</b><span>{{ f[1] }}</span></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -16,14 +16,28 @@ export const ramp = (f: number, a: number, b: number, ease: (x: number) => numbe
   interpolate(f, [a, b], [0, 1], {...CLAMP, easing: ease});
 
 /** Tokens del kit del cliente, con las fuentes ya cargadas. */
-export type Estilo = Kit['colores'] & {serif: string; sans: string; mono: string; subs: string; resaltar: boolean};
+export type Estilo = Kit['colores'] & {serif: string; sans: string; mono: string; subs: string; resaltar: boolean;
+  limpio: boolean; subsAbajo: boolean; lienzo?: string; lienzoAcento: string;
+  subsAnim: string; subsResalte: string; subsLimpia: string; entradaPantalla: string; vista: boolean;
+  /** «simple»: la promesa del gancho, en la sans y sin pastilla (formato raw). */
+  promesa: string};
 export const crearEstilo = (kit: Kit): Estilo => ({
   ...kit.colores,
   serif: fuente(kit.fuentes.titular),
   sans: fuente(kit.fuentes.golpe),
   mono: fuente(kit.fuentes.mono),
   subs: fuente(kit.fuentes.subtitulos ?? kit.fuentes.titular),
-  resaltar: kit.reglas?.subtitulos !== 'simple',
+  resaltar: kit.reglas?.subtitulos !== 'simple' && !['limpio', 'abajo'].includes(kit.estilo?.subtitulos ?? ''),
+  limpio: ['limpio', 'abajo'].includes(kit.estilo?.subtitulos ?? ''),
+  subsAbajo: kit.estilo?.subtitulos === 'abajo',
+  lienzo: kit.estilo?.lienzo,
+  lienzoAcento: kit.estilo?.lienzoAcento ?? '#2F5BFF',
+  subsAnim: kit.estilo?.subsAnim ?? 'aparecen',
+  subsResalte: kit.estilo?.subsResalte ?? 'nada',
+  subsLimpia: kit.estilo?.subsFuente ? fuente(kit.estilo.subsFuente) : fuente(kit.fuentes.golpe),
+  entradaPantalla: kit.estilo?.entradaPantalla ?? 'deslizar',
+  vista: Boolean(kit.estilo?.vista),
+  promesa: kit.estilo?.promesa ?? 'pastilla',
 });
 export const EstiloCtx = React.createContext<Estilo>(null as unknown as Estilo);
 export const useEstilo = () => React.useContext(EstiloCtx);

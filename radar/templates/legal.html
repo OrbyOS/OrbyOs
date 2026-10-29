@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}{{ "Privacidad" if pagina == "privacidad" else "Borrar tus datos" }} · {{ APP }}{% endblock %}
+{% block cabecera %}
+<script>document.documentElement.dataset.tono = "oscuro";</script>
+<link rel="stylesheet" href="/static/landing.css?v=10">{% endblock %}
+{% block clase_body %}landing{% endblock %}
+{% block cuerpo %}
+{# Las páginas públicas que pide Meta para la app de Instagram: la política de privacidad y cómo borrar los datos.
+   Solo cuentan lo que hace el código (radar/agentes/instagram_dm.py): no se guarda el texto de los comentarios. #}
+<header class="ln-nav">
+  <a class="ln-logo" href="/"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
+  <nav class="ln-enlaces" aria-label="Páginas legales">
+    <a href="/privacidad">Privacidad</a><a href="/borrar-datos">Borrar tus datos</a>
+  </nav>
+</header>
+
+<main class="ln-legal">
+  {% if pagina == "privacidad" %}
+  <p class="ln-antetitulo">Privacidad</p>
+  <h1>Qué datos trata {{ APP }} y para qué.</h1>
+  <p class="ln-legal-entrada">{{ APP }} es un equipo de agentes de IA que trabaja para la marca de un negocio. Una de sus funciones es la palabra clave de Instagram: si comentas una palabra en un reel de ese negocio, {{ APP }} te manda por privado el enlace que pediste.</p>
+
+  <h2>Qué datos tratamos</h2>
+  <p>Cuando comentas en una publicación de un negocio que usa {{ APP }}, Instagram nos avisa del comentario. De ese aviso solo guardamos:</p>
+  <ul>
+    <li>el identificador del comentario y el de la publicación;</li>
+    <li>tu identificador de Instagram y tu nombre de usuario;</li>
+    <li>la palabra clave que escribiste, la fecha y si el envío salió bien.</li>
+  </ul>
+  <p>No guardamos el texto de tu comentario, ni tus mensajes, ni ningún otro dato de tu perfil.</p>
+
+  <h2>Para qué</h2>
+  <p>Solo para mandarte el enlace que pediste con la palabra clave y, si el negocio lo ha activado, contestar a tu comentario en público. El registro sirve para no mandarte el mismo enlace dos veces y para que el negocio no supere un número de envíos al día. No vendemos ni cedemos estos datos a nadie.</p>
+
+  <h2>Cuánto tiempo</h2>
+  <p>Mientras el negocio use {{ APP }}. Se borran cuando el negocio da de baja su cuenta o cuando nos pides que los borremos.</p>
+
+  <h2>Contacto</h2>
+  <p>Para cualquier pregunta sobre tus datos, escríbenos a <a href="mailto:{{ CORREO_CONTACTO }}">{{ CORREO_CONTACTO }}</a>. Para borrarlos, sigue los pasos de <a href="/borrar-datos">Borrar tus datos</a>.</p>
+  {% else %}
+  <p class="ln-antetitulo">Borrar tus datos</p>
+  <h1>Cómo borrar tus datos de {{ APP }}.</h1>
+  <p class="ln-legal-entrada">Si comentaste una palabra clave en un reel de un negocio que usa {{ APP }}, guardamos tu identificador y tu usuario de Instagram, la palabra y la fecha del envío. Puedes pedir que lo borremos cuando quieras.</p>
+
+  <h2>Pídelo por correo</h2>
+  <ol>
+    <li>Escribe a <a href="mailto:{{ CORREO_CONTACTO }}?subject=Borrar%20mis%20datos">{{ CORREO_CONTACTO }}</a> con el asunto «Borrar mis datos».</li>
+    <li>Indica tu nombre de usuario de Instagram (por ejemplo, @tuusuario).</li>
+    <li>Borramos todos los registros con ese usuario y te contestamos al mismo correo cuando esté hecho.</li>
+  </ol>
+  <p>Borrar estos datos no afecta a tu cuenta de Instagram ni a lo que ya recibiste por privado. Si vuelves a comentar una palabra clave, se guardará un registro nuevo.</p>
+  {% endif %}
+</main>
+
+<footer class="ln-pie">
+  <span class="ln-logo"><span class="ln-logo-cara" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</span>
+  <a href="/privacidad">Privacidad</a>
+  <a href="/borrar-datos">Borrar tus datos</a>
+  <a href="mailto:{{ CORREO_CONTACTO }}">{{ CORREO_CONTACTO }}</a>
+</footer>
+{% endblock %}

@@ -12,7 +12,7 @@ from fastapi.responses import RedirectResponse
 from .. import auth, claves, config, db, jobs, llm
 from ..llm import ErrorIA
 from . import (AGENTES, AUTONOMIAS, analista, aprendizaje, comentarios, comunidad, estado, estratega, guionista, identidad, instalacion,
-               jefa, llamadas, piloto, produccion, publicador, sala, validador)
+               jefa, llamadas, piloto, produccion, publicador, regalos, sala, validador)
 from . import aprobaciones as ap
 from . import kit as kit_marca
 
@@ -427,7 +427,9 @@ def ver_estrategia(request: Request, negocio_id: int):
     hoy = estratega._hoy()
     de_hoy = [p for p in estratega.piezas(negocio_id, dia=hoy) if p["estado"] != "rechazada"]
     pendientes = [p for p in estratega.piezas(negocio_id, estados=("aprobada",)) if p["dia"] != hoy]
+    guion_de = {g["pieza_id"]: g["id"] for g in reversed(guionista.guiones(negocio_id))}  # pieza → su estructura
     return _pagina(request, "estrategia.html", vista="estrategia", de_hoy=de_hoy, pendientes_grabar=pendientes,
+                   guion_de=guion_de,
                    semana=estratega.semana(negocio_id, kit), mezcla=kit["mezcla"],
                    reparto=estratega.reparto_reciente(negocio_id), ETAPAS_KIT=kit_marca.ETAPAS,
                    carriles={c["id"]: c["nombre"] for c in kit["carriles"]},
@@ -550,6 +552,22 @@ def nuevo_guion(request: Request, negocio_id: int, tema: str = Form(""), texto: 
     remix = estratega.pieza(negocio_id, pieza_id)["tipo"] != "original"
     return _volver(negocio_id, "guiones", "Escribiendo. " + ("He encontrado un post probado sobre ese tema y lo voy a "
                                                              "rehacer." if remix else "No hay un post probado sobre ese tema: será original."))
+
+
+@router.post("/negocios/{negocio_id}/investigacion/posts/{post_id}/adaptar")
+def adaptar_post(request: Request, negocio_id: int, post_id: int):
+    """«Adaptar a mi voz» en Ideas: Escri rehace ese reel con tu voz (si hace falta, Lupi lo desmonta antes)."""
+    neg = _propio(request, negocio_id)
+    if not llm.disponible():
+        return _volver(negocio_id, "investigacion", "Para adaptar un reel hace falta la clave de Claude.")
+    try:
+        pieza_id = guionista.adaptar_post(neg, post_id)
+    except ValueError as e:
+        return _volver(negocio_id, "investigacion", str(e))
+    usuario_id = neg.pop("_usuario")["id"]
+    estado.cambiar(negocio_id, guionista.AGENTE, trabajando=True, avisos=[])
+    jobs.en_segundo_plano(guionista.trabajo_adaptar, neg, pieza_id, post_id, usuario_id)
+    return _volver(negocio_id, "guiones", "Escri está adaptando ese reel a tu voz. En unos minutos tienes la estructura aquí.")
 
 
 @router.post("/negocios/{negocio_id}/guiones/{guion_id}/editar")
@@ -841,7 +859,7 @@ def ver_comunidad(request: Request, negocio_id: int):
                    url_publica=config.URL_PUBLICA, conectado=comunidad.conectado(negocio_id), ia=llm.disponible(),
                    manychat=_estado_manychat(negocio_id), TEMPERATURAS=comunidad.TEMPERATURAS,
                    posts_propios=comentarios.publicaciones_propias(negocio_id), TIPOS_DM=comunidad.TIPOS_DM,
-                   **_datos_espacio(u, neg, inf))
+                   regalos=regalos.lista(negocio_id), **_datos_espacio(u, neg, inf))
 
 
 def _trabajo_bandeja(negocio: dict):
@@ -1188,7 +1206,7 @@ async def guardar_piloto(request: Request, negocio_id: int):
 
 # Las claves de servicios externos solo se tocan desde Conectores; aquí quedan los ajustes de la instalación.
 CLAVES_DE_CONECTORES = ("RADAR_MOTOR", "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "APIFY_TOKEN", "YOUTUBE_API_KEY",
-                        "ZERNIO_API_KEY", "MANYCHAT_API_KEY")
+                        "ZERNIO_API_KEY", "MANYCHAT_API_KEY", "RADAR_IG_APP_ID", "RADAR_IG_APP_SECRETO")
 
 
 @router.get("/admin/claves")

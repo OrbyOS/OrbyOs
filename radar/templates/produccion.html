@@ -1,66 +1,62 @@
 {% extends "app.html" %}
 {% from "_ui.html" import icono %}
-{% block titulo %}Producción · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block titulo %}Editar · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Producción</h1>
-    <p class="sub">Sube todas tus tomas de golpe. Cada una se empareja sola con su guion, se edita en cola y te llega para revisar. Si algo no te gusta, deja notas en el momento exacto del vídeo y Monti hace la versión siguiente.</p>
-  </div>
-</header>
-
-<section class="panel">
-  <form method="post" action="/negocios/{{ negocio.id }}/produccion/subir" enctype="multipart/form-data">
-    <div class="panel-cabecera"><div><h2>Subir tomas</h2><p class="tenue">MP4 o MOV, en vertical. Haz las tomas que quieras en una grabación: vale la última completa.</p></div></div>
-    <div class="panel-cuerpo pr-subida">
-      <input type="file" name="archivos" accept="video/mp4,video/quicktime,.mov,.mp4,.m4v" multiple required>
-      <label class="kit-check"><input type="checkbox" name="sin_guion" value="1"> <span>No tienen guion: edítalas tal cual</span></label>
-    </div>
-    <div class="form-pie">{% if espacio %}<span class="pr-espacio {{ 'lleno' if espacio.por_ciento >= 80 }}">Espacio: {{ espacio.usado_gb | string | replace(".", ",") }} de {{ espacio.cuota_gb | string | replace(".", ",") }} GB · los vídeos publicados se borran solos a los 30 días</span>{% endif %}<button class="btn btn-primario" type="submit">{{ icono("subir") }} Subir y editar</button></div>
-  </form>
-</section>
-
 {% set emparejar = tomas | selectattr("etapa", "equalto", "emparejar") | list %}
 {% set en_marcha = tomas | selectattr("etapa", "in", ["en_cola", "cortando", "plan", "montando"]) | list %}
 {% set para_ti = tomas | selectattr("etapa", "equalto", "revisar") | list %}
 {% set con_error = tomas | selectattr("etapa", "equalto", "error") | list %}
 {% set aprobados = tomas | selectattr("etapa", "equalto", "aprobado") | list %}
+<header class="pg-cabeza">
+  <div><h1>Editar</h1>
+    <p class="pg-sub">{% if para_ti %}{{ para_ti | length }} vídeo{{ "s" if para_ti | length != 1 }} para revisar{% if en_marcha %} · {{ en_marcha | length }} editándose{% endif %}.{% elif en_marcha %}<i class="hero-vivo"></i> Monti está editando {{ en_marcha | length }} vídeo{{ "s" if en_marcha | length != 1 }}.{% else %}Sube lo que has grabado y Monti te devuelve los reels.{% endif %}</p></div>
+</header>
+
+<form class="ed-subida" method="post" action="/negocios/{{ negocio.id }}/produccion/subir" enctype="multipart/form-data" data-subida>
+  <label class="ed-zona" data-zona>
+    <input type="file" name="archivos" accept="video/mp4,video/quicktime,.mov,.mp4,.m4v" multiple required data-archivos>
+    <span class="ed-zona-icono">{{ icono("subir") }}</span>
+    <b data-zona-texto>Arrastra aquí tus vídeos o pulsa para elegirlos</b>
+    <small>MP4 o MOV en vertical · puedes subir varias tomas a la vez</small>
+  </label>
+  <div class="ed-subida-pie">
+    <label class="kit-check"><input type="checkbox" name="sin_guion" value="1"> <span>No tienen guion: edítalos tal cual</span></label>
+    {% if espacio %}<span class="pr-espacio {{ 'lleno' if espacio.por_ciento >= 80 }}">Espacio: {{ espacio.usado_gb | string | replace(".", ",") }} de {{ espacio.cuota_gb | string | replace(".", ",") }} GB</span>{% endif %}
+    <button class="btn btn-primario" type="submit">{{ icono("subir") }} Subir y editar</button>
+  </div>
+</form>
 
 {% if emparejar %}
-<section class="panel">
-  <div class="panel-cabecera"><div><h2>¿De qué guion es?</h2><p class="tenue">No está claro a qué guion corresponden: confírmalo para que entren en la cola.</p></div></div>
-  <ul class="kit-lista">
-    {% for t in emparejar %}{% set s = t.toma.sugerencia or {} %}{% set sug = guiones.get(s.guion_id) %}
-    <li id="t{{ t.id }}">
-      <div><strong>{{ t.titulo }}</strong>
-        <p class="kit-meta">{% if sug %}Suena a «{{ piezas[sug.pieza_id].titulo }}» ({{ (s.parecido * 100) | round | int }} %){% else %}No se parece a ningún guion aprobado{% endif %}</p></div>
-      <form class="inv-acciones" method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/guion">
-        <select name="guion_id" aria-label="Guion">
-          {% for g in candidatos %}<option value="{{ g.id }}" {{ 'selected' if sug and g.id == sug.id }}>{{ piezas[g.pieza_id].titulo[:60] }}</option>{% endfor %}
-          <option value="0" {{ 'selected' if not sug }}>Sin guion: edítalo tal cual</option>
-        </select>
-        <button class="btn btn-primario btn-peque" type="submit">Confirmar</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
+<h2 class="pg-titulo">¿De qué guion es? <small>Confírmalo para que entre en la cola</small></h2>
+<ul class="pg-filas">
+  {% for t in emparejar %}{% set s = t.toma.sugerencia or {} %}{% set sug = guiones.get(s.guion_id) %}
+  <li id="t{{ t.id }}" class="ed-emparejar">
+    <div><b>{{ t.titulo }}</b>
+      <span>{% if sug %}Suena a «{{ piezas[sug.pieza_id].titulo }}» ({{ (s.parecido * 100) | round | int }} %){% else %}No se parece a ningún guion aprobado{% endif %}</span></div>
+    <form class="inv-acciones" method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/guion">
+      <select name="guion_id" aria-label="Guion">
+        {% for g in candidatos %}<option value="{{ g.id }}" {{ 'selected' if sug and g.id == sug.id }}>{{ piezas[g.pieza_id].titulo[:60] }}</option>{% endfor %}
+        <option value="0" {{ 'selected' if not sug }}>Sin guion: edítalo tal cual</option>
+      </select>
+      <button class="btn btn-primario btn-peque" type="submit">Confirmar</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
 {% endif %}
 
 {% if en_marcha %}
-<section class="panel" {% if trabajando %}data-estado-url="/negocios/{{ negocio.id }}/produccion/estado"{% endif %}>
-  <div class="panel-cabecera"><div><h2><i class="hero-vivo"></i>Editándose</h2><p class="tenue">Una toma detrás de otra; primero las que hay que grabar antes.</p></div></div>
-  <ul class="kit-lista">
-    {% for t in en_marcha %}
-    <li><div><strong>{{ t.titulo }}</strong><p class="kit-meta">{{ t.etapa_nombre }}{% if t.paso and t.paso != t.etapa_nombre %} · {{ t.paso }}{% endif %}{% if t.toma.version > 1 %} · versión {{ t.toma.version }}{% endif %}</p></div></li>
-    {% endfor %}
-  </ul>
-</section>
+<h2 class="pg-titulo"><i class="hero-vivo"></i>Editándose</h2>
+<ul class="pg-filas" {% if trabajando %}data-estado-url="/negocios/{{ negocio.id }}/produccion/estado"{% endif %}>
+  {% for t in en_marcha %}
+  <li><b>{{ t.titulo }}</b><span>{{ t.etapa_nombre }}{% if t.paso and t.paso != t.etapa_nombre %} · {{ t.paso }}{% endif %}{% if t.toma.version > 1 %} · versión {{ t.toma.version }}{% endif %}</span></li>
+  {% endfor %}
+</ul>
 {% endif %}
 
 {% if para_ti %}
-<h2 class="pr-titulo">Listo para ti</h2>
+<h2 class="pg-titulo">Para revisar</h2>
 <div class="pr-videos">
   {% for t in para_ti %}{% set g = guiones.get(t.toma.guion_id) %}{% set lp = t.datos.limpieza or {} %}
   <article class="panel pr-video" id="t{{ t.id }}" data-toma>
@@ -85,7 +81,7 @@
       {% if lp.bruto_borrado %}<p class="tenue pr-sin-bruto">La toma original ya se borró: para otra versión, vuelve a subirla.</p>
       {% elif not lp.final_borrado %}
       <details class="pr-cambios">
-        <summary>Necesita cambios</summary>
+        <summary>Pedir cambios</summary>
         <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/cambios" data-form-notas>
           <input type="hidden" name="notas" value="[]">
           <p class="tenue">Para el vídeo donde algo falla y escribe qué cambiar: la nota se queda en ese segundo.</p>
@@ -107,26 +103,32 @@
 {% endif %}
 
 {% if con_error %}
-<section class="panel">
-  <div class="panel-cabecera"><div><h2>Se han parado</h2></div></div>
-  <ul class="kit-lista">{% for t in con_error %}<li><div><strong>{{ t.titulo }}</strong><p class="kit-meta kit-falta">{{ t.paso }}</p></div>
-    <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/reintentar"><button class="btn btn-secundario btn-peque" type="submit">Reintentar</button></form></li>{% endfor %}</ul>
-</section>
+<h2 class="pg-titulo">Se han parado</h2>
+<ul class="pg-filas pg-filas-aviso">{% for t in con_error %}<li class="ed-fila"><div><b>{{ t.titulo }}</b><span class="kit-falta">{{ t.paso }}</span></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/reintentar"><button class="btn btn-secundario btn-peque" type="submit">Reintentar</button></form></li>{% endfor %}</ul>
 {% endif %}
 
 {% if aprobados %}
-<section class="panel">
-  <div class="panel-cabecera"><div><h2>Aprobados</h2><p class="tenue">Listos para publicar.</p></div></div>
-  <ul class="kit-lista">{% for t in aprobados %}<li><div><strong>{{ t.titulo }}</strong><p class="kit-meta">Versión {{ t.toma.version }}{% if t.toma.aprobado_por %} · aprobado por {{ t.toma.aprobado_por }}{% endif %}</p></div>
-    {% if (t.datos.limpieza or {}).final_borrado %}<span class="tenue">El vídeo ya se borró del servidor (se publicó hace más de 30 días)</span>{% else %}<a class="btn-icono" href="/ediciones/{{ t.id }}/video?descargar=1" title="Descargar">{{ icono("descargar") }}</a>{% endif %}</li>{% endfor %}</ul>
-</section>
-{% endif %}
-
-{% if not tomas %}
-<section class="panel"><div class="vacio"><p>Graba tus guiones aprobados y sube las tomas aquí.</p></div></section>
+<h2 class="pg-titulo">Aprobados <small>Listos para publicar</small></h2>
+<ul class="pg-filas">{% for t in aprobados %}<li class="ed-fila"><div><b>{{ t.titulo }}</b><span>Versión {{ t.toma.version }}{% if t.toma.aprobado_por %} · aprobado por {{ t.toma.aprobado_por }}{% endif %}</span></div>
+  {% if (t.datos.limpieza or {}).final_borrado %}<span class="tenue">Ya se borró del servidor</span>{% else %}<a class="btn-icono" href="/ediciones/{{ t.id }}/video?descargar=1" title="Descargar">{{ icono("descargar") }}</a>{% endif %}</li>{% endfor %}</ul>
 {% endif %}
 
 <script>
+// La zona de subida: arrastrar y soltar, y ver qué se ha elegido.
+(function () {
+  var zona = document.querySelector("[data-zona]"), input = document.querySelector("[data-archivos]"), texto = document.querySelector("[data-zona-texto]");
+  if (!zona) return;
+  function pintar() {
+    var n = input.files.length;
+    texto.textContent = n ? (n === 1 ? input.files[0].name : n + " vídeos elegidos") : "Arrastra aquí tus vídeos o pulsa para elegirlos";
+    zona.classList.toggle("con-archivos", n > 0);
+  }
+  input.addEventListener("change", pintar);
+  ["dragenter", "dragover"].forEach(function (e) { zona.addEventListener(e, function (ev) { ev.preventDefault(); zona.classList.add("encima"); }); });
+  ["dragleave", "drop"].forEach(function (e) { zona.addEventListener(e, function () { zona.classList.remove("encima"); }); });
+  zona.addEventListener("drop", function (ev) { ev.preventDefault(); input.files = ev.dataTransfer.files; pintar(); });
+})();
 document.querySelectorAll("[data-toma]").forEach(function (caja) {
   var video = caja.querySelector("[data-video]"), form = caja.querySelector("[data-form-notas]");
   if (!video || !form) return;

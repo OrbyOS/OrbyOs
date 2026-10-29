@@ -573,3 +573,30 @@ def test_los_kits_de_clientes_van_fuera_del_repositorio(tmp_path, monkeypatch):
     assert motor_montar.cargar_kit("cliente")["cliente"] == "Otro"
     with pytest.raises(FileNotFoundError):
         motor_montar.cargar_kit("no-existe")
+
+
+def test_estilo_propio_del_kit(tmp_path):
+    from motor_reels.motor import montar as motor_montar
+    quedan, todas = _quedan_y_todas()
+    m = desde_palabras.convertir({"planos": [
+        {"desde": 0, "hasta": 1, "modo": "real", "zoom": 1.0,
+         "grafico": {"tipo": "logos", "en": 0, "logos": ["claude", "chatgpt"]}},
+        {"desde": 2, "hasta": 4, "modo": "real", "zoom": 1.2, "grafico": {"tipo": "sello", "en": 2}},
+        {"desde": 5, "hasta": 7, "modo": "real", "zoom": 1.0}]}, quedan, todas, bruto="b", kit="k")
+    # Sin titular en el primer plano, el conversor pone uno; con gancho «libre», no hace falta.
+    m["planos"][0]["grafico"] = {"tipo": "logos", "en": m["planos"][0]["src"][0], "logos": ["claude", "chatgpt"]}
+    m["reglas"] = {"gancho": "libre", "maximos": {"logos": 4}}
+    assert motor_validar.validar(m)[0] == []
+    del m["reglas"]
+    assert any("titular" in e for e in motor_validar.validar(m)[0])
+    # Subtítulos limpios: también sobre logos y sello; el sello toma su texto del kit.
+    palabras = [{"t": w["start"], "fin": w["end"], "w": w["word"]} for w in todas]
+    (tmp_path / "frames").mkdir()
+    from PIL import Image
+    for i in range(0, 260):  # el primer plano siempre lleva la cabeza y la cara (para el panel de Montaje)
+        Image.new("RGBA", (1080, 1920), (0, 0, 0, 255)).save(tmp_path / "frames" / f"m_{i:05d}.png")
+    kit = {"colores": {}, "fuentes": {}, "estilo": {"subtitulos": "limpio", "sello": {"texto": "IA", "cinta": "serie"}}}
+    datos, _ = motor_montar.props(m, kit, palabras, tmp_path / "frames")
+    assert all(p["subtitulos"] for p in datos["planos"])
+    assert datos["planos"][0]["grafico"]["logos"] == ["claude.png", "chatgpt.png"]
+    assert datos["planos"][1]["grafico"]["texto"] == "IA"

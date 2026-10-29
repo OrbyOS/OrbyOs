@@ -23,6 +23,10 @@ async def _vida(_app):
     from .agentes import jefa, produccion
     produccion.reanudar()  # las tomas que se cortaron al cerrar la app siguen solas
     jefa.arrancar_bucle()
+    from .agentes import instagram_dm
+    instagram_dm.arrancar_renovacion()  # el token de Instagram dura 60 días: se renueva solo
+    from . import newsletter
+    newsletter.arrancar()  # las altas que no llegaron a Kit se reintentan
     yield
 
 
@@ -195,6 +199,12 @@ def _opciones_kit() -> dict:
             "formatos": k.FORMATOS}
 
 
+def _instagram_de(negocio_id: int) -> dict:
+    """El conector de Instagram (palabra clave sin ManyChat) para Conectores y Comunidad, sin el token ni la clave."""
+    from .agentes import instagram_dm
+    return instagram_dm.estado(negocio_id)
+
+
 def _planos_de(toma: dict) -> list[dict]:
     """«Así queda cada plano» de un reel montado con el motor (estilo «De editor»); vacío si no."""
     from .editor import flujo, plan_motor
@@ -212,7 +222,8 @@ plantillas.env.globals.update(
     # Los enlaces de la landing: dónde se pide la implementación (una página de citas, por ejemplo) y el repositorio.
     URL_SOLICITAR=os.getenv("RADAR_URL_SOLICITAR", "").strip() or "/registro",
     URL_GITHUB=os.getenv("RADAR_URL_GITHUB", "").strip(),
-    ruta_existe=_ruta_existe, opciones_kit=_opciones_kit,
+    ruta_existe=_ruta_existe, opciones_kit=_opciones_kit, instagram_de=_instagram_de,
+    CORREO_CONTACTO=os.getenv("RADAR_CORREO_CONTACTO", "hola@orbyos.es").strip(),
     motor_reels_activo=config.motor_reels_activo, planos_de=_planos_de, leer_estructura=_leer_estructura, lupi_de=_lupi_de, revision_kit=_revision_kit, nombre_formula=_nombre_formula, modo_de=_modo_de, reels_prueba_de=_reels_prueba_de, historias_de_hoy=_historias_de_hoy,
     CLASES_PIEZA={"prueba": "Prueba", "ensenar": "Enseñar", "opinion": "Opinión", "historia": "Historia", "oferta": "Oferta"},
     PEGATINAS={"encuesta": "Encuesta", "preguntas": "Caja de preguntas", "quiz": "Quiz", "deslizador": "Deslizador",
@@ -232,6 +243,12 @@ async def _negocio_de_la_peticion(request: Request, siguiente):
         return await siguiente(request)
     finally:
         claves.NEGOCIO.reset(marca)
+
+
+@app.middleware("http")
+async def _puertas_del_plan_gratis(request: Request, siguiente):
+    from . import planes
+    return await planes.puerta(request, siguiente)
 
 
 @app.middleware("http")
@@ -290,6 +307,18 @@ app.include_router(rutas_editor.router)
 rutas_agentes.configurar(_pagina, _espacio, _datos_espacio)
 app.include_router(rutas_agentes.router)
 app.include_router(rutas_generacion.router)  # oculta: 404 sin RADAR_GENERACION=1
+from .agentes import rutas_instagram  # noqa: E402
+app.include_router(rutas_instagram.router)  # la palabra clave de Instagram sin ManyChat
+from . import metricas  # noqa: E402
+app.include_router(metricas.router)  # recuentos de solo lectura para un panel externo
+from . import panel  # noqa: E402
+panel.configurar(_pagina, _espacio, _datos_espacio)
+app.include_router(panel.router)  # el Panel en vivo del negocio
+from . import planes  # noqa: E402
+planes.configurar(_pagina)
+app.include_router(planes.router)  # el plan gratis: sus puertas falsas
+plantillas.env.globals.update(es_gratis=planes.es_gratis,  # el candado de sus botones en app.html
+                              PUERTAS=[p for _, _, rutas in planes.FUNCIONES.values() for p in rutas])
 estado_agentes.interrumpidos()
 
 
@@ -303,6 +332,17 @@ def inicio(request: Request):
     if not db.contar_usuarios():
         return RedirectResponse("/entrar", status_code=303)
     return _pagina(request, "landing.html")
+
+
+# Las dos páginas públicas que pide Meta para revisar la app de Instagram (y que valen para cualquiera).
+@app.get("/privacidad")
+def privacidad(request: Request):
+    return _pagina(request, "legal.html", pagina="privacidad")
+
+
+@app.get("/borrar-datos")
+def borrar_datos(request: Request):
+    return _pagina(request, "legal.html", pagina="borrar")
 
 
 def _siguiente(valor: str | None) -> str:
@@ -556,6 +596,20 @@ async def solicitar(request: Request):
     ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
     resultado = solicitudes.recibir(await request.form(), ip)
     return RedirectResponse(f"/?solicitud={resultado}#solicitar", status_code=303)
+
+
+@app.post("/newsletter/{lista}/suscribir")
+async def suscribir_newsletter(request: Request, lista: str):
+    """El formulario de newsletter de una landing (otra web del mismo servidor). Responde JSON: la página decide."""
+    from fastapi.responses import JSONResponse
+    from . import newsletter
+    if not newsletter.lista_valida(lista):
+        return JSONResponse({"ok": False, "error": "lista"}, status_code=404)
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    resultado = newsletter.suscribir(lista, await request.form(), ip)
+    if resultado in ("ok", "repetido"):
+        return {"ok": True}
+    return JSONResponse({"ok": False, "error": resultado}, status_code=429 if resultado == "espera" else 400)
 
 
 @app.post("/admin/solicitudes/{solicitud_id}")

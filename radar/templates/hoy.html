@@ -1,23 +1,83 @@
 {% extends "app.html" %}
 {% from "_ui.html" import icono %}
-{% block cabecera %}<link rel="stylesheet" href="/static/sala.css?v=73">{% endblock %}
-{% block titulo %}Hoy · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block cabecera %}<link rel="stylesheet" href="/static/sala.css?v=74">{% endblock %}
+{% block titulo %}Inicio · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 {% block contenido %}
-<h1 class="sr-only">Hoy</h1>
-{# Orby: lo único que harías hoy si solo pudieras hacer una cosa, y cómo vas con el objetivo de la semana. #}
+{# Inicio: solo lo de hoy. Lo que tiene parado al equipo, lo que hay que grabar, revisar y publicar, lo que despega en
+   tu nicho y cuatro cifras. La oficina del equipo y los ajustes del piloto quedan plegados abajo. #}
 {% set ritmo = r.ritmo or {} %}
-{% if r.primero or ritmo.meta %}
-<div class="hy-primero">
-  <span class="hy-primero-cara" data-robot="jefa" data-robot-cabeza></span>
-  <div>
-    {% if r.primero %}<p><b>Lo primero de hoy:</b> {{ r.primero }}</p>{% endif %}
-    {% if ritmo.meta %}{% set unid = {"leads": "leads", "seguidores": "seguidores nuevos", "llamadas": "llamadas", "ventas": "€ en ventas"} %}
-    {% set como = {"cumplido": "cumplido", "en_camino": "vas bien", "en_riesgo": "vas justo", "por_detras": "vas por detrás"} %}
-    <p class="hy-ritmo hy-{{ ritmo.estado }}">Objetivo de la semana: <b>{{ "%g" | format(ritmo.hecho) }} de {{ "%g" | format(ritmo.meta) }}</b> {{ unid.get(ritmo.metrica, "") }} · {{ como.get(ritmo.estado, "") }}</p>{% endif %}
-  </div>
-</div>
+{% set hechos = pasos | selectattr("hecho") | list | length %}
+{% set siguiente = (pasos | rejectattr("hecho") | list | first) %}
+{% set por_grabar = r.piezas | selectattr("estado", "in", ["aprobada", "guion"]) | list %}
+<header class="pg-cabeza">
+  <div><h1>Hola, {{ (usuario.nombre or "").split(" ")[0] or "de nuevo" }}</h1>
+    <p class="pg-sub">{{ r.primero[:1] | upper ~ r.primero[1:] if r.primero else "Todo al día. El equipo sigue trabajando." }}</p></div>
+</header>
+
+{% if siguiente %}
+<a class="pg-arranque" href="{{ siguiente.enlace }}">
+  <span class="pg-arranque-barra"><i style="width: {{ (100 * hechos / (pasos | length)) | round | int }}%"></i></span>
+  <span class="pg-arranque-texto"><small>Puesta en marcha · {{ hechos }} de {{ pasos | length }}</small><b>{{ siguiente.texto }}</b></span>
+  <span class="btn btn-primario btn-peque">Hacerlo {{ icono("flecha") }}</span>
+</a>
 {% endif %}
 
+{% for a in r.alertas %}
+<div class="aviso {{ 'aviso-error' if a.prioridad == 'alta' else '' }}">{{ icono("alerta") }}<div>{{ a.texto }}</div></div>
+{% endfor %}
+
+<div class="pg-tarjetas">
+  <a class="pg-tarjeta" href="{{ base_n }}/estrategia" style="--c: var(--c-estratega)">
+    <span class="pg-tarjeta-cab">{{ icono("camara") }} Grabar hoy</span>
+    {% if por_grabar %}
+    <b class="pg-cifra">{{ por_grabar | length }}</b>
+    <ul class="pg-lista">{% for p in por_grabar[:3] %}<li>{{ p.titulo }}</li>{% endfor %}</ul>
+    {% elif r.por_grabar %}
+    <b class="pg-cifra">{{ r.por_grabar | length }}</b><p class="pg-nota">aprobadas de otros días, sin grabar</p>
+    {% else %}
+    <p class="pg-nota">Aún no hay plan para hoy.</p>
+    {% endif %}
+    <span class="pg-ir">{{ "Ver qué grabar" if por_grabar or r.por_grabar else "Pedir el plan" }} {{ icono("flecha") }}</span>
+  </a>
+  <a class="pg-tarjeta" href="{{ base_n }}/aprobaciones" style="--c: var(--c-jefa)">
+    <span class="pg-tarjeta-cab">{{ icono("bandeja") }} Por revisar</span>
+    <b class="pg-cifra">{{ r.pendientes | length }}</b>
+    {% if r.pendientes %}<ul class="pg-lista">{% for a in r.pendientes[:3] %}<li>{{ a.resumen }}</li>{% endfor %}</ul>
+    {% else %}<p class="pg-nota">Nada esperando tu OK.</p>{% endif %}
+    <span class="pg-ir">Revisar {{ icono("flecha") }}</span>
+  </a>
+  <a class="pg-tarjeta" href="{{ base_n }}/publicacion" style="--c: var(--c-publicador)">
+    <span class="pg-tarjeta-cab">{{ icono("calendario") }} Publicar hoy</span>
+    {% if r.te_toca %}
+    <b class="pg-cifra">{{ r.te_toca | length }}</b>
+    <ul class="pg-lista">{% for p in r.te_toca[:3] %}<li><b>{{ p.programado[11:16] }}</b> {{ p.texto[:60] }}</li>{% endfor %}</ul>
+    {% else %}<p class="pg-nota">Hoy no te toca publicar a mano.</p>{% endif %}
+    <span class="pg-ir">Ver el calendario {{ icono("flecha") }}</span>
+  </a>
+  <a class="pg-tarjeta" href="{{ base_n }}/investigacion" style="--c: var(--c-analista)">
+    <span class="pg-tarjeta-cab">{{ icono("bombilla") }} Despegando en tu nicho</span>
+    {% if r.despegando %}
+    <ul class="pg-lista pg-lista-ancha">{% for p in r.despegando %}<li><b>×{{ "%g" | format(p.ritmo) }}</b> <span data-privado>@{{ p.cuenta.lstrip("@") }}</span> · {{ p.texto[:70] }}</li>{% endfor %}</ul>
+    {% else %}<p class="pg-nota">Nada despega ahora mismo.</p>{% endif %}
+    <span class="pg-ir">Ver ideas {{ icono("flecha") }}</span>
+  </a>
+</div>
+
+<div class="pg-cifras">
+  <div><small>Publicado ayer</small><b>{{ r.publicadas | length }}</b></div>
+  <div><small>Leads ayer</small><b>{{ r.leads_ayer }}</b></div>
+  <div><small>Conversaciones calientes</small><b>{{ r.calientes }}</b></div>
+  {% if ritmo.meta %}{% set unid = {"leads": "leads", "seguidores": "seguidores", "llamadas": "llamadas", "ventas": "€ en ventas"} %}
+  <div class="pg-objetivo pg-{{ ritmo.estado }}"><small>Objetivo de la semana</small><b>{{ "%g" | format(ritmo.hecho) }} <span>/ {{ "%g" | format(ritmo.meta) }} {{ unid.get(ritmo.metrica, "") }}</span></b>
+    <i><em style="width: {{ [100, (100 * ritmo.hecho / ritmo.meta) | round | int] | min }}%"></em></i></div>
+  {% else %}
+  <a class="pg-objetivo pg-sin" href="{{ base_n }}/kit"><small>Objetivo de la semana</small><b>Sin objetivo</b><span>Ponlo en el Kit</span></a>
+  {% endif %}
+</div>
+
+{# La oficina del equipo, para verla cuando quieras: se carga al abrirla. #}
+<details class="pg-plegable" data-sala-plegable>
+  <summary>{{ icono("equipo") }} Ver al equipo trabajando</summary>
 <section class="sala" data-sala data-vivo="/negocios/{{ negocio.id }}/hoy/vivo" data-app="{{ APP }}">
   <div class="sala-barra">
     <h2><i class="sala-vivo"></i>Tu equipo, en directo</h2>
@@ -86,14 +146,10 @@
   </div>
   <div class="sala-ticker"><ul></ul></div>
 </section>
+</details>
 
-{% if r.alertas %}
-<section class="panel hy-alertas">
-  <div class="panel-cabecera"><div><h2>{{ icono("alerta") }} Hay que arreglar</h2></div></div>
-  <ul class="kit-lista">{% for a in r.alertas %}<li><div><strong>{{ a.texto }}</strong></div></li>{% endfor %}</ul>
-</section>
-{% endif %}
-
+<details class="pg-plegable" id="ajustes-dia" {{ 'open' if request.url.fragment in ('piloto', 'avisos', 'telegram') }}>
+  <summary>{{ icono("ajustes") }} Piloto automático y avisos</summary>
 <section class="panel" id="piloto">
   <div class="panel-cabecera"><div><h2>Piloto automático {% if piloto.activo %}<span class="rs-ritmo rs-en_camino">Encendido</span>{% endif %}</h2>
     <p class="tenue">El equipo trabaja solo con este horario mientras {{ APP }} esté abierto. Lo que sale en público sigue pasando por tus aprobaciones, salvo los agentes que pongas en piloto en el <a href="{{ base_n }}/kit#autonomia">Kit de marca</a>.</p></div></div>
@@ -134,5 +190,18 @@
   </form>
 </div>
 </details>
-<script src="/static/sala.js?v=73" defer></script>
+</details>
+<script>
+  // La oficina se carga la primera vez que se abre (así Inicio va rápido).
+  (function () {
+    var d = document.querySelector("[data-sala-plegable]");
+    if (!d) return;
+    d.addEventListener("toggle", function () {
+      if (!d.open || d.dataset.cargada) return;
+      d.dataset.cargada = "1";
+      var s = document.createElement("script"); s.src = "/static/sala.js?v=74"; document.body.appendChild(s);
+    });
+    if (location.hash === "#piloto" || location.hash === "#avisos") document.getElementById("ajustes-dia").open = true;
+  })();
+</script>
 {% endblock %}

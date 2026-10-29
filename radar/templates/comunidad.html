@@ -1,19 +1,23 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
+{% from "_ui.html" import icono, pestanas %}
 {% block titulo %}Comunidad · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 {% block contenido %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>Comunidad</h1>
-    <p class="sub">Quien comenta tu palabra clave recibe la guía por DM. Tus mensajes llegan ordenados por temperatura, con una respuesta preparada que no sale hasta que la apruebas. Y cada lead se queda en tus contactos.</p>
+{% set ig = instagram_de(negocio.id) %}
+<header class="pg-cabeza">
+  <div><h1>Comunidad</h1>
+    <p class="pg-sub">{% if conversaciones %}{{ conversaciones | length }} conversaci{{ "ones" if conversaciones | length != 1 else "ón" }} en tu bandeja.{% else %}Tus DMs ordenados por temperatura y la guía para quien comenta tu palabra clave.{% endif %}</p></div>
+  <div class="pg-acciones">
+    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/leer"><button class="btn btn-primario" type="submit" {% if not conectado or estado_comunidad.trabajando %}disabled{% endif %}>{{ icono("actualizar") }} Leer DMs</button></form>
   </div>
 </header>
+{{ pestanas([("#mensajes-tab", "Mensajes", true, conversaciones | length), ("#regalos", "Regalos", false, regalos | length), ("#contactos", "Contactos", false, contactos | length), ("#ajustes-tab", "Ajustes", false, 0)]) }}
+
+<div class="pg-panel" data-panel="mensajes-tab">
 
 <section class="panel" {% if estado_comunidad.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/comunidad/estado"{% endif %}>
   <div class="panel-cabecera">
     <div><h2>{% if estado_comunidad.trabajando %}<i class="hero-vivo"></i>Leyendo tus DMs{% else %}Bandeja{% endif %}</h2>
       <p class="tenue">{% if estado_comunidad.ultimo %}Leída el {{ estado_comunidad.ultimo | fecha }}. {% endif %}Los borradores de respuesta van a <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>.</p></div>
-    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/leer"><button class="btn btn-primario btn-peque" type="submit" {% if not conectado or estado_comunidad.trabajando %}disabled{% endif %}>{{ icono("actualizar") }} Leer DMs</button></form>
   </div>
   {% if estado_comunidad.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_comunidad.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
   {% if conversaciones %}
@@ -63,6 +67,66 @@
   </form>
 </section>
 
+</div>
+
+<div class="pg-panel" data-panel="regalos">
+{# Cada regalo es una sola cosa: la palabra que comentan, a dónde lleva (un enlace o una guía), su enlace corto y sus
+   números. Lo demás (las guías por dentro, ManyChat y la conexión de Instagram) queda plegado debajo. #}
+{% macro form_regalo(r) -%}
+<form method="post" action="/negocios/{{ negocio.id }}/regalos" class="rg-form">
+  {% if r %}<input type="hidden" name="regalo_id" value="{{ r.id }}">{% endif %}
+  <div class="campos">
+    <label class="c"><span>Palabra <small>La que comentan</small></span><input name="palabra" required maxlength="30" value="{{ r.palabra if r else '' }}" placeholder="GUIA"></label>
+    <label class="c"><span>Lleva a</span><select name="guia_id" data-rg-guia>
+      <option value="">Un enlace</option>
+      {% for g in guias %}<option value="{{ g.id }}" {{ 'selected' if r and r.guia_id == g.id }}>Guía: {{ g.titulo }}</option>{% endfor %}</select></label>
+    <label class="c ancho" data-rg-destino><span>Enlace <small>https://</small></span><input name="destino" value="{{ r.destino if r else '' }}" placeholder="https://"></label>
+    <label class="c ancho"><span>Mensaje privado <small>Opcional. Pon {enlace} donde va el enlace</small></span><input name="mensaje" maxlength="900" value="{{ r.mensaje if r else '' }}" placeholder="Aquí lo tienes: {enlace}"></label>
+    <label class="c ancho"><span>Pregunta una hora después <small>Opcional</small></span><input name="pregunta" maxlength="300" value="{{ r.pregunta if r else '' }}" placeholder="¿Te ha servido? ¿Qué te gustaría ver ahora?"></label>
+    <label class="c"><span>Solo en un reel <small>Opcional: su id</small></span><input name="media_id" maxlength="40" value="{{ r.media_id if r else '' }}"></label>
+    <div class="c rg-casillas">
+      <label class="kit-check"><input type="checkbox" name="activa" value="1" {{ 'checked' if not r or r.activa }}> <span>Activo</span></label>
+      <label class="kit-check"><input type="checkbox" name="exacta" value="1" {{ 'checked' if r and r.exacta }}> <span>Solo la palabra exacta</span></label>
+    </div>
+  </div>
+  <div class="form-pie"><button class="btn btn-primario" type="submit">{{ "Guardar" if r else "Crear el regalo" }}</button></div>
+</form>
+{%- endmacro %}
+{% if regalos %}
+<div class="rg-lista">
+  {% for r in regalos %}
+  <article class="rg {{ 'rg-pausa' if not r.activa }}" id="regalo-{{ r.id }}">
+    <div class="rg-cab">
+      <b class="rg-palabra">{{ r.palabra }}</b>
+      <span class="cx-estado {{ 'on' if r.activa }}">{{ "Activo" if r.activa else "En pausa" }}</span>
+      {% if r.exacta %}<span class="cx-estado">Exacta</span>{% endif %}
+      {% if r.media_id %}<span class="cx-estado">Un reel</span>{% endif %}
+    </div>
+    <p class="rg-destino">{% if r.guia_id %}{% set gg = guias | selectattr("id", "equalto", r.guia_id) | first %}Guía: {{ gg.titulo if gg else "la guía" }}{% else %}<a href="{{ r.destino }}" target="_blank" rel="noopener">{{ r.destino | host }}</a>{% endif %}</p>
+    <span class="cm-copiar rg-corto"><input id="corto-{{ r.id }}" value="{{ r.enlace_corto }}" readonly><button class="btn btn-secundario btn-peque" type="button" data-copiar-campo="corto-{{ r.id }}">Copiar</button></span>
+    <div class="rg-cifras">
+      <div><b>{{ r.comentarios }}</b><small>comentarios</small></div>
+      <div><b>{{ r.privados }}</b><small>privados</small></div>
+      <div><b>{{ r.clics }}</b><small>clics</small></div>
+      <div><b>{{ r.correos }}</b><small>correos</small></div>
+    </div>
+    <div class="rg-pie">
+      <details class="rg-editar"><summary>Editar</summary>{{ form_regalo(r) }}</details>
+      <form method="post" action="/negocios/{{ negocio.id }}/regalos/{{ r.id }}/quitar"><button class="btn-texto" type="submit">Quitar</button></form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="pg-vacio"><p><b>Aún no tienes regalos.</b> Quien comente la palabra en tu reel recibe el enlace por privado, y aquí ves cuántos lo piden, lo abren y te dejan el correo.</p></div>
+{% endif %}
+<details class="pg-plegable" id="nuevo-regalo" {{ 'open' if not regalos }}>
+  <summary>{{ icono("mas") }} Nuevo regalo</summary>
+  <div class="pg-dentro">{{ form_regalo(none) }}</div>
+</details>
+
+<details class="pg-plegable">
+<summary>{{ icono("ficha") }} Guías · {{ guias | length }}</summary>
 <section class="panel" id="guias">
   <div class="panel-cabecera"><div><h2>Guías de las palabras clave</h2><p class="tenue">Lo que recibe quien comenta la palabra. Una página corta con tu marca y, si quieres, un formulario para dejar el correo.</p></div></div>
   {% if sin_guia %}
@@ -90,6 +154,10 @@
   {% endfor %}
   {% if not guias and not sin_guia %}<div class="vacio"><p>Cuando un guion tenga palabra clave, aquí podrás escribir su guía.</p></div>{% endif %}
 </section>
+</details>
+
+<details class="pg-plegable">
+<summary>{{ icono("enchufe") }} ManyChat e Instagram (avanzado)</summary>
 
 <section class="panel" id="automatizaciones">
   <div class="panel-cabecera">
@@ -102,6 +170,70 @@
   {% endif %}
 </section>
 
+
+
+{# La palabra clave por la API oficial de Instagram (sin ManyChat): sus palabras, sus ajustes y los últimos envíos.
+   La conexión (token, clave secreta y la dirección para Meta) está en Conectores. #}
+{% set ESTADOS_IG = {"enviado": "Enviado", "enviando": "Enviando", "fallido": "Ha fallado", "repetido": "Ya lo tenía", "tope": "Tope del día"} %}
+<section class="panel" id="instagram">
+  <div class="panel-cabecera">
+    <div><h2>Palabra clave en Instagram <span class="cx-estado {{ 'on' if ig.conectado and ig.activa }}">{{ ("Activa" if ig.activa else "En pausa") if ig.conectado else "Sin conectar" }}</span></h2>
+      <p class="tenue">Por la API oficial de Instagram, sin ManyChat. Quien comenta la palabra en tu reel recibe el enlace por privado, una sola vez por palabra y reel.{% if ig.conectado %} Hoy: {{ ig.hoy }} de {{ ig.tope }} envíos.{% endif %}</p></div>
+    <a class="btn btn-secundario btn-peque" href="{{ base_n }}/conectores#instagram">{{ icono("enchufe") }} Conectores</a>
+  </div>
+  {% if not ig.conectado %}
+  <div class="vacio"><p>Conecta tu cuenta de Instagram en <a href="{{ base_n }}/conectores#instagram">Conectores</a> para que {{ APP }} conteste a la palabra clave sin ManyChat.</p></div>
+  {% else %}
+  {% if ig.palabras %}
+  <ul class="kit-lista">
+    {% for p in ig.palabras %}
+    <li><div><strong>{{ p.palabra }}</strong>
+      <p class="kit-meta">{{ "Solo en el reel " ~ p.media_id if p.media_id else "En todos los reels" }} · <a href="{{ p.enlace }}" target="_blank" rel="noopener">{{ p.enlace | host }}</a>{% if p.publica is defined %} · {{ "Respuesta pública: «" ~ p.publica ~ "»" if p.publica else "Sin respuesta pública" }}{% endif %}</p>
+      {% if p.mensaje %}<p class="tenue">«{{ p.mensaje }}»</p>{% endif %}</div>
+      <form method="post" action="/negocios/{{ negocio.id }}/comunidad/instagram/palabras">
+        <input type="hidden" name="palabra" value="{{ p.palabra }}"><input type="hidden" name="media_id" value="{{ p.media_id }}"><input type="hidden" name="quitar" value="1">
+        <button class="btn-texto" type="submit">Quitar</button></form></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="panel-cuerpo"><p class="tenue">Aún no hay palabras propias. Mientras tanto, {{ APP }} contesta con las <a href="#guias">guías</a> que tengan palabra clave.</p></div>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/comunidad/instagram/palabras" data-ig-palabra>
+    <div class="panel-cuerpo campos">
+      <label class="c"><span>Palabra</span><input name="palabra" required maxlength="30" placeholder="GUIA"></label>
+      <label class="c"><span>Enlace</span><input name="enlace" type="url" required placeholder="https://"></label>
+      <label class="c ancho"><span>Mensaje <small>Opcional. Pon {enlace} donde va el enlace y {nombre} para su usuario</small></span><input name="mensaje" maxlength="900" placeholder="¡Aquí la tienes, {nombre}! {enlace}"></label>
+      <label class="c"><span>Solo en un reel <small>Opcional: el id del reel. Vacío, en todos</small></span><input name="media_id" maxlength="40"></label>
+      <label class="c"><span>Respuesta pública <small>Opcional. Vacía, la de los ajustes</small></span><input name="publica" maxlength="200" placeholder="Te lo he mandado por privado" data-ig-publica></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Añadir palabra</button></div>
+  </form>
+  <details class="cx-instalacion"><summary>Ajustes</summary>
+    <form method="post" action="/negocios/{{ negocio.id }}/comunidad/instagram/ajustes">
+      <div class="panel-cuerpo campos">
+        <label class="c ancho kit-check"><input type="checkbox" name="activa" value="1" {{ 'checked' if ig.activa }}> <span>Contestar a la palabra clave</span></label>
+        <label class="c"><span>Envíos al día como mucho</span><input name="tope" type="number" min="1" max="500" value="{{ ig.tope }}"></label>
+        <label class="c"><span>Respuesta pública por defecto <small>Vacía, ninguna</small></span><input name="publica" maxlength="200" value="{{ ig.publica }}" placeholder="Te lo he mandado por privado"></label>
+      </div>
+      <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+    </form>
+  </details>
+  {% if ig.ultimos %}
+  <details class="cx-instalacion"><summary>Últimos envíos</summary>
+    <ul class="kit-lista">
+      {% for e in ig.ultimos %}
+      <li><div><strong data-privado>@{{ e.autor or "sin usuario" }}</strong>
+        <p class="kit-meta">{{ e.palabra }} · {{ ESTADOS_IG.get(e.estado, e.estado) }} · {{ e.creado | fecha }}{% if e.error %} · <span class="kit-falta">{{ e.error }}</span>{% endif %}</p></div></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% endif %}
+</section>
+</details>
+</div>
+
+<div class="pg-panel" data-panel="contactos">
 <section class="panel">
   <div class="panel-cabecera"><div><h2>Contactos</h2><p class="tenue">Quien deja su correo en una guía o te escribe con interés.</p></div>
     {% if contactos %}<a class="btn btn-fantasma btn-peque" href="/negocios/{{ negocio.id }}/comunidad/contactos.csv">{{ icono("descargar") }} CSV</a>{% endif %}</div>
@@ -110,6 +242,9 @@
   {% else %}<div class="vacio"><p>Todavía no hay contactos.</p></div>{% endif %}
 </section>
 
+</div>
+
+<div class="pg-panel" data-panel="ajustes-tab">
 <section class="panel" id="manychat">
   <div class="panel-cabecera"><div><h2>ManyChat <span class="cx-estado {{ 'on' if manychat and manychat.conectado }}">{{ "Conectado" if manychat and manychat.conectado else "Sin conectar" }}</span></h2>
     <p class="tenue">Chati lee tus DMs y responde a la palabra clave a través de tu ManyChat. La clave y la dirección para montar las automatizaciones están en Conectores.</p></div>
@@ -128,8 +263,15 @@
     <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
   </form>
 </section>
+</div>
 
 <script>
+  // La respuesta pública de una palabra: si se deja vacía, no se manda y vale la de los ajustes.
+  (function () {
+    var f = document.querySelector("[data-ig-palabra]");
+    if (!f) return;
+    f.addEventListener("submit", function () { var p = f.querySelector("[data-ig-publica]"); if (!p.value.trim()) p.disabled = true; });
+  })();
   // «Tu idea de colaboración» solo aparece si el DM es una propuesta de colaboración.
   (function () {
     var f = document.querySelector("[data-cm-dm]");

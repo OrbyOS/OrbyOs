@@ -547,6 +547,44 @@ def pedir_sobre(negocio: dict, tema: str) -> int:
         return cur.lastrowid
 
 
+def adaptar_post(negocio: dict, post_id: int) -> int:
+    """«Adaptar a mi voz» desde Ideas: una pieza aprobada que rehace ese post (remix, o «propio» si es tuyo). Devuelve el
+    id de la pieza. La estructura la escribe trabajo_adaptar."""
+    nid = negocio["id"]
+    p = analista.post(nid, post_id)
+    if not p:
+        raise ValueError("Ese post no existe.")
+    kit = kit_marca.leer(nid)
+    hueco = (estratega.huecos(nid, 1, kit) or kit["carriles"] or [{"id": "", "etapa": "tofu", "nombre": ""}])[0]
+    plantilla = p["plantilla"] if p["estado_plantilla"] == "lista" else {}
+    titulo = (plantilla.get("tema") or p["gancho"] or p["texto"] or f"Reel de {p['cuenta']}").strip()
+    datos = {"referencia": estratega.referencia(p), "url": p["url"], "plantilla": plantilla}
+    with db.conexion() as con:
+        cur = con.execute(
+            "INSERT INTO piezas (negocio_id, creado, dia, estado, tipo, carril, etapa, fuente_post_id, titulo, angulo, "
+            "formato, esquema, grabar_antes, datos) VALUES (?, ?, ?, 'aprobada', ?, ?, ?, ?, ?, '', ?, '[]', '', ?)",
+            (nid, _ahora(), _ahora()[:10], "propio" if p["propia"] else "remix", hueco["id"], hueco["etapa"], post_id,
+             " ".join(titulo.split())[:160], plantilla.get("formato") or "Hablando a cámara",
+             json.dumps(datos, ensure_ascii=False)))
+        return cur.lastrowid
+
+
+def trabajo_adaptar(negocio: dict, pieza_id: int, post_id: int, usuario_id: int | None):
+    """Si el post aún no está desmontado (sin su estructura no se puede rehacer bien), primero lo desmonta Lupi; luego
+    Escri escribe la estructura."""
+    p = analista.post(negocio["id"], post_id)
+    if p and p["estado_plantilla"] != "lista":
+        gasto.empezar()
+        gasto_id = db.abrir_gasto(usuario_id=usuario_id, negocio_id=negocio["id"], concepto="analista")
+        try:
+            analista.desmontar(negocio["id"], post_id)
+        except Exception:  # noqa: BLE001 — sin desmontaje, Escri escribe igual con lo que hay del post
+            pass
+        finally:
+            db.cerrar_gasto(gasto_id, gasto.uso())
+    trabajo_escribir(negocio, [pieza_id], "", usuario_id)
+
+
 def escribir_a_mano(negocio: dict, titulo: str, texto: str, *, cta: str = "ninguna", palabra_clave: str = "",
                     hashtags: str = "") -> dict:
     """«Lo escribo yo»: una pieza original con tu guion, aprobado desde el principio."""

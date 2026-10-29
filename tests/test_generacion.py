@@ -31,7 +31,7 @@ def test_la_voz_pagada_no_se_paga_dos_veces(tmp_path, monkeypatch):
     from radar.agentes import generacion
     llamadas = []
 
-    def falsa(texto, destino, clave, voz):
+    def falsa(texto, destino, clave, voz, antes="", despues=""):
         llamadas.append(texto)
         destino.write_bytes(b"audio")
         return [{"texto": "Hola", "t": 0.0, "fin": 0.4}]
@@ -60,3 +60,15 @@ def test_los_efectos_caen_donde_entra_cada_cosa():
     ev = generacion.eventos_de_sonido(planos)
     assert ev[0] == (1.88, "barrido")  # el primer plano es la portada: no suena
     assert [e for _, e in ev[1:]] == ["tic", "tic"] and abs(ev[1][0] - (2 + 14 / 30)) < 1e-9
+
+
+def test_el_estilo_sale_de_la_identidad_visual_del_negocio(app_aislada, tmp_path):
+    from radar.agentes import generacion, identidad
+    _, nid = _negocio_con_cliente(app_aislada)
+    assert generacion.estilo_de_marca(nid) == generacion.ESTILO  # sin identidad, los neutros de partida
+    ident = identidad.leer(nid)
+    ident["colores"] = identidad.colores_de("#1F8A5B principal\n#FAFAF5 texto")
+    identidad._guardar(nid, ident)
+    e = generacion.estilo_de_marca(nid, tmp_path)
+    assert e["acento"] == "#1F8A5B" and e["texto"] == "#FAFAF5" and e["mesa"] != generacion.ESTILO["mesa"]
+    assert "fuente" not in e and "logo" not in e  # no subió tipografía ni logo

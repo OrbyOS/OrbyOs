@@ -1,53 +1,44 @@
 {% extends "app.html" %}
-{% from "_ui.html" import icono %}
+{% from "_ui.html" import icono, pestanas %}
 {% from "_estructura.html" import duracion, AYUDA_FORMATO with context %}
 {% block titulo %}{{ "Guiones" if modo_de(negocio.id) == "guion" else "Estructuras" }} · {{ negocio.nombre }} · {{ APP }}{% endblock %}
 
 {% macro fila(g) -%}
 {% set p = piezas.get(g.pieza_id) or {} %}
-<li>
-  <div>
-    <span class="kit-etiqueta">{{ p.tipo_nombre or "" }}{% if g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}</span>
-    <a href="{{ base_n }}/guiones/{{ g.id }}"><strong>{{ p.titulo or ("Guion" if g.validacion.modo == "guion" else "Estructura") }}</strong></a>
-    <p class="kit-meta">v{{ g.version }} · {{ duracion(g.validacion) }} · {{ "tuyo" if g.autor == "tú" else "de Escri" }}{% if p.estado == "grabada" %} · grabado{% endif %}</p>
-    {% if g.estado == "bloqueado" %}<p class="kit-falta inv-aviso">{{ g.validacion.fallos | join(" ") }}</p>{% endif %}
-  </div>
-  <a class="btn btn-fantasma btn-peque" href="{{ base_n }}/guiones/{{ g.id }}">Abrir</a>
-</li>
+<li><a class="pg-fila-enlace" href="{{ base_n }}/guiones/{{ g.id }}">
+  <b>{{ p.titulo or ("Guion" if g.validacion.modo == "guion" else "Estructura") }}</b>
+  <span>{{ duracion(g.validacion) }}{% if g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}{% if p.estado == "grabada" %} · grabado{% endif %}</span>
+  {% if g.estado == "bloqueado" %}<em>{{ g.validacion.fallos | join(" ") }}</em>{% endif %}
+</a></li>
 {%- endmacro %}
 
 {% block contenido %}
 {% set es_guion = modo_de(negocio.id) == "guion" %}
-<header class="vertical-cabecera">
-  <div>
-    <h1>{{ "Guiones" if es_guion else "Estructuras" }}</h1>
-    {% if es_guion %}<p class="sub">Cada pieza aprobada de «Graba hoy» se convierte en un guion con tu voz: tres ganchos puntuados, el mejor delante. Un validador en código revisa la duración, las frases prohibidas, la llamada a la acción, la palabra clave y que toda cifra tenga fuente: si no pasa, no te llega.</p>
-    {% else %}<p class="sub">Cada pieza aprobada de «Graba hoy» se convierte en una estructura: la idea, de 3 a 6 bloques con sus puntos y tu ejemplo, y el cierre. Grabas 3-5 minutos hablando libre y Monti saca los reels. Un validador en código revisa la llamada a la acción, la palabra clave, las frases prohibidas y que toda cifra tenga fuente.</p>{% endif %}
-  </div>
-</header>
-
-<section class="panel" {% if estado_guionista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/guiones/estado"{% endif %}>
-  <div class="panel-cabecera">
-    <div>
-      <h2>{% if estado_guionista.trabajando %}<i class="hero-vivo"></i>Escribiendo{% elif sin_guion %}{{ sin_guion | length }} pieza{{ "s" if sin_guion | length != 1 }} aprobada{{ "s" if sin_guion | length != 1 }} sin {{ "guion" if es_guion else "estructura" }}{% else %}Todo al día{% endif %}</h2>
-      <p class="tenue">{% if sin_guion %}{{ sin_guion | map(attribute="titulo") | join(" · ") }}{% else %}Aprueba un plan en <a href="{{ base_n }}/estrategia">Graba hoy</a> o pide {{ "un guion" if es_guion else "una estructura" }} abajo.{% endif %}</p>
-    </div>
-    {% if sin_guion %}<form method="post" action="/negocios/{{ negocio.id }}/guiones/escribir"><button class="btn btn-primario btn-peque" type="submit" {% if not ia or estado_guionista.trabajando %}disabled{% endif %}>{{ icono("chispa") }} Escribir {{ "los guiones" if es_guion else "las estructuras" }}</button></form>{% endif %}
-  </div>
-  {% if estado_guionista.avisos %}<div class="panel-cuerpo"><ul class="avisos">{% for a in avisos_para(estado_guionista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
-</section>
-
+{% set nombre = "Guiones" if es_guion else "Estructuras" %}
 {% set listos = guiones | selectattr("estado", "equalto", "aprobado") | list %}
 {% set esperando = guiones | selectattr("estado", "equalto", "pendiente") | list %}
 {% set bloqueados = guiones | selectattr("estado", "equalto", "bloqueado") | list %}
-{% if esperando %}<section class="panel"><div class="panel-cabecera"><div><h2>Esperando tu aprobación</h2><p class="tenue">También están en <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>.</p></div></div><ul class="kit-lista">{% for g in esperando %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
-{% if listos %}<section class="panel"><div class="panel-cabecera"><div><h2>Listos para grabar</h2></div></div><ul class="kit-lista">{% for g in listos %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
-{% if bloqueados %}<section class="panel"><div class="panel-cabecera"><div><h2>No pasan el validador</h2><p class="tenue">Escri lo ha corregido dos veces y sigue sin pasar. Ábrelo para reescribirlo con una nota o corregirlo tú.</p></div></div><ul class="kit-lista">{% for g in bloqueados %}{{ fila(g) }}{% endfor %}</ul></section>{% endif %}
+<header class="pg-cabeza">
+  <div><h1>Grabar</h1>
+    <p class="pg-sub">{% if estado_guionista.trabajando %}<i class="hero-vivo"></i> Escri está escribiendo…{% elif sin_guion %}{{ sin_guion | length }} pieza{{ "s" if sin_guion | length != 1 }} aprobada{{ "s" if sin_guion | length != 1 }} sin {{ "guion" if es_guion else "estructura" }}.{% else %}{{ listos | length }} list{{ "as" if not es_guion else "os" }} para grabar.{% endif %}</p></div>
+  <div class="pg-acciones">
+    {% if sin_guion %}<form method="post" action="/negocios/{{ negocio.id }}/guiones/escribir"><button class="btn btn-primario" type="submit" {% if not ia or estado_guionista.trabajando %}disabled{% endif %}>{{ icono("chispa") }} Escribir {{ "los guiones" if es_guion else "las estructuras" }}</button></form>{% endif %}
+    <a class="btn btn-secundario" href="#nuevo">{{ icono("mas") }} {{ "Nuevo guion" if es_guion else "Nueva estructura" }}</a>
+  </div>
+</header>
+{{ pestanas([(base_n ~ "/estrategia", "Hoy", false, 0), (base_n ~ "/guiones", nombre, true, listos | length)]) }}
+<div {% if estado_guionista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/guiones/estado"{% endif %}></div>
+{% if estado_guionista.avisos %}<div class="aviso">{{ icono("alerta") }}<ul class="avisos">{% for a in avisos_para(estado_guionista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
 
-<section class="panel" id="nuevo">
-  <div class="panel-cabecera"><div><h2>{{ "Nuevo guion" if es_guion else "Nueva estructura" }}</h2><p class="tenue">Si se la pides a la IA, primero busca un post probado sobre ese tema y lo convierte en bloques para tu negocio; si no lo hay, la hace original.</p></div></div>
-  <form method="post" action="/negocios/{{ negocio.id }}/guiones/nuevo">
-    <div class="panel-cuerpo campos">
+{% if listos %}<h2 class="pg-titulo">Listos para grabar</h2><ul class="pg-filas">{% for g in listos %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if esperando %}<h2 class="pg-titulo">Esperan tu OK</h2><ul class="pg-filas">{% for g in esperando %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if bloqueados %}<h2 class="pg-titulo">Hay que arreglarlos <small>No pasan el validador: ábrelos para reescribirlos con una nota</small></h2><ul class="pg-filas pg-filas-aviso">{% for g in bloqueados %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if not (listos or esperando or bloqueados) %}<div class="pg-vacio"><p><b>Aún no hay {{ nombre | lower }}.</b> Aprueba el plan de hoy o pide {{ "uno" if es_guion else "una" }} nuev{{ "o" if es_guion else "a" }}.</p></div>{% endif %}
+
+<details class="pg-plegable" id="nuevo">
+  <summary>{{ icono("mas") }} {{ "Nuevo guion" if es_guion else "Nueva estructura" }}</summary>
+  <form method="post" action="/negocios/{{ negocio.id }}/guiones/nuevo" class="pg-dentro">
+    <div class="campos">
       <label class="c ancho"><span>De qué va</span><input name="tema" placeholder="Por qué tus llamadas de venta no cierran" required></label>
       <details class="ancho gn-yo"><summary>Lo escribo yo</summary>
         <div class="campos">
@@ -62,5 +53,5 @@
     </div>
     <div class="form-pie"><button class="btn btn-primario" name="modo" value="ia" type="submit" {% if not ia %}disabled{% endif %}>{{ icono("chispa") }} Pídeselo a la IA</button></div>
   </form>
-</section>
+</details>
 {% endblock %}

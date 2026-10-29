@@ -40,10 +40,10 @@ const Antetitulo: React.FC<{texto?: string; at: number}> = ({texto, at}) => {
   );
 };
 
-const Lista: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
+const Lista: React.FC<{g: Efecto; escala: number; ancho?: number}> = ({g, escala, ancho = 860}) => {
   const e = useEstilo();
   return (
-    <div style={{width: 860, transform: `scale(${escala})`, transformOrigin: 'center'}}>
+    <div style={{width: ancho, transform: `scale(${escala})`, transformOrigin: 'center'}}>
       <Antetitulo texto={g.titulo} at={g.f} />
       {g.elementos.map((el, i) => (
         <div key={i} style={{display: 'flex', alignItems: 'center', gap: 30, marginBottom: 26}}>
@@ -54,7 +54,7 @@ const Lista: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
             <div style={{fontFamily: e.sans, fontWeight: 800, fontSize: 54, letterSpacing: '-0.02em', color: e.texto, lineHeight: 1.08}}>
               <Linea at={el.f + 2}>{el.texto}</Linea>
             </div>
-            <svg width="700" height="8" style={{display: 'block', marginTop: 14}}>
+            <svg width="100%" height="8" viewBox="0 0 700 8" preserveAspectRatio="none" style={{display: 'block', marginTop: 14}}>
               <Trazo x1={0} y1={4} x2={700} y2={4} at={el.f + 4} color={e.filete} grosor={2} />
             </svg>
           </div>
@@ -64,18 +64,18 @@ const Lista: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
   );
 };
 
-const Cifra: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
+const Cifra: React.FC<{g: Efecto; escala: number; ancho?: number}> = ({g, escala, ancho = 940}) => {
   const f = useCurrentFrame();
   const e = useEstilo();
   const el = g.elementos[0] ?? {texto: '', valor: '0', f: g.f};
   return (
-    <div style={{width: 940, textAlign: 'center', transform: `scale(${escala})`}}>
+    <div style={{width: ancho, textAlign: 'center', transform: `scale(${escala})`}}>
       <Antetitulo texto={g.titulo} at={g.f} />
       <div style={{fontFamily: e.sans, fontWeight: 900, fontSize: 260, lineHeight: 0.9, letterSpacing: '-0.05em', color: e.texto}}>
         {contar(f, el.f, el.valor ?? '0')}
         {g.sufijo && <span style={{fontFamily: e.serif, fontWeight: 400, fontStyle: 'italic', fontSize: 120, color: e.acento, letterSpacing: 0}}> {g.sufijo}</span>}
       </div>
-      <svg width="560" height="10" style={{display: 'block', margin: '28px auto 22px'}}>
+      <svg width={Math.min(560, ancho)} height="10" viewBox="0 0 560 10" preserveAspectRatio="none" style={{display: 'block', margin: '28px auto 22px'}}>
         <Trazo x1={0} y1={5} x2={560} y2={5} at={el.f + 6} dur={16} color={e.acento} grosor={4} />
       </svg>
       <div style={{fontFamily: e.serif, fontSize: 68, color: e.texto}}><Linea at={el.f + 10}>{el.texto}</Linea></div>
@@ -83,7 +83,7 @@ const Cifra: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
   );
 };
 
-const Comparacion: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
+const Comparacion: React.FC<{g: Efecto; escala: number; ancho?: number}> = ({g, escala, ancho = 960}) => {
   const f = useCurrentFrame();
   const e = useEstilo();
   const [a, b] = [g.elementos[0], g.elementos[1] ?? g.elementos[0]];
@@ -101,7 +101,7 @@ const Comparacion: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
     </div>
   );
   return (
-    <div style={{width: 960, transform: `scale(${escala})`}}>
+    <div style={{width: ancho, transform: `scale(${escala})`}}>
       <Antetitulo texto={g.titulo} at={g.f} />
       <div style={{display: 'flex', alignItems: 'center'}}>
         {columna(a, true, 'izq')}
@@ -182,16 +182,20 @@ const Grafica: React.FC<{g: Efecto; escala: number}> = ({g, escala}) => {
   );
 };
 
-const PIEZAS = {lista: Lista, cifra: Cifra, comparacion: Comparacion, proceso: Proceso, grafica: Grafica};
+const FLUIDAS = new Set(['lista', 'cifra', 'comparacion']);
+const PIEZAS: Partial<Record<Efecto['clase'], React.FC<{g: Efecto; escala: number; ancho?: number}>>> = {lista: Lista, cifra: Cifra, comparacion: Comparacion, proceso: Proceso, grafica: Grafica};
 
 /** El efecto centrado en su caja, con la escala que le toca a cada composición. */
 export const EfectoEnCaja: React.FC<{g: Efecto; caja: Caja; escala: number}> = ({g, caja, escala}) => {
-  const P = PIEZAS[g.clase];
+  const P = PIEZAS[g.clase] ?? Lista;
   return (
     <div style={{position: 'absolute', left: caja.x0, width: caja.x1 - caja.x0, top: caja.y0, height: caja.y1 - caja.y0, display: 'flex',
                  alignItems: 'center', justifyContent: 'center'}}>
-      {/* Las piezas se diseñan a 960 px de ancho: se encogen para caber en la zona segura. */}
-      <P g={g} escala={escala * Math.min(1, (caja.x1 - caja.x0) / 960)} />
+      {/* Lista, cifra y comparación ocupan todo el ancho seguro a su escala (el texto largo pasa a otra línea);
+          proceso y gráfica, dibujados a 960 px, se encogen para caber. */}
+      {FLUIDAS.has(g.clase)
+        ? <P g={g} escala={escala} ancho={(caja.x1 - caja.x0) / escala} />
+        : <P g={g} escala={escala * Math.min(1, (caja.x1 - caja.x0) / 960)} />}
     </div>
   );
 };
