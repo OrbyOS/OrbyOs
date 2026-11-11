@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icono %}
+{% block clase_body %}publico{% endblock %}
+{% block cuerpo %}
+<header class="pub-nav">
+  <a class="logo" href="/"><span class="logo-director" data-robot="jefa" data-robot-cabeza></span>{{ APP }}</a>
+  <nav>
+    {% include "_tema.html" %}
+    {% if usuario %}
+      <a class="btn btn-primario btn-peque" href="/app">Ir a mi panel</a>
+    {% else %}
+      <a class="pub-enlace" href="/entrar">Entrar</a>
+    {% endif %}
+  </nav>
+</header>
+{% block contenido %}{% endblock %}
+<footer class="pub-pie">
+  <span>© {{ APP }} · Tu equipo de contenido.</span>
+</footer>
+{% endblock %}

@@ -1,0 +1,51 @@
+# La dirección pública, con https automático. Sin dominio propio vale <ip-con-guiones>.sslip.io.
+(app) {
+	encode gzip
+	# Las tomas y las llamadas de onboarding en vídeo pesan mucho.
+	request_body {
+		max_size 2GB
+	}
+	reverse_proxy radar:8000 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
+
+{$RADAR_DOMINIO} {
+	# Vídeos que Instagram descarga para publicar un reel por su API: se suben justo antes y se borran después.
+	# La ruta (secreta) está en RADAR_RUTA_MEDIA del .env del servidor. Sin listado de carpetas.
+	handle_path {$RADAR_RUTA_MEDIA:/media-apagada}/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		import app
+	}
+}
+
+# www lleva a la dirección sin www.
+www.{$RADAR_DOMINIO} {
+	redir https://{$RADAR_DOMINIO}{uri} permanent
+}
+
+# Al cambiar de dirección, la antigua sigue viva: lo que se visita en el navegador lleva a la nueva, y lo que llega
+# de otros servicios (los avisos de ManyChat a /m/…, Telegram, cualquier POST) se sigue atendiendo aquí mismo, porque
+# una redirección los rompería. Sin dirección antigua, este bloque solo responde en localhost, que no se usa.
+{$RADAR_DOMINIO_ANTIGUO:localhost} {
+	@navegador {
+		method GET HEAD
+		not path /m/*
+	}
+	handle @navegador {
+		redir https://{$RADAR_DOMINIO}{uri} permanent
+	}
+	handle {
+		import app
+	}
+}
+
+# Otras webs estáticas en el mismo servidor (opcional): cada una es un archivo <dominio>.caddy y su carpeta
+# <dominio>/ dentro de /opt/sitios del servidor (lo sube producto/subir_sitio.sh). Sin ninguna, no hace nada.
+import /srv/sitios/*.caddy

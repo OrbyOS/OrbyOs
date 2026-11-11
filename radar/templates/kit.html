@@ -1,0 +1,375 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Kit de marca · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Kit de marca</h1>
+    <p class="sub">Lo que todo el equipo lee antes de escribir: tu voz, los tipos de pieza que repites cada semana, las pruebas de las que salen tus cifras y las reglas que has ido dando. La oferta y el cliente ideal salen del <a href="{{ base_n }}/onboarding">onboarding</a>.</p>
+  </div>
+</header>
+
+{# Orby: lo que le falta al Kit, de lo que más pesa a lo que menos. #}
+{% set faltas = revision_kit(negocio) %}
+{% if faltas %}
+<section class="panel kt-faltas" id="falta">
+  <div class="panel-cabecera"><div><h2>Lo que falta en el Kit <span class="cx-estado">{{ faltas | length }}</span></h2><p class="tenue">Sin esto, el equipo tiene que suponer cosas de tu negocio. Casi todo sale de las llamadas del onboarding.</p></div></div>
+  <ol class="kt-faltas-lista">{% for f in faltas %}
+    <li><div><strong>{{ f.texto }}</strong><p class="kit-meta">Lo necesita{{ "n" if f.agentes | length > 1 }} {{ f.quien }}</p></div><a class="btn btn-secundario btn-peque" href="{{ f.enlace }}">Completar</a></li>{% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if kit.redactando %}
+<div class="aviso aviso-azul">{{ icono("chispa") }}<div>Orby está redactando el borrador con la ficha. Te llegará a <a href="{{ base_n }}/aprobaciones">Aprobaciones</a>.</div></div>
+{% elif kit.error_borrador %}
+<div class="aviso aviso-error">{{ icono("alerta") }}<div>{{ kit.error_borrador }}</div></div>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-cabecera">
+    <div><h2>Empezar desde la ficha</h2>
+      <p class="tenue">Orby propone la voz, los carriles y las pruebas a partir de la ficha del negocio. Nada entra en el kit hasta que lo apruebes.</p></div>
+    <form method="post" action="/negocios/{{ negocio.id }}/kit/borrador">
+      <button class="btn btn-secundario btn-peque" type="submit" {% if not ia or kit.redactando %}disabled{% endif %}>{{ icono("chispa") }} Redactar borrador</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel" id="estilo">
+  <div class="panel-cabecera"><div><h2>Estilo de edición</h2><p class="tenue">Cómo edita Monti cada vídeo que subes en Producción: ritmo, subtítulos, efectos, tu color y tu logo.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/estilo">
+    <div class="panel-cuerpo campos">
+      <fieldset class="c ancho kit-estilos">
+        {% set sin_motor = not motor_reels_activo() %}
+        {% for k, e in ESTILOS.items() %}{% set pronto = e.motor and sin_motor %}
+        <label class="opcion {{ 'opcion-pronto' if pronto }}"><input type="radio" name="estilo" value="{{ k }}" {{ 'checked' if estilo_actual == k }} {{ 'disabled' if pronto and estilo_actual != k }}><span><b>{{ e.nombre }}{% if pronto %} <span class="hy-etiqueta">Pronto</span>{% endif %}</b><small class="tenue">{% if pronto %}De momento tus reels se montan con el estilo Natural. {% endif %}{{ e.texto }}</small></span></label>
+        {% endfor %}
+      </fieldset>
+      <label class="c"><span>Tu color</span><input type="color" name="color" value="{{ color_actual }}"></label>
+      <label class="c ancho"><span>Lo que siempre quieres <small>Una cosa por línea, por ejemplo «sin música» o «subtítulos más pequeños»</small></span><textarea name="preferencias" rows="3">{{ (marca.preferencias or []) | join("\n") }}</textarea></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar el estilo</button></div>
+  </form>
+  <form class="panel-cuerpo kit-logo" method="post" action="/negocios/{{ negocio.id }}/logo" enctype="multipart/form-data">
+    <input type="hidden" name="volver" value="/negocios/{{ negocio.id }}/kit#estilo">
+    {% if hay_logo %}<img src="/negocios/{{ negocio.id }}/logo" alt="Tu logo" class="kit-logo-img">{% endif %}
+    <label class="c"><span>Logo {% if hay_logo %}<small>Sube otro para cambiarlo</small>{% else %}<small>PNG con fondo transparente</small>{% endif %}</span><input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required></label>
+    <button class="btn btn-secundario" type="submit">Subir logo</button>
+  </form>
+</section>
+
+<section class="panel" id="identidad">
+  <div class="panel-cabecera"><div><h2>Identidad visual</h2><p class="tenue">Tu paleta, tus tipografías y tus referencias. Monti pone la tipografía de los subtítulos y tus colores en cada vídeo; el primer color de la paleta es el de la edición, salvo que elijas otro arriba.</p></div></div>
+  {% if identidad.colores %}
+  <div class="panel-cuerpo iv-paleta">{% for c in identidad.colores %}<span class="iv-color" style="--h: {{ c.hex }}"><i></i><b>{{ c.hex }}</b><small>{{ c.uso or ("principal" if loop.first else "") }}</small></span>{% endfor %}</div>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/identidad">
+    <div class="panel-cuerpo campos">
+      <label class="c"><span>Paleta <small>Un color por línea, con su papel: fondo, luz, panel, texto o acento</small></span><textarea name="colores" rows="5" placeholder="#081528 fondo&#10;#F2EDE3 texto&#10;#A8C0E4 acento">{% for c in identidad.colores %}{{ c.hex }}{% if c.uso %} {{ c.uso }}{% endif %}
+{% endfor %}</textarea></label>
+      <label class="c"><span>Reels de referencia <small>Un enlace por línea: cómo te gustaría que se vieran tus vídeos</small></span><textarea name="reels" rows="4" placeholder="https://www.instagram.com/reel/…">{{ identidad.reels | join("\n") }}</textarea></label>
+      <label class="c"><span>Notas <small>Lo que el equipo debe saber de tu imagen</small></span><textarea name="notas" rows="3">{{ identidad.notas }}</textarea></label>
+      <label class="c"><span>Nombres que se escriben bien en los subtítulos <small>Tu marca, tus productos y herramientas: ManyChat, Zernio…</small></span><textarea name="palabras" rows="3" placeholder="Uno por línea">{{ (identidad.palabras or []) | join("\n") }}</textarea></label>
+      {# Cómo se editan sus reels: lo respetan Monti y el motor de reels. Las opciones son las de agentes/identidad.py (SUBTITULOS). #}
+      {% set subs = {"resaltado": "La palabra que se dice, resaltada", "simple": "La frase entera, sin resaltar", "sin": "Sin subtítulos"} %}
+      <fieldset class="c ancho iv-mov-fila iv-edicion"><legend>Subtítulos</legend>
+        <div class="iv-chips">{% for k, d in subs.items() %}<label class="iv-chip"><input type="radio" name="subtitulos" value="{{ k }}" {{ 'checked' if (identidad.subtitulos or 'resaltado') == k }}><span>{{ d }}</span></label>{% endfor %}</div></fieldset>
+      <fieldset class="c iv-mov-fila iv-edicion"><legend>Música de fondo</legend>
+        <div class="iv-chips">{% for v, d in [("1", "Sí"), ("0", "No")] %}<label class="iv-chip"><input type="radio" name="musica" value="{{ v }}" {{ 'checked' if (identidad.musica and v == '1') or (not identidad.musica and v == '0') }}><span>{{ d }}</span></label>{% endfor %}</div></fieldset>
+      <fieldset class="c iv-mov-fila iv-edicion"><legend>Efectos de sonido</legend>
+        <div class="iv-chips">{% for v, d in [("1", "Sí, en los remates"), ("0", "No")] %}<label class="iv-chip"><input type="radio" name="sonidos" value="{{ v }}" {{ 'checked' if (identidad.sonidos and v == '1') or (not identidad.sonidos and v == '0') }}><span>{{ d }}</span></label>{% endfor %}</div></fieldset>
+      <label class="c ancho"><span>Lo que no quieres ver nunca en tus vídeos <small>Uno por línea: cajas, emoticonos, transiciones de giro…</small></span><textarea name="nunca" rows="3" placeholder="cajas&#10;emoticonos">{{ (identidad.nunca or []) | join("\n") }}</textarea></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar la identidad</button></div>
+  </form>
+
+  {# Movimiento: cómo se animan los textos de tus vídeos, con una muestra de 7 segundos. #}
+  {% set elementos = [("gancho", "Gancho"), ("choque", "Palabra gigante"), ("lista", "Listas"), ("subtitulos", "Subtítulos"), ("fondo_texto", "Detrás del texto"), ("zooms", "Zooms")] %}
+  {% set mov = identidad.movimiento or {} %}
+  <div class="panel-cuerpo iv-mov" id="movimiento">
+    <div class="iv-mov-muestra">
+      <div class="iv-mov-pantalla" data-muestra="{{ muestra.estado }}" data-muestra-url="/negocios/{{ negocio.id }}/kit/movimiento/muestra">
+        {% if muestra.estado == "lista" %}<video src="{{ muestra.url }}" autoplay muted loop playsinline></video>
+        {% elif muestra.estado == "haciendo" %}<span class="iv-mov-espera"><i class="hero-vivo"></i>Monti está montando la muestra…</span>
+        {% else %}<span class="iv-mov-espera">Elige el movimiento y guárdalo para ver la muestra.</span>{% endif %}
+      </div>
+      {% if identidad.movimiento_propuesto %}<span class="kit-etiqueta">Propuesto por Monti</span>{% endif %}
+      {% if identidad.movimiento_motivo %}<p class="tenue iv-mov-motivo">{{ identidad.movimiento_motivo }}</p>{% endif %}
+      <form method="post" action="/negocios/{{ negocio.id }}/kit/identidad/movimiento/proponer"><button class="btn btn-secundario btn-peque" type="submit">{{ icono("chispa") }} Que lo proponga Monti</button></form>
+    </div>
+    <form class="iv-mov-opciones" method="post" action="/negocios/{{ negocio.id }}/kit/identidad/movimiento">
+      <h3>Movimiento</h3>
+      <p class="tenue">Cómo se animan los textos de tus vídeos. Monti lo usa en cada edición.</p>
+      {% for el, titulo in elementos %}{% set opciones = MOVIMIENTOS[el] %}{% set actual = mov.get(el) if mov.get(el) in opciones else (opciones | list | first) %}
+      <fieldset class="iv-mov-fila">
+        <legend>{{ titulo }}</legend>
+        <div class="iv-chips">{% for op, desc in opciones.items() %}
+          <label class="iv-chip"><input type="radio" name="{{ el }}" value="{{ op }}" {{ 'checked' if op == actual }}><span>{{ desc }}</span></label>{% endfor %}</div>
+      </fieldset>
+      {% endfor %}
+      <div class="iv-mov-pie"><button class="btn btn-primario" type="submit">Guardar el movimiento</button></div>
+    </form>
+  </div>
+
+  {% set grupos = [("tipografias", "tipografia", "Tipografías"), ("disenos", "diseno", "Diseños de referencia"), ("fotos", "foto", "Fotos")] %}
+  <div class="panel-cuerpo iv-archivos">
+    {% for lista, tipo, titulo in grupos %}
+    <div class="iv-grupo">
+      <h3>{{ titulo }}</h3>
+      {% if identidad[lista] %}
+      <ul class="iv-lista">{% for a in identidad[lista] %}
+        <li>
+          {% set url = "/negocios/" ~ negocio.id ~ "/kit/identidad/" ~ a.archivo %}
+          {% if tipo == "tipografia" %}
+          <style>@font-face { font-family: "iv-{{ loop.index }}-{{ tipo }}"; src: url("{{ url }}"); }</style>
+          <span class="iv-muestra" style="font-family: 'iv-{{ loop.index }}-{{ tipo }}', sans-serif">Aa Bb 123</span>
+          {% elif a.archivo.lower().endswith(".pdf") %}
+          <a class="iv-pdf" href="{{ url }}" target="_blank" rel="noopener">PDF</a>
+          {% else %}
+          <a href="{{ url }}" target="_blank" rel="noopener"><img class="iv-mini" src="{{ url }}" alt="" loading="lazy"></a>
+          {% endif %}
+          <span class="iv-texto"><b>{{ a.nombre or a.archivo }}</b>{% if a.uso %}<small>{{ a.uso }}</small>{% endif %}</span>
+          <form method="post" action="/negocios/{{ negocio.id }}/kit/identidad/quitar"><input type="hidden" name="tipo" value="{{ tipo }}"><input type="hidden" name="archivo" value="{{ a.archivo }}"><button class="btn-texto" type="submit">Quitar</button></form>
+        </li>{% endfor %}
+      </ul>
+      {% else %}<p class="tenue">{{ "Ninguna" if tipo != "diseno" else "Ninguno" }} todavía.</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <form class="panel-cuerpo iv-subir" method="post" action="/negocios/{{ negocio.id }}/kit/identidad/archivo" enctype="multipart/form-data">
+    <label class="c"><span>Qué es</span><select name="tipo">{% for k, n in TIPOS_IDENTIDAD.items() %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></label>
+    <label class="c"><span>Para qué <small>En tipografías: titular, subtítulos, golpe o mono</small></span><input name="uso" placeholder="titular, subtítulos, golpe, mono…"></label>
+    <label class="c"><span>Archivo <small>Tipografías .ttf u .otf; diseños y fotos en imagen o PDF</small></span><input type="file" name="archivo" required></label>
+    <button class="btn btn-secundario" type="submit">Subir</button>
+  </form>
+</section>
+
+{% set k = kit %}
+<section class="panel" id="negocio">
+  <div class="panel-cabecera"><div><h2>Cómo trabajas</h2><p class="tenue">Lo que el equipo sabe de tu negocio, tu forma de grabar y tus límites. Sale de las llamadas del onboarding; si algo no cuadra, cámbialo en «Editar».</p></div></div>
+  <div class="panel-cuerpo kt-datos">
+    {% macro dato(titulo, valor) -%}{% if valor %}<div><dt>{{ titulo }}</dt><dd>{{ valor }}</dd></div>{% endif %}{%- endmacro %}
+    {% macro lista(titulo, xs) -%}{% if xs %}<div class="kt-ancho"><dt>{{ titulo }}</dt><dd><ul>{% for x in xs %}<li>{{ x }}</li>{% endfor %}</ul></dd></div>{% endif %}{%- endmacro %}
+    {% set voz = k.voz or {} %}{% set lim = k.limites or {} %}{% set ang = k.angulos or {} %}{% set cta = k.cta or {} %}{% set fmt = k.formatos or {} %}
+    <dl>
+      {{ dato("Ángulo principal", ang.principal) }}
+      {{ lista("Subángulos", ang.sub) }}
+      {{ dato("Cómo grabas", {"estructura": "Con una estructura y hablando libre", "guion": "Con un guion palabra a palabra"}.get(k.modo_grabacion, k.modo_grabacion)) }}
+      {{ dato("Día de grabación", k.dia_grabacion) }}
+      {{ dato("En cámara", {"cara": "Sales a cámara", "voz": "Solo tu voz", "sin_cara": "Sin salir a cámara"}.get(voz.camara, voz.camara)) }}
+      {{ dato("Ritmo al hablar", (voz.ppm ~ " palabras por minuto") if voz.ppm else "") }}
+      {{ dato("Tacos", {"no": "Nunca", "suaves": "Suaves", "si": "Sí"}.get(voz.tacos, voz.tacos)) }}
+      {{ dato("Emojis", {"nunca": "Nunca", "pocos": "Pocos", "libre": "Sin límite"}.get(voz.emojis, voz.emojis)) }}
+      {{ dato("Formatos", fmt.items() | selectattr(1) | map(attribute=0) | map("replace", "texto", "post de texto") | join(", ")) }}
+      {{ lista("Tus opiniones", voz.posiciones) }}
+      {% if k.ofertas %}<div class="kt-ancho"><dt>Ofertas</dt><dd><ul>{% for o in k.ofertas %}<li><b>{{ o.nombre }}</b>{% if o.cta %} · {{ o.cta }}{% endif %}{% if o.url %} · <a href="{{ o.url }}" target="_blank" rel="noopener">{{ o.url | host }}</a>{% endif %}</li>{% endfor %}</ul></dd></div>{% endif %}
+      {{ dato("Llamada a la acción", cta.principal) }}
+      {{ dato("Web de los enlaces", cta.web) }}
+      {{ dato("Prefijo de seguimiento", cta.prefijo_utm) }}
+      {{ lista("Nunca prometes", k.nunca_prometer) }}
+      {{ lista("Temas vetados", lim.temas_vetados) }}
+      {{ lista("Lo que no se dice", lim.no_se_dicen) }}
+      {{ lista("Afirmaciones prohibidas", lim.afirmaciones_prohibidas) }}
+      {% if lim.cifras_propias is defined %}{{ dato("Cifras tuyas en el contenido", "Sí, con su prueba" if lim.cifras_propias else "No: ni una cifra propia") }}{% endif %}
+      {% if k.hashtags %}<div class="kt-ancho"><dt>Hashtags</dt><dd>{{ k.hashtags | join(" ") }}</dd></div>{% endif %}
+      {% if k.fuentes %}<div class="kt-ancho"><dt>Fuentes de noticias</dt><dd><ul>{% for f in k.fuentes %}<li>{{ f.valor }} <span class="tenue">· {{ f.tipo }}</span></li>{% endfor %}</ul></dd></div>{% endif %}
+      {{ dato("Zona horaria", k.zona) }}
+      {{ dato("Idioma", k.idioma) }}
+      {% set rp = k.reels_prueba or {} %}{% if rp %}{{ dato("Reels de prueba", ("Sí, " ~ rp.al_dia ~ " al día, de " ~ rp.desde ~ " a " ~ rp.hasta) if rp.activa else "Desactivados") }}{% endif %}
+    </dl>
+  </div>
+  {% set O = opciones_kit() %}
+  {% macro sel(nombre, opciones, actual) -%}<select name="{{ nombre }}">{% for v, n in opciones.items() %}<option value="{{ v }}" {{ 'selected' if actual == v }}>{{ n }}</option>{% endfor %}</select>{%- endmacro %}
+  {% macro lineas(xs) -%}{{ (xs or []) | join("\n") }}{%- endmacro %}
+  <details class="kt-editar" {{ 'open' if request.query_params.get('editar') == 'negocio' }}>
+    <summary class="btn btn-secundario btn-peque">{{ icono("ficha") }} Editar</summary>
+    <form method="post" action="/negocios/{{ negocio.id }}/kit/negocio">
+      <input type="hidden" name="formatos_enviado" value="1">
+      <h3 class="kt-sub">Tu ángulo</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c ancho"><span>Ángulo principal <small>La idea que atraviesa todo lo que publicas</small></span><input name="angulo_principal" value="{{ ang.principal }}"></label>
+        <label class="c ancho"><span>Subángulos <small>Uno por línea</small></span><textarea name="angulos_sub" rows="3">{{ lineas(ang.sub) }}</textarea></label>
+        <label class="c ancho"><span>Tus opiniones <small>De 3 a 5 posturas tuyas que no todo el mundo comparte, una por línea</small></span><textarea name="posiciones" rows="4">{{ lineas(voz.posiciones) }}</textarea></label>
+      </div>
+      <h3 class="kt-sub">Cómo grabas y cómo hablas</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c"><span>Cómo grabas</span>{{ sel("modo_grabacion", O.modos, k.modo_grabacion) }}</label>
+        <label class="c"><span>Día de grabación <small>Por ejemplo, «lunes»</small></span><input name="dia_grabacion" value="{{ k.dia_grabacion or '' }}"></label>
+        <label class="c"><span>En cámara</span>{{ sel("camara", O.camaras, voz.camara) }}</label>
+        <label class="c"><span>Palabras por minuto <small>De 90 a 240; normal, 150</small></span><input type="number" name="ppm" min="90" max="240" step="5" value="{{ voz.ppm or 150 }}"></label>
+        <label class="c"><span>Tacos</span>{{ sel("tacos", O.tacos, voz.tacos) }}</label>
+        <label class="c"><span>Emojis</span>{{ sel("emojis", O.emojis, voz.emojis) }}</label>
+        <fieldset class="c ancho iv-mov-fila iv-edicion"><legend>Formatos</legend>
+          <div class="iv-chips">{% for v, n in O.formatos.items() %}<label class="iv-chip"><input type="checkbox" name="formatos" value="{{ v }}" {{ 'checked' if fmt.get(v) }}><span>{{ n }}</span></label>{% endfor %}</div></fieldset>
+      </div>
+      <h3 class="kt-sub">Lo que vendes y adónde llevas a la gente</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c ancho"><span>Ofertas <small>Una por línea: «Nombre | https://… | cómo se empieza»</small></span><textarea name="ofertas" rows="3" placeholder="Mentoría de ventas | https://tuweb.com/mentoria | Reserva una llamada">{% for o in k.ofertas or [] %}{{ o.nombre }} | {{ o.url }} | {{ o.cta }}
+{% endfor %}</textarea></label>
+        <label class="c"><span>Llamada a la acción principal</span>{{ sel("cta_principal", O.ctas, cta.principal) }}</label>
+        <label class="c"><span>Web de los enlaces</span><input name="cta_web" inputmode="url" value="{{ cta.web or '' }}" placeholder="https://"></label>
+        <label class="c"><span>Prefijo de seguimiento <small>Va delante en los enlaces (utm)</small></span><input name="cta_prefijo" value="{{ cta.prefijo_utm or '' }}"></label>
+        <label class="c ancho"><span>Nunca prometes <small>Uno por línea</small></span><textarea name="nunca_prometer" rows="3">{{ lineas(k.nunca_prometer) }}</textarea></label>
+      </div>
+      <h3 class="kt-sub">Límites</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c ancho"><span>Temas vetados <small>Uno por línea</small></span><textarea name="limites_temas" rows="2">{{ lineas(lim.temas_vetados) }}</textarea></label>
+        <label class="c ancho"><span>Lo que no se dice <small>Una frase o palabra por línea</small></span><textarea name="limites_no_se_dicen" rows="2">{{ lineas(lim.no_se_dicen) }}</textarea></label>
+        <label class="c ancho"><span>Afirmaciones prohibidas <small>Una por línea</small></span><textarea name="limites_afirmaciones" rows="2">{{ lineas(lim.afirmaciones_prohibidas) }}</textarea></label>
+        <label class="c"><span>Cifras tuyas en el contenido</span><select name="cifras_propias"><option value="si" {{ 'selected' if lim.cifras_propias is not defined or lim.cifras_propias }}>Sí, con su prueba</option><option value="no" {{ 'selected' if lim.cifras_propias is defined and not lim.cifras_propias }}>No: ni una cifra propia</option></select></label>
+      </div>
+      <h3 class="kt-sub">Hashtags, noticias y zona</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c ancho"><span>Hashtags <small>De 10 a 20, separados por espacios</small></span><input name="hashtags" value="{{ (k.hashtags or []) | join(' ') }}" placeholder="#marcapersonal #ventas"></label>
+        <label class="c ancho"><span>Fuentes de noticias <small>Una por línea: «rss https://…», «reddit r/marketing» o una búsqueda tal cual</small></span><textarea name="fuentes" rows="3">{% for f in k.fuentes or [] %}{{ (f.tipo ~ " ") if f.tipo in ("rss", "reddit") else "" }}{{ f.valor }}
+{% endfor %}</textarea></label>
+        <label class="c"><span>Zona horaria</span><input name="zona" value="{{ k.zona or 'Europe/Madrid' }}"></label>
+        <label class="c"><span>Idioma</span><input name="idioma" value="{{ k.idioma or 'es-ES' }}"></label>
+      </div>
+      {% set rp = k.reels_prueba or {} %}
+      <h3 class="kt-sub">Reels de prueba</h3>
+      <div class="panel-cuerpo campos">
+        <label class="c"><span>Activados</span><select name="reels_prueba_activa"><option value="0" {{ 'selected' if not rp.activa }}>No</option><option value="1" {{ 'selected' if rp.activa }}>Sí</option></select></label>
+        <label class="c"><span>Al día</span><input type="number" name="reels_prueba_al_dia" min="1" max="50" value="{{ rp.al_dia or 9 }}"></label>
+        <label class="c"><span>Desde</span><input type="time" name="reels_prueba_desde" value="{{ rp.desde or '08:00' }}"></label>
+        <label class="c"><span>Hasta</span><input type="time" name="reels_prueba_hasta" value="{{ rp.hasta or '21:00' }}"></label>
+      </div>
+      <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="panel" id="voz">
+  <div class="panel-cabecera"><div><h2>Tu voz</h2><p class="tenue">Una cosa por línea. Lo que escribe Escri tiene que sonar así.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/voz">
+    <div class="panel-cuerpo campos">
+      <label class="c ancho"><span>Cómo suenas, en una línea</span><input name="resumen" value="{{ kit.voz.resumen }}" placeholder="Directo, cercano, con ejemplos de mi día a día"></label>
+      <label class="c"><span>Cómo hablas</span><textarea name="como_habla" rows="4">{{ kit.voz.como_habla | join("\n") }}</textarea></label>
+      <label class="c"><span>Tus recursos <small>Lo que haces siempre: preguntas, ejemplos, comparaciones…</small></span><textarea name="movimientos" rows="4">{{ kit.voz.movimientos | join("\n") }}</textarea></label>
+      <label class="c"><span>Frases tuyas</span><textarea name="frases" rows="4">{{ kit.voz.frases | join("\n") }}</textarea></label>
+      <label class="c"><span>Lo que nunca dices</span><textarea name="nunca" rows="4">{{ kit.voz.nunca | join("\n") }}</textarea></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar la voz</button></div>
+  </form>
+</section>
+
+<section class="panel" id="carriles">
+  <div class="panel-cabecera"><div><h2>Carriles de contenido</h2><p class="tenue">Los tipos de pieza que repites cada semana, cuántas de cada uno y para qué etapa del embudo. Una cuota de 0 lo guarda sin usarlo.</p></div></div>
+  {% if capacidad is defined and capacidad and capacidad.recortado %}
+  <div class="panel-cuerpo"><p class="kit-capacidad">{{ icono("alerta") }} Tus temas piden {{ capacidad.pedidos }} vídeos a la semana; con «{{ capacidad.tiempo }}» para grabar caben {{ capacidad.tope }}, y Plani planifica {{ capacidad.tope }}. Baja alguna cuota o cambia el tiempo en el <a href="{{ base_n }}/onboarding#preguntas">onboarding</a>.</p></div>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/carriles">
+    <div class="panel-cuerpo">
+      <div class="kit-carriles">
+        <div class="kit-carril kit-carril-cabecera" aria-hidden="true"><span>Nombre</span><span>Por semana</span><span>Etapa</span><span>Qué es</span></div>
+        {% for c in kit.carriles + [{"id": "", "nombre": "", "cuota": 1, "etapa": "tofu", "descripcion": ""}] %}
+        <div class="kit-carril">
+          <input type="hidden" name="carril_id" value="{{ c.id }}">
+          <input name="carril_nombre" value="{{ c.nombre }}" placeholder="{{ 'Nuevo carril' if not c.nombre }}" aria-label="Nombre">
+          <input name="carril_cuota" type="number" min="0" max="14" value="{{ c.cuota }}" aria-label="Por semana">
+          <select name="carril_etapa" aria-label="Etapa">{% for e, n in ETAPAS_KIT.items() %}<option value="{{ e }}" {{ 'selected' if c.etapa == e }}>{{ n }}</option>{% endfor %}</select>
+          <input name="carril_descripcion" value="{{ c.descripcion }}" aria-label="Qué es">
+        </div>
+        {% endfor %}
+      </div>
+      <p class="tenue kit-nota">Total: {{ kit.carriles | sum(attribute="cuota") }} piezas a la semana. Para quitar un carril, borra su nombre.</p>
+      <fieldset class="kit-mezcla">
+        <legend>Reparto objetivo por etapas (%)</legend>
+        {% for e, n in ETAPAS_KIT.items() %}<label class="c"><span>{{ n }}</span><input type="number" min="0" max="100" name="mezcla_{{ e }}" value="{{ kit.mezcla[e] }}"></label>{% endfor %}
+      </fieldset>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar los carriles</button></div>
+  </form>
+</section>
+
+<section class="panel" id="pruebas">
+  <div class="panel-cabecera"><div><h2>Inventario de pruebas</h2><p class="tenue">La única fuente de cifras del equipo. Una cifra sin fuente no se usa, y a un cliente solo se le nombra con su permiso.</p></div></div>
+  {% if kit.pruebas %}
+  <ul class="kit-lista">
+    {% for p in kit.pruebas %}
+    <li>
+      <div>
+        <span class="kit-etiqueta">{{ TIPOS_PRUEBA[p.tipo] }}</span>
+        <strong>{{ p.titulo }}</strong>{% if p.cifra %} · <b>{{ p.cifra }}</b>{% endif %}
+        {% if p.texto %}<p class="tenue">{{ p.texto }}</p>{% endif %}
+        <p class="kit-meta">{% if p.fuente %}Fuente: {{ p.fuente }}{% elif p.cifra %}<span class="kit-falta">Sin fuente: no se usa</span>{% endif %}{% if p.tipo == "caso" %} · {{ "Se puede nombrar al cliente" if p.consentimiento else "Sin permiso para nombrar al cliente" }}{% endif %}</p>
+      </div>
+      <form method="post" action="/negocios/{{ negocio.id }}/kit/pruebas/{{ p.id }}/borrar"><button class="btn-icono btn-icono-peligro" type="submit" title="Borrar">{{ icono("papelera") }}</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/pruebas">
+    <div class="panel-cuerpo campos">
+      <label class="c"><span>Tipo</span><select name="tipo">{% for t, n in TIPOS_PRUEBA.items() %}<option value="{{ t }}">{{ n }}</option>{% endfor %}</select></label>
+      <label class="c"><span>Título</span><input name="titulo" placeholder="Laura pasó de 0 a 12 clientes"></label>
+      <label class="c ancho"><span>Qué pasó</span><textarea name="texto" rows="2"></textarea></label>
+      <label class="c"><span>Cifra <small>Opcional</small></span><input name="cifra" placeholder="12 clientes en 90 días"></label>
+      <label class="c"><span>Fuente <small>Obligatoria si hay cifra</small></span><input name="fuente" placeholder="Captura de su Stripe, 03/2026"></label>
+      <label class="c ancho kit-check"><input type="checkbox" name="consentimiento" value="1"> <span>El cliente ha dado permiso para nombrarle</span></label>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">{{ icono("mas") }} Añadir prueba</button></div>
+  </form>
+</section>
+
+<section class="panel" id="prohibidas">
+  <div class="panel-cabecera"><div><h2>Frases prohibidas</h2><p class="tenue">Una por línea. Un guion que las use no llega a tus aprobaciones.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/prohibidas">
+    <div class="panel-cuerpo"><textarea name="prohibidas" rows="4" placeholder="En el mundo de hoy&#10;Te voy a contar un secreto">{{ kit.prohibidas | join("\n") }}</textarea></div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+
+<section class="panel" id="lecciones">
+  <div class="panel-cabecera"><div><h2>Lecciones</h2><p class="tenue">Cada corrección se queda como una regla con fecha que cumple todo el equipo. Las que propone un agente esperan a que las apruebes.</p></div></div>
+  {% if kit.lecciones %}
+  <ul class="kit-lista">
+    {% for l in kit.lecciones | reverse %}
+    <li>
+      <div>
+        <strong>{{ l.regla }}</strong>
+        <p class="kit-meta">{{ l.fecha }} · {{ l.origen }}{% if l.estado == "pendiente" %} · <span class="kit-falta">Esperando tu aprobación</span>{% endif %}{% if l.evidencia %} · {{ l.evidencia }}{% endif %}</p>
+      </div>
+      <form method="post" action="/negocios/{{ negocio.id }}/kit/lecciones/{{ l.id }}/borrar"><button class="btn-icono btn-icono-peligro" type="submit" title="Borrar">{{ icono("papelera") }}</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/lecciones" class="panel-cuerpo kit-linea">
+    <input name="regla" placeholder="Nunca uses sonidos de swoosh" aria-label="Nueva lección" required>
+    <button class="btn btn-primario" type="submit">Añadir</button>
+  </form>
+</section>
+
+<section class="panel" id="autonomia">
+  <div class="panel-cabecera"><div><h2>Cuánto hace cada agente sin ti</h2><p class="tenue">«Revisar solo lo importante» deja pasar el trabajo rutinario; lo que vende, afirma algo o responde a una persona sigue esperando. En piloto automático, el agente actúa y te avisa después.</p></div></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/kit/autonomia">
+    <div class="panel-cuerpo campos">
+      {% for a, info in AGENTES.items() %}
+      <label class="c"><span>{{ info.nombre }} <small>{{ info.texto }}</small></span>
+        <select name="autonomia_{{ a }}">{% for v, n in AUTONOMIAS.items() %}<option value="{{ v }}" {{ 'selected' if kit.autonomia[a] == v }}>{{ n }}</option>{% endfor %}</select></label>
+      {% endfor %}
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+<script>
+  // La muestra del movimiento: mientras Monti la monta, pregunta cada 2 s y la pone en cuanto está.
+  (function () {
+    var p = document.querySelector("[data-muestra='haciendo']");
+    if (!p) return;
+    var t = setInterval(function () {
+      fetch(p.dataset.muestraUrl, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); }).then(function (m) {
+        if (m.estado !== "lista" || !m.url) return;
+        clearInterval(t);
+        p.dataset.muestra = "lista";
+        p.innerHTML = "";
+        var v = document.createElement("video");
+        v.src = m.url; v.autoplay = v.muted = v.loop = v.playsInline = true;
+        p.appendChild(v);
+      }).catch(function () {});
+    }, 2000);
+  })();
+</script>
+{% endblock %}

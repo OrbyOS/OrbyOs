@@ -1,0 +1,17 @@
+{
+  "nota": "Zona segura del reel (1080x1920): ningún texto fuera. Arriba y abajo tapan la cabecera y el pie de Instagram; a la derecha, los botones. Las cajas son donde cada pieza pone texto; las lee remotion/src/zona.ts y las comprueba motor/validar.py.",
+  "zona": {"x0": 60, "x1": 850, "y0": 230, "y1": 1440},
+  "cajas": {
+    "antetitulo": {"x0": 60, "x1": 850, "y0": 240, "y1": 370},
+    "titular": {"x0": 60, "x1": 850, "y0": 300, "y1": 700},
+    "chat": {"x0": 60, "x1": 850, "y0": 240, "y1": 560},
+    "ficha": {"x0": 60, "x1": 850, "y0": 240, "y1": 900},
+    "icono": {"x0": 70, "x1": 850, "y0": 470, "y1": 760},
+    "imagen_tarjeta": {"x0": 60, "x1": 850, "y0": 1000, "y1": 1430},
+    "imagen_pie_pantalla": {"x0": 60, "x1": 850, "y0": 760, "y1": 930},
+    "subtitulos": {"x0": 60, "x1": 850, "y0": 1300, "y1": 1400},
+    "efecto_encima": {"x0": 60, "x1": 850, "y0": 1000, "y1": 1440},
+    "efecto_partida": {"x0": 60, "x1": 850, "y0": 240, "y1": 920},
+    "efecto_completa": {"x0": 60, "x1": 850, "y0": 240, "y1": 1430}
+  }
+}

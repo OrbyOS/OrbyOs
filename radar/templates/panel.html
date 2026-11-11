@@ -1,0 +1,31 @@
+{% extends "app.html" %}
+{% block titulo %}Panel · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% block contenido %}
+<header class="pg-cabeza">
+  <div><h1>Panel</h1>
+    <p class="pg-sub"><i class="hero-vivo"></i> En vivo · se actualiza solo cada 20 segundos.</p></div>
+</header>
+
+{% include "_panel_vivo.html" %}
+
+<script>
+  // Pide el bloque de cifras cada 20 s y lo cambia en el sitio; si la pestaña no se ve, espera.
+  (function () {
+    const url = location.pathname + "?parcial=1";
+    async function refrescar() {
+      if (document.hidden) return;
+      try {
+        const r = await fetch(url, { headers: { "Accept": "text/html" }, credentials: "same-origin" });
+        if (!r.ok) return;
+        const caja = document.createElement("div");
+        caja.innerHTML = await r.text();
+        const nuevo = caja.querySelector("#panel-vivo");
+        if (nuevo) document.getElementById("panel-vivo").replaceWith(nuevo);
+      } catch (e) {}
+    }
+    setInterval(refrescar, 20000);
+    document.addEventListener("visibilitychange", refrescar);
+  })();
+</script>
+{% endblock %}

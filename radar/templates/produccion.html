@@ -1,0 +1,159 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Editar · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% block contenido %}
+{% set emparejar = tomas | selectattr("etapa", "equalto", "emparejar") | list %}
+{% set en_marcha = tomas | selectattr("etapa", "in", ["en_cola", "cortando", "plan", "montando"]) | list %}
+{% set para_ti = tomas | selectattr("etapa", "equalto", "revisar") | list %}
+{% set con_error = tomas | selectattr("etapa", "equalto", "error") | list %}
+{% set aprobados = tomas | selectattr("etapa", "equalto", "aprobado") | list %}
+<header class="pg-cabeza">
+  <div><h1>Editar</h1>
+    <p class="pg-sub">{% if para_ti %}{{ para_ti | length }} vídeo{{ "s" if para_ti | length != 1 }} para revisar{% if en_marcha %} · {{ en_marcha | length }} editándose{% endif %}.{% elif en_marcha %}<i class="hero-vivo"></i> Monti está editando {{ en_marcha | length }} vídeo{{ "s" if en_marcha | length != 1 }}.{% else %}Sube lo que has grabado y Monti te devuelve los reels.{% endif %}</p></div>
+</header>
+
+<form class="ed-subida" method="post" action="/negocios/{{ negocio.id }}/produccion/subir" enctype="multipart/form-data" data-subida>
+  <label class="ed-zona" data-zona>
+    <input type="file" name="archivos" accept="video/mp4,video/quicktime,.mov,.mp4,.m4v" multiple required data-archivos>
+    <span class="ed-zona-icono">{{ icono("subir") }}</span>
+    <b data-zona-texto>Arrastra aquí tus vídeos o pulsa para elegirlos</b>
+    <small>MP4 o MOV en vertical · puedes subir varias tomas a la vez</small>
+  </label>
+  <div class="ed-subida-pie">
+    <label class="kit-check"><input type="checkbox" name="sin_guion" value="1"> <span>No tienen guion: edítalos tal cual</span></label>
+    {% if espacio %}<span class="pr-espacio {{ 'lleno' if espacio.por_ciento >= 80 }}">Espacio: {{ espacio.usado_gb | string | replace(".", ",") }} de {{ espacio.cuota_gb | string | replace(".", ",") }} GB</span>{% endif %}
+    <button class="btn btn-primario" type="submit">{{ icono("subir") }} Subir y editar</button>
+  </div>
+</form>
+
+{% if emparejar %}
+<h2 class="pg-titulo">¿De qué guion es? <small>Confírmalo para que entre en la cola</small></h2>
+<ul class="pg-filas">
+  {% for t in emparejar %}{% set s = t.toma.sugerencia or {} %}{% set sug = guiones.get(s.guion_id) %}
+  <li id="t{{ t.id }}" class="ed-emparejar">
+    <div><b>{{ t.titulo }}</b>
+      <span>{% if sug %}Suena a «{{ piezas[sug.pieza_id].titulo }}» ({{ (s.parecido * 100) | round | int }} %){% else %}No se parece a ningún guion aprobado{% endif %}</span></div>
+    <form class="inv-acciones" method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/guion">
+      <select name="guion_id" aria-label="Guion">
+        {% for g in candidatos %}<option value="{{ g.id }}" {{ 'selected' if sug and g.id == sug.id }}>{{ piezas[g.pieza_id].titulo[:60] }}</option>{% endfor %}
+        <option value="0" {{ 'selected' if not sug }}>Sin guion: edítalo tal cual</option>
+      </select>
+      <button class="btn btn-primario btn-peque" type="submit">Confirmar</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if en_marcha %}
+<h2 class="pg-titulo"><i class="hero-vivo"></i>Editándose</h2>
+<ul class="pg-filas" {% if trabajando %}data-estado-url="/negocios/{{ negocio.id }}/produccion/estado"{% endif %}>
+  {% for t in en_marcha %}
+  <li><b>{{ t.titulo }}</b><span>{{ t.etapa_nombre }}{% if t.paso and t.paso != t.etapa_nombre %} · {{ t.paso }}{% endif %}{% if t.toma.version > 1 %} · versión {{ t.toma.version }}{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if para_ti %}
+<h2 class="pg-titulo">Para revisar</h2>
+<div class="pr-videos">
+  {% for t in para_ti %}{% set g = guiones.get(t.toma.guion_id) %}{% set lp = t.datos.limpieza or {} %}
+  <article class="panel pr-video" id="t{{ t.id }}" data-toma>
+    {% if lp.final_borrado %}<div class="pr-borrado">El vídeo ya se borró del servidor (se publicó hace más de 30 días)</div>
+    {% else %}<video src="/ediciones/{{ t.id }}/video" controls playsinline preload="metadata" data-video></video>{% endif %}
+    <div class="panel-cuerpo">
+      <span class="kit-etiqueta">Versión {{ t.toma.version }}{% if t.toma.version > 1 %}, con tus notas{% endif %}{% if g and g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}</span>
+      <h2>{{ t.titulo }}</h2>
+      {% if t.resultado and t.resultado.duracion_final %}<p class="kit-meta">{{ t.resultado.duracion_final }} s</p>{% endif %}
+      {% if t.resultado and t.resultado.avisos %}<ul class="avisos">{% for a in t.resultado.avisos[:4] %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+      {% set planos = planos_de(t) %}
+      {% if planos %}
+      <details class="pr-planos"><summary>Así queda cada plano <span class="tenue">({{ planos | length }})</span></summary>
+        <ol>{% for p in planos %}
+          <li><span class="pr-plano-t">{{ "%d:%02d" | format(p.inicio // 60, p.inicio % 60) }}</span>
+            <div><p class="pr-plano-dice">{{ p.dice or "—" }}</p>
+              <p class="pr-plano-rasgos">{% if p.gancho %}<span class="fuerte">Gancho traído de más adelante</span>{% endif %}<span>{{ p.como }}</span><span>{{ p.encuadre }}</span>{% if p.entrada %}<span>{{ p.entrada }}</span>{% endif %}{% if p.sacudida %}<span>Sacudida</span>{% endif %}{% if p.corte_silencio %}<span>Corte de silencio</span>{% endif %}{% if p.grafico %}<span class="fuerte">{{ p.grafico }}</span>{% endif %}</p>
+              {% if p.motivo %}<p class="tenue pr-plano-motivo">{{ p.motivo }}</p>{% endif %}</div></li>{% endfor %}
+        </ol></details>
+      {% endif %}
+      {% set vs = versiones(t.id) %}{% if vs %}<p class="kit-meta">Anteriores: {% for v in vs %}<a href="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/v{{ v }}.mp4" target="_blank">v{{ v }}</a>{{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+      {% if lp.bruto_borrado %}<p class="tenue pr-sin-bruto">La toma original ya se borró: para otra versión, vuelve a subirla.</p>
+      {% elif not lp.final_borrado %}
+      <details class="pr-cambios">
+        <summary>Pedir cambios</summary>
+        <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/cambios" data-form-notas>
+          <input type="hidden" name="notas" value="[]">
+          <p class="tenue">Para el vídeo donde algo falla y escribe qué cambiar: la nota se queda en ese segundo.</p>
+          <div class="kit-linea"><input data-nota-texto placeholder="Corta esta pausa" aria-label="Nota en este momento"><button class="btn btn-secundario btn-peque" type="button" data-nota-poner>Nota aquí</button></div>
+          <ul class="pr-notas" data-notas></ul>
+          <label class="c"><span>Notas generales</span><textarea name="general" rows="2" placeholder="Sin música · el gancho más rápido"></textarea></label>
+          <button class="btn btn-primario btn-peque" type="submit">Mandar a Monti</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+    <div class="form-pie">
+      {% if not lp.final_borrado %}<a class="btn btn-fantasma btn-peque" href="/ediciones/{{ t.id }}/video?descargar=1">{{ icono("descargar") }} Descargar</a>{% endif %}
+      <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/aprobar"><button class="btn btn-primario btn-peque" type="submit">{{ icono("check") }} Se ve bien</button></form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if con_error %}
+<h2 class="pg-titulo">Se han parado</h2>
+<ul class="pg-filas pg-filas-aviso">{% for t in con_error %}<li class="ed-fila"><div><b>{{ t.titulo }}</b><span class="kit-falta">{{ t.paso }}</span></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/produccion/{{ t.id }}/reintentar"><button class="btn btn-secundario btn-peque" type="submit">Reintentar</button></form></li>{% endfor %}</ul>
+{% endif %}
+
+{% if aprobados %}
+<h2 class="pg-titulo">Aprobados <small>Listos para publicar</small></h2>
+<ul class="pg-filas">{% for t in aprobados %}<li class="ed-fila"><div><b>{{ t.titulo }}</b><span>Versión {{ t.toma.version }}{% if t.toma.aprobado_por %} · aprobado por {{ t.toma.aprobado_por }}{% endif %}</span></div>
+  {% if (t.datos.limpieza or {}).final_borrado %}<span class="tenue">Ya se borró del servidor</span>{% else %}<a class="btn-icono" href="/ediciones/{{ t.id }}/video?descargar=1" title="Descargar">{{ icono("descargar") }}</a>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+
+<script>
+// La zona de subida: arrastrar y soltar, y ver qué se ha elegido.
+(function () {
+  var zona = document.querySelector("[data-zona]"), input = document.querySelector("[data-archivos]"), texto = document.querySelector("[data-zona-texto]");
+  if (!zona) return;
+  function pintar() {
+    var n = input.files.length;
+    texto.textContent = n ? (n === 1 ? input.files[0].name : n + " vídeos elegidos") : "Arrastra aquí tus vídeos o pulsa para elegirlos";
+    zona.classList.toggle("con-archivos", n > 0);
+  }
+  input.addEventListener("change", pintar);
+  ["dragenter", "dragover"].forEach(function (e) { zona.addEventListener(e, function (ev) { ev.preventDefault(); zona.classList.add("encima"); }); });
+  ["dragleave", "drop"].forEach(function (e) { zona.addEventListener(e, function () { zona.classList.remove("encima"); }); });
+  zona.addEventListener("drop", function (ev) { ev.preventDefault(); input.files = ev.dataTransfer.files; pintar(); });
+})();
+document.querySelectorAll("[data-toma]").forEach(function (caja) {
+  var video = caja.querySelector("[data-video]"), form = caja.querySelector("[data-form-notas]");
+  if (!video || !form) return;
+  var notas = [], lista = form.querySelector("[data-notas]"), oculto = form.querySelector("input[name=notas]");
+  var texto = form.querySelector("[data-nota-texto]");
+  function pintar() {
+    lista.innerHTML = "";
+    notas.forEach(function (n, i) {
+      var li = document.createElement("li");
+      var b = document.createElement("button"); b.type = "button"; b.className = "pr-segundo"; b.textContent = n.segundo.toFixed(1) + " s";
+      b.addEventListener("click", function () { video.currentTime = n.segundo; });
+      var span = document.createElement("span"); span.textContent = n.texto;
+      var x = document.createElement("button"); x.type = "button"; x.className = "btn-texto"; x.textContent = "Quitar";
+      x.addEventListener("click", function () { notas.splice(i, 1); pintar(); });
+      li.append(b, span, x); lista.appendChild(li);
+    });
+    oculto.value = JSON.stringify(notas);
+  }
+  form.querySelector("[data-nota-poner]").addEventListener("click", function () {
+    if (!texto.value.trim()) { texto.focus(); return; }
+    notas.push({ segundo: Math.round(video.currentTime * 10) / 10, texto: texto.value.trim() });
+    notas.sort(function (a, b) { return a.segundo - b.segundo; });
+    texto.value = ""; video.pause(); pintar();
+  });
+  texto.addEventListener("focus", function () { video.pause(); });
+});
+</script>
+{% endblock %}

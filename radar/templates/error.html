@@ -1,0 +1,12 @@
+{% extends "publico.html" %}
+{% from "_ui.html" import icono, estado, enlace, campo, etapa_chip, avisos, lectura, tarjeta_video, mini_ref, cabecera_vertical, progreso, matriz, barras_etapas %}
+{% block titulo %}{{ titulo }} · {{ APP }}{% endblock %}
+{% block contenido %}
+<section class="auth">
+  <div class="auth-tarjeta">
+    <h1>{{ titulo }}</h1>
+    <p class="sub">{{ mensaje }}</p>
+    <a class="btn btn-primario btn-ancho" href="{{ '/app' if usuario else '/' }}">Volver</a>
+  </div>
+</section>
+{% endblock %}

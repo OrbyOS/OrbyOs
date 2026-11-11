@@ -1,0 +1,45 @@
+{% macro campo(c, valor, opciones, obligatorio=false) -%}
+{% set clave, etiqueta, tipo, ayuda = c %}
+{% if tipo == "competidores" %}{{ filas_de_competidores(etiqueta, ayuda, valor) }}{% else %}
+<label class="c {{ 'ancho' if tipo == 'textarea' }}">
+  <span>{{ etiqueta }}{% if obligatorio %} *{% endif %}{% if ayuda %} <small>{{ ayuda }}</small>{% endif %}</span>
+  {% if tipo == "textarea" %}
+    <textarea name="{{ clave }}" rows="2" {{ 'required' if obligatorio }}>{{ valor or '' }}</textarea>
+  {% elif tipo.startswith("select:") %}
+    <select name="{{ clave }}" {{ 'required' if obligatorio }}>
+      <option value="">Elige</option>
+      {% for v, n in opciones(tipo) %}<option value="{{ v }}" {{ 'selected' if valor == v }}>{{ n }}</option>{% endfor %}
+    </select>
+  {% else %}
+    <input type="{{ tipo }}" name="{{ clave }}" value="{{ valor or '' }}" {{ 'required' if obligatorio }}>
+  {% endif %}
+</label>
+{% endif %}
+{%- endmacro %}
+
+{# Una fila por competidor y un campo por dato: una coma en el nombre ya no rompe nada. Las fichas antiguas, con los
+   competidores en texto, se enseñan ya separadas en filas y se guardan así. #}
+{% macro filas_de_competidores(etiqueta, ayuda, valor) -%}
+{% set filas = filas_competidores(valor) %}
+<fieldset class="c ancho competidores-campo">
+  <legend>{{ etiqueta }}{% if ayuda %} <small>{{ ayuda }}</small>{% endif %}</legend>
+  <input type="hidden" name="competidores_filas" value="1">
+  <div class="competidor-fila competidor-cabecera" aria-hidden="true"><span>Nombre</span><span>Web</span><span>Instagram</span><span>TikTok</span><span>LinkedIn</span><span>YouTube</span></div>
+  <div class="competidores-filas">
+    {% for f in filas %}{{ fila_competidor(f) }}{% endfor %}
+    {% for _ in range([3 - filas | length, 1] | max) %}{{ fila_competidor({}) }}{% endfor %}
+  </div>
+  <button type="button" class="btn btn-secundario btn-peque" data-anadir-competidor>Añadir otro</button>
+</fieldset>
+{%- endmacro %}
+
+{% macro fila_competidor(f) -%}
+<div class="competidor-fila">
+  <input name="comp_nombre" value="{{ f.nombre or '' }}" placeholder="Nombre" aria-label="Nombre">
+  <input name="comp_web" value="{{ f.web or '' }}" placeholder="web.com" aria-label="Web">
+  <input name="comp_instagram" value="{{ f.instagram or '' }}" placeholder="@usuario" aria-label="Instagram">
+  <input name="comp_tiktok" value="{{ f.tiktok or '' }}" placeholder="@usuario" aria-label="TikTok">
+  <input name="comp_linkedin" value="{{ f.linkedin or '' }}" placeholder="linkedin.com/in/…" aria-label="LinkedIn">
+  <input name="comp_youtube" value="{{ f.youtube or '' }}" placeholder="youtube.com/@canal" aria-label="YouTube">
+</div>
+{%- endmacro %}

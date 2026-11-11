@@ -1,0 +1,46 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% from "_onboarding.html" import campo as campo_onb %}
+{% block titulo %}{{ "Ficha · " ~ negocio.nombre if negocio else ("Nuevo cliente" if usuario.tipo == "agencia" else "Nuevo negocio") }} · {{ APP }}{% endblock %}
+{% block contenido %}
+{% set agencia = usuario.tipo == "agencia" %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>{% if negocio %}{{ "Ficha del cliente" if agencia else "Ficha del negocio" }}{% else %}{{ "Añade un cliente" if agencia else "Cuéntanos tu negocio" }}{% endif %}</h1>
+    <p class="sub">Quién eres, a quién vendes, tu oferta, tus redes y tu competencia. El equipo lo lee junto a tu Kit de marca, y Lupi saca de aquí las cuentas que sigue.</p>
+  </div>
+</header>
+{% if request.query_params.get("guardado") %}<div class="aviso aviso-ok">{{ icono("check") }}<div>Ficha guardada.</div></div>{% endif %}
+
+<form class="ficha-onboarding" method="post" action="{{ '/negocios/' ~ negocio.id ~ '/ficha' if negocio else '/negocios' }}">
+  {% for sec in ONBOARDING %}
+  <section class="onboarding-seccion">
+    <h2><span class="onboarding-num">{{ "%02d" | format(loop.index) }}</span>{{ sec.titulo }}</h2>
+    <div class="campos">
+      {% for c in sec.campos if c[0] not in ["notas"] %}{{ campo_onb(c, ficha.get(c[0]) or (ficha.get("precios") if c[0] == "precio_principal" else ""), opciones_onb, c[0] in ["nombre", "que_vende"]) }}{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  <div class="editor-pie">
+    {% if negocio %}<a class="btn btn-secundario" href="/negocios/{{ negocio.id }}">Cancelar</a>{% endif %}
+    <button class="btn btn-primario" type="submit">Guardar cambios</button>
+  </div>
+</form>
+
+
+
+{% if negocio %}
+<section class="panel zona-peligro" id="eliminar">
+  <div class="panel-cabecera">
+    <div><h2>Eliminar {{ "este cliente" if agencia else "este negocio" }}</h2>
+      <p class="tenue">Se borra todo lo del negocio: su ficha, su Kit de marca, sus guiones, sus vídeos y sus resultados. No se puede deshacer.</p></div>
+  </div>
+  <form class="panel-cuerpo eliminar-form" method="post" action="/negocios/{{ negocio.id }}/eliminar"
+        onsubmit="return confirm('¿Seguro que quieres eliminar «{{ negocio.nombre | replace("'", "") }}»? No se puede deshacer.');">
+    <label class="c"><span>Escribe <b>{{ negocio.nombre }}</b> para confirmar</span>
+      <input name="confirmar" autocomplete="off" required placeholder="{{ negocio.nombre }}"></label>
+    <button class="btn btn-peligro" type="submit">Eliminar definitivamente</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

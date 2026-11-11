@@ -1,0 +1,26 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono, estado, enlace, campo, etapa_chip, avisos, lectura, tarjeta_video, mini_ref, cabecera_vertical, progreso, matriz, barras_etapas %}
+{% block titulo %}Mi cuenta · {{ APP }}{% endblock %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div><h1>Mi cuenta</h1><p class="sub">{{ usuario.email }} · {{ TIPOS_CUENTA.get(usuario.tipo, "") }}</p></div>
+</header>
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Plan {{ cupo.plan.nombre }}</h2><p class="tenue">Lo que llevas este mes.</p></div></div>
+  <div class="panel-cuerpo">
+    <div class="usos">
+      {% for nombre, usado, total in [(("Clientes" if usuario.tipo == "agencia" else "Negocios"), (cupo.plan.negocios - cupo.negocios), cupo.plan.negocios), ("Vídeos editados", cupo.uso.ediciones, cupo.plan.ediciones_mes)] %}
+      <div class="uso">
+        <div class="uso-cabecera"><span>{{ nombre }}</span><b>{{ usado }}{% if total < 999 %} de {{ total }}{% endif %}</b></div>
+        {% if total < 999 %}<div class="barra"><i style="width: {{ [100, (usado / total * 100) | round] | min }}%"></i></div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="tenue" style="margin-top:16px">¿Necesitas más? Escríbenos y te pasamos a un plan mayor.</p>
+  </div>
+</section>
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Sesión</h2></div>
+    <form method="post" action="/salir"><button class="btn btn-secundario btn-peque" type="submit">{{ icono("salir") }} Salir</button></form></div>
+</section>
+{% endblock %}

@@ -1,0 +1,55 @@
+{# El bloque que se refresca solo: panel.html lo pide cada 20 s con ?parcial=1. #}
+{% macro barras(serie, pico, clase) -%}
+<svg class="pn-barras {{ clase }}" viewBox="0 0 {{ serie | length * 10 }} 60" preserveAspectRatio="none" aria-hidden="true">
+  {%- for v in serie %}{% set h = (56 * v / pico) if v else 0 %}<rect x="{{ loop.index0 * 10 + 1.5 }}" y="{{ 60 - h }}" width="7" height="{{ h }}" rx="1.5"/>{% endfor -%}
+</svg>
+{%- endmacro %}
+<div id="panel-vivo" data-hora="{{ p.dias[-1] }}">
+<div class="pg-cifras">
+  <div><small>Clics hoy</small><b>{{ p.clics_hoy }} <span>{{ p.clics_semana }} en 7 días</span></b></div>
+  <div><small>Altas hoy</small><b>{{ p.altas_hoy }} <span>{{ p.altas_semana }} en 7 días</span></b></div>
+  <div><small>Comentarios</small><b>{{ p.total.comentarios }}</b></div>
+  <div><small>Correos conseguidos</small><b>{{ p.total.correos }}</b></div>
+</div>
+
+<section class="pn-grafico">
+  <div class="pn-grafico-cab">
+    <h2 class="pg-titulo">Últimos 30 días</h2>
+    <p class="pn-leyenda"><i class="pn-l-clics"></i> Clics en los enlaces <i class="pn-l-altas"></i> Altas en la newsletter</p>
+  </div>
+  <div class="pn-lienzo">
+    {{ barras(p.clics, p.pico, "pn-clics") }}
+    {{ barras(p.altas, p.pico, "pn-altas") }}
+  </div>
+  <div class="pn-eje"><span>{{ p.dias[0][8:10] }}/{{ p.dias[0][5:7] }}</span><span>Hoy</span></div>
+</section>
+
+<h2 class="pg-titulo">Palabras clave</h2>
+{% if p.regalos %}
+<div class="pn-tabla" role="table">
+  <div class="pn-fila pn-cab" role="row"><span>Palabra</span><span><i class="pn-largo">Comentarios</i><i class="pn-corto">Coment.</i></span><span>Privados</span><span>Botón</span><span>Clics</span><span>Correos</span></div>
+  {% for r in p.regalos %}
+  <div class="pn-fila {{ 'pn-apagada' if not r.activa }}" role="row">
+    <span><b>{{ r.palabra }}</b>{% if not r.activa %} <small>pausada</small>{% endif %}</span>
+    <span>{{ r.comentarios }}</span><span>{{ r.privados }}</span><span>{{ r.boton }}</span><span>{{ r.clics }}</span><span>{{ r.correos }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="pg-vacio"><p><b>Aún no hay palabras clave.</b> Créalas en <a href="{{ base_n }}/comunidad#regalos">Comunidad › Regalos</a> y aquí verás cuánta gente comenta, pulsa y deja su correo.</p></div>
+{% endif %}
+
+{% for n in p.listas %}
+<h2 class="pg-titulo">Newsletter · {{ n.lista }}</h2>
+<div class="pg-cifras">
+  <div><small>Suscriptores activos</small><b>{{ n.activas }}</b></div>
+  <div><small>Altas en total</small><b>{{ n.altas }}</b></div>
+  <div><small>Bajas</small><b>{{ n.bajas }}</b></div>
+  {% set a_kit = n.kit.ok + (n.kit.desde_navegador or 0) %}<div><small>Enviadas a Kit</small><b>{{ a_kit }}{% if n.kit.pendientes or n.kit.fallidos %} <span>{{ n.kit.pendientes }} pendientes · {{ n.kit.fallidos }} con error</span>{% elif n.kit.desde_navegador %} <span>desde la landing</span>{% endif %}</b></div>
+</div>
+{% if n.kit.fallidos and n.kit.ultimo_error %}<p class="aviso pn-aviso">Último error al mandar a Kit: {{ n.kit.ultimo_error }}</p>{% endif %}
+{% if n.por_origen %}
+<ul class="pg-filas">{% for origen, cuantos in n.por_origen.items() %}<li><b>{{ "Sin palabra" if origen == "-" else origen }}</b><span>{{ cuantos }} alta{{ "s" if cuantos != 1 }}</span></li>{% endfor %}</ul>
+{% endif %}
+{% endfor %}
+</div>

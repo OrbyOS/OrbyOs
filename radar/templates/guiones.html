@@ -1,0 +1,57 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono, pestanas %}
+{% from "_estructura.html" import duracion, AYUDA_FORMATO with context %}
+{% block titulo %}{{ "Guiones" if modo_de(negocio.id) == "guion" else "Estructuras" }} · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{% macro fila(g) -%}
+{% set p = piezas.get(g.pieza_id) or {} %}
+<li><a class="pg-fila-enlace" href="{{ base_n }}/guiones/{{ g.id }}">
+  <b>{{ p.titulo or ("Guion" if g.validacion.modo == "guion" else "Estructura") }}</b>
+  <span>{{ duracion(g.validacion) }}{% if g.palabra_clave %} · {{ g.palabra_clave }}{% endif %}{% if p.estado == "grabada" %} · grabado{% endif %}</span>
+  {% if g.estado == "bloqueado" %}<em>{{ g.validacion.fallos | join(" ") }}</em>{% endif %}
+</a></li>
+{%- endmacro %}
+
+{% block contenido %}
+{% set es_guion = modo_de(negocio.id) == "guion" %}
+{% set nombre = "Guiones" if es_guion else "Estructuras" %}
+{% set listos = guiones | selectattr("estado", "equalto", "aprobado") | list %}
+{% set esperando = guiones | selectattr("estado", "equalto", "pendiente") | list %}
+{% set bloqueados = guiones | selectattr("estado", "equalto", "bloqueado") | list %}
+<header class="pg-cabeza">
+  <div><h1>Grabar</h1>
+    <p class="pg-sub">{% if estado_guionista.trabajando %}<i class="hero-vivo"></i> Escri está escribiendo…{% elif sin_guion %}{{ sin_guion | length }} pieza{{ "s" if sin_guion | length != 1 }} aprobada{{ "s" if sin_guion | length != 1 }} sin {{ "guion" if es_guion else "estructura" }}.{% else %}{{ listos | length }} list{{ "as" if not es_guion else "os" }} para grabar.{% endif %}</p></div>
+  <div class="pg-acciones">
+    {% if sin_guion %}<form method="post" action="/negocios/{{ negocio.id }}/guiones/escribir"><button class="btn btn-primario" type="submit" {% if not ia or estado_guionista.trabajando %}disabled{% endif %}>{{ icono("chispa") }} Escribir {{ "los guiones" if es_guion else "las estructuras" }}</button></form>{% endif %}
+    <a class="btn btn-secundario" href="#nuevo">{{ icono("mas") }} {{ "Nuevo guion" if es_guion else "Nueva estructura" }}</a>
+  </div>
+</header>
+{{ pestanas([(base_n ~ "/estrategia", "Hoy", false, 0), (base_n ~ "/guiones", nombre, true, listos | length)]) }}
+<div {% if estado_guionista.trabajando %}data-estado-url="/negocios/{{ negocio.id }}/guiones/estado"{% endif %}></div>
+{% if estado_guionista.avisos %}<div class="aviso">{{ icono("alerta") }}<ul class="avisos">{% for a in avisos_para(estado_guionista.avisos, usuario) %}<li>{{ a }}</li>{% endfor %}</ul></div>{% endif %}
+
+{% if listos %}<h2 class="pg-titulo">Listos para grabar</h2><ul class="pg-filas">{% for g in listos %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if esperando %}<h2 class="pg-titulo">Esperan tu OK</h2><ul class="pg-filas">{% for g in esperando %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if bloqueados %}<h2 class="pg-titulo">Hay que arreglarlos <small>No pasan el validador: ábrelos para reescribirlos con una nota</small></h2><ul class="pg-filas pg-filas-aviso">{% for g in bloqueados %}{{ fila(g) }}{% endfor %}</ul>{% endif %}
+{% if not (listos or esperando or bloqueados) %}<div class="pg-vacio"><p><b>Aún no hay {{ nombre | lower }}.</b> Aprueba el plan de hoy o pide {{ "uno" if es_guion else "una" }} nuev{{ "o" if es_guion else "a" }}.</p></div>{% endif %}
+
+<details class="pg-plegable" id="nuevo">
+  <summary>{{ icono("mas") }} {{ "Nuevo guion" if es_guion else "Nueva estructura" }}</summary>
+  <form method="post" action="/negocios/{{ negocio.id }}/guiones/nuevo" class="pg-dentro">
+    <div class="campos">
+      <label class="c ancho"><span>De qué va</span><input name="tema" placeholder="Por qué tus llamadas de venta no cierran" required></label>
+      <details class="ancho gn-yo"><summary>Lo escribo yo</summary>
+        <div class="campos">
+          {% if es_guion %}<label class="c ancho"><span>Guion <small>Solo lo que dices</small></span><textarea name="texto" rows="6"></textarea></label>
+          {% else %}<label class="c ancho"><span>Estructura <small>«Idea: …», cada bloque numerado («1. tema») con sus puntos («- …») y «Tu ejemplo: …», y «Cierre: …»</small></span><textarea name="texto" rows="12" placeholder="{{ AYUDA_FORMATO }}"></textarea></label>{% endif %}
+          <label class="c"><span>Llamada a la acción</span><select name="cta">{% for k, n in CTAS.items() %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></label>
+          <label class="c"><span>Palabra clave <small>4-9 letras</small></span><input name="palabra_clave" placeholder="GUIA"></label>
+          <label class="c ancho"><span>Hashtags <small>De 3 a 5</small></span><input name="hashtags" placeholder="#marcapersonal #ventas #coaching"></label>
+          <button class="btn btn-secundario" name="modo" value="yo" type="submit">Guardar {{ "mi guion" if es_guion else "mi estructura" }}</button>
+        </div>
+      </details>
+    </div>
+    <div class="form-pie"><button class="btn btn-primario" name="modo" value="ia" type="submit" {% if not ia %}disabled{% endif %}>{{ icono("chispa") }} Pídeselo a la IA</button></div>
+  </form>
+</details>
+{% endblock %}

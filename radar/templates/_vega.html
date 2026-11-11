@@ -1,0 +1,135 @@
+{# Hablar con Orby: el botón flotante y la conversación, en todas las páginas de un negocio. #}
+{% from "_ui.html" import icono %}
+<button class="vega-boton" type="button" data-vega-abrir aria-controls="vega-panel" aria-expanded="false">
+  <span class="vega-cara" data-robot="jefa" data-robot-cabeza></span><span>Pregúntale a Orby</span>
+</button>
+<aside class="vega-panel org-azul" id="vega-panel" data-url="/negocios/{{ negocio.id }}/vega" hidden aria-label="Conversación con Orby">
+  <header class="vega-cabecera">
+    <span class="vega-cara" data-robot="jefa" data-robot-cabeza></span>
+    <div><strong>Orby</strong><small>Dirección · conoce tu Kit, tu día y tus resultados</small></div>
+    <button type="button" class="vega-icono" data-vega-nueva title="Empezar una conversación nueva">{{ icono("actualizar") }}</button>
+    <button type="button" class="vega-icono" data-vega-cerrar title="Cerrar" aria-label="Cerrar">×</button>
+  </header>
+  <div class="vega-mensajes" aria-live="polite"></div>
+  <div class="vega-sugerencias"></div>
+  <form class="vega-form">
+    <textarea name="texto" rows="1" maxlength="2000" placeholder="Pregúntale lo que quieras de tu negocio…" aria-label="Tu pregunta"></textarea>
+    <button type="submit" class="vega-enviar" aria-label="Enviar">{{ icono("flecha-der") }}</button>
+  </form>
+</aside>
+<script>
+  // La conversación con Vega: carga lo hablado, envía la pregunta y pinta la respuesta según llega.
+  (function () {
+    var panel = document.getElementById("vega-panel");
+    if (!panel) return;
+    var url = panel.dataset.url, lista = panel.querySelector(".vega-mensajes"), chips = panel.querySelector(".vega-sugerencias");
+    var form = panel.querySelector(".vega-form"), caja = form.querySelector("textarea"), enviar = form.querySelector(".vega-enviar");
+    var botones = document.querySelectorAll(".vega-boton"), cargado = false, ocupada = false, sugerencias = [];
+
+    function escapar(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function enLinea(t) {
+      return escapar(t)
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>')
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+    function pintar(texto) {
+      // Párrafos y listas con «- »: lo justo para leer bien una respuesta.
+      var html = "", enLista = false;
+      texto.split("\n").forEach(function (l) {
+        var item = l.match(/^\s*[-•]\s+(.*)/);
+        if (item) { if (!enLista) { html += "<ul>"; enLista = true; } html += "<li>" + enLinea(item[1]) + "</li>"; return; }
+        if (enLista) { html += "</ul>"; enLista = false; }
+        if (l.trim()) html += "<p>" + enLinea(l) + "</p>";
+      });
+      return html + (enLista ? "</ul>" : "");
+    }
+    function burbuja(rol, texto) {
+      var b = document.createElement("div");
+      b.className = "vega-msg " + (rol === "usuario" ? "de-usuario" : "de-vega");
+      if (rol === "usuario") b.textContent = texto; else b.innerHTML = pintar(texto);
+      lista.appendChild(b);
+      lista.scrollTop = lista.scrollHeight;
+      return b;
+    }
+    function bienvenida() {
+      burbuja("vega", "Hola, soy **Orby**. Conozco tu ficha, todo lo que ha encontrado tu equipo y lo que hace cada parte de Radar. "
+        + "Pregúntame lo que quieras y te lo explico con los datos delante. Si quieres más detalle, pídemelo.");
+    }
+    function ponerSugerencias() {
+      chips.innerHTML = "";
+      chips.hidden = lista.querySelectorAll(".de-usuario").length > 0;
+      sugerencias.forEach(function (s) {
+        var b = document.createElement("button");
+        b.type = "button"; b.textContent = s;
+        b.addEventListener("click", function () { preguntar(s); });
+        chips.appendChild(b);
+      });
+    }
+    function cargar() {
+      fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+        cargado = true; lista.innerHTML = ""; sugerencias = d.sugerencias || [];
+        if (!d.mensajes.length) bienvenida();
+        d.mensajes.forEach(function (m) { burbuja(m.rol, m.texto); });
+        if (!d.disponible) burbuja("vega", "Ahora mismo no puedo hablar: falta la clave de Claude en la app.");
+        ponerSugerencias();
+      }).catch(function () { burbuja("vega", "No he podido cargar la conversación. Prueba a recargar la página."); });
+    }
+    function abrir() {
+      panel.hidden = false;
+      botones.forEach(function (b) { b.setAttribute("aria-expanded", "true"); });
+      document.body.classList.add("vega-abierta");
+      if (!cargado) cargar();
+      setTimeout(function () { caja.focus(); }, 50);
+    }
+    function cerrar() {
+      panel.hidden = true;
+      botones.forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+      document.body.classList.remove("vega-abierta");
+    }
+    function preguntar(texto) {
+      texto = (texto || "").trim();
+      if (!texto || ocupada) return;
+      ocupada = true; enviar.disabled = true; chips.hidden = true;
+      burbuja("usuario", texto);
+      caja.value = ""; caja.style.height = "";
+      var respuesta = burbuja("vega", "");
+      respuesta.innerHTML = '<span class="vega-escribiendo"><i></i><i></i><i></i></span>';
+      var datos = new FormData(); datos.append("texto", texto);
+      fetch(url, { method: "POST", body: datos, credentials: "same-origin" }).then(function (r) {
+        if (!r.ok || !r.body) return r.text().then(function (t) { respuesta.innerHTML = pintar(t || "No he podido responder."); });
+        var lector = r.body.getReader(), decod = new TextDecoder(), acumulado = "";
+        function leer() {
+          return lector.read().then(function (paso) {
+            if (paso.done) return;
+            acumulado += decod.decode(paso.value, { stream: true });
+            respuesta.innerHTML = pintar(acumulado);
+            lista.scrollTop = lista.scrollHeight;
+            return leer();
+          });
+        }
+        return leer();
+      }).catch(function () {
+        respuesta.innerHTML = pintar("Se ha cortado la conexión. Prueba de nuevo.");
+      }).then(function () { ocupada = false; enviar.disabled = false; caja.focus(); });
+    }
+    botones.forEach(function (b) { b.addEventListener("click", function () { panel.hidden ? abrir() : cerrar(); }); });
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-vega-abrir]:not(.vega-boton)");
+      if (b) { e.preventDefault(); abrir(); }
+    });
+    panel.querySelector("[data-vega-cerrar]").addEventListener("click", cerrar);
+    panel.querySelector("[data-vega-nueva]").addEventListener("click", function () {
+      if (ocupada) return;
+      fetch(url + "/nueva", { method: "POST", credentials: "same-origin" }).then(function () {
+        lista.innerHTML = ""; bienvenida(); ponerSugerencias();
+      });
+    });
+    form.addEventListener("submit", function (e) { e.preventDefault(); preguntar(caja.value); });
+    caja.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); preguntar(caja.value); }
+    });
+    caja.addEventListener("input", function () { caja.style.height = ""; caja.style.height = Math.min(caja.scrollHeight, 140) + "px"; });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !panel.hidden) cerrar(); });
+  })();
+</script>

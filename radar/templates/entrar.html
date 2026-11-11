@@ -1,0 +1,22 @@
+{% extends "publico.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Entrar · {{ APP }}{% endblock %}
+{% block contenido %}
+<section class="auth">
+  <div class="auth-director" aria-hidden="true">
+    <img src="/static/marca/director.webp" alt="" width="1145" height="1374">
+    <p>Tu equipo de contenido.<br><span>Investiga, escribe, edita y publica contigo.</span></p>
+  </div>
+  <form class="auth-tarjeta" method="post" action="/entrar">
+    <h1>Entra en {{ APP }}</h1>
+    <p class="sub">Tu equipo de contenido te está esperando.</p>
+    {% if error %}<div class="aviso aviso-error">{{ icono("alerta") }}<div>{{ error }}</div></div>{% endif %}
+    <input type="hidden" name="siguiente" value="{{ siguiente or '/app' }}">
+    <label class="c">Correo<input type="email" name="email" value="{{ email or '' }}" autocomplete="email" required autofocus></label>
+    <label class="c">Contraseña<input type="password" name="clave" autocomplete="current-password" required></label>
+    <button class="btn btn-primario btn-ancho" type="submit">Entrar</button>
+    {% if registro_abierto %}<p class="auth-pie">¿No tienes cuenta? <a href="/registro">Crear cuenta</a></p>{% endif %}
+  </form>
+</section>
+{% endblock %}
+

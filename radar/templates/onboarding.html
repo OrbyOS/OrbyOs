@@ -1,0 +1,138 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono %}
+{% block titulo %}Onboarding · {{ negocio.nombre }} · {{ APP }}{% endblock %}
+
+{# Un campo de los datos básicos, según su tipo. #}
+{% macro campo(c) -%}
+{% if c.tipo == "textarea" %}
+<label class="c ancho"><span>{{ c.etiqueta }}</span><textarea name="{{ c.clave }}" rows="3">{{ c.valor or "" }}</textarea></label>
+{% elif c.tipo == "select" %}
+<label class="c"><span>{{ c.etiqueta }}</span><select name="{{ c.clave }}"><option value="">—</option>{% for o in c.opciones %}<option value="{{ o }}" {{ 'selected' if c.valor == o }}>{{ (c.etiquetas or {}).get(o, o) }}</option>{% endfor %}</select></label>
+{% elif c.tipo == "checks" %}
+{% set marcadas = (c.valor or "").split(", ") %}
+<fieldset class="c ancho ob-checks"><legend>{{ c.etiqueta }}</legend>
+  {% for o in c.opciones %}<label class="kit-check"><input type="checkbox" name="{{ c.clave }}" value="{{ o }}" {{ 'checked' if o in marcadas }}> <span>{{ (c.etiquetas or {}).get(o, o) }}</span></label>{% endfor %}</fieldset>
+{% else %}
+<label class="c"><span>{{ c.etiqueta }}</span><input name="{{ c.clave }}" value="{{ c.valor or '' }}"></label>
+{% endif %}
+{%- endmacro %}
+
+{# Subir una llamada: el archivo (transcripción, audio o vídeo) o el texto pegado, y notas. #}
+{% macro subir(n, ll) -%}
+<form method="post" action="/negocios/{{ negocio.id }}/onboarding/llamada/{{ n }}" enctype="multipart/form-data">
+  <div class="panel-cuerpo campos">
+    <label class="c ancho"><span>La grabación o la transcripción <small>.txt, .md, .vtt, .srt, o el audio o vídeo (.mp3, .m4a, .wav, .mp4, .mov, .webm…). El audio se transcribe en este ordenador.</small></span>
+      <input type="file" name="archivo" accept=".txt,.md,.vtt,.srt,.mp3,.m4a,.wav,.mp4,.mov,.webm,.ogg,.aac,.flac,.mkv"></label>
+    <label class="c ancho"><span>O pega la transcripción</span><textarea name="texto" rows="4" placeholder="Pega aquí la transcripción de la llamada"></textarea></label>
+    <label class="c ancho"><span>Notas <small>Opcional: lo que te quedó de la llamada y no está en la grabación</small></span><textarea name="notas" rows="2">{{ ll.notas or "" }}</textarea></label>
+  </div>
+  <div class="form-pie"><button class="btn btn-primario" type="submit">{{ icono("subir") }} {{ "Volver a subir" if ll.estado == "lista" else "Subir la llamada " ~ n }}</button></div>
+</form>
+{%- endmacro %}
+
+{% macro estado_llamada(ll) -%}
+{% if ll.estado == "transcribiendo" %}<p class="ob-trabajando"><i class="hero-vivo"></i>Transcribiendo{% if ll.archivo %} «{{ ll.archivo }}»{% endif %} en este ordenador. Puede tardar un rato; la página se actualiza sola.</p>
+{% elif ll.estado == "lista" %}<p class="tenue">Subida{% if ll.subido %} el {{ ll.subido | fecha }}{% endif %} · {{ ll.palabras }} palabras{% if ll.archivo %} · {{ ll.archivo }}{% endif %}.</p>
+{% elif ll.estado == "error" %}<div class="aviso aviso-error">{{ icono("alerta") }}<div>{{ ll.error or "No se pudo procesar la llamada." }} Prueba a subirla otra vez.</div></div>{% endif %}
+{%- endmacro %}
+
+{% block contenido %}
+{% set o = onboarding %}
+{% set ns = namespace(transcribiendo=false) %}{% for n, ll in o.llamadas.items() %}{% if ll.estado == "transcribiendo" %}{% set ns.transcribiendo = true %}{% endif %}{% endfor %}
+{% set trabajando = ns.transcribiendo or o.extraccion_estado == "preparando" %}
+<header class="vertical-cabecera">
+  <div>
+    <h1>Onboarding</h1>
+    <p class="sub">Sube el contexto de tu negocio: tus datos, tus redes y las llamadas que hayas tenido. Con eso se preparan tu ficha y tu Kit de marca, y llegan a Aprobaciones para que los revises.</p>
+  </div>
+</header>
+
+{% if not ia %}<div class="aviso">{{ icono("alerta") }}<div>Para preparar la ficha y el Kit hace falta Claude. Conéctalo en <a href="{{ base_n }}/conectores#claude">Conectores</a>.</div></div>{% endif %}
+
+{% set fase = 1 if o.paso == "datos" else 2 if o.paso in ("llamadas", "extraer", "revisar") else 3 %}
+<ol class="ob-fases" {% if trabajando %}data-ob-estado="/negocios/{{ negocio.id }}/onboarding/estado"{% endif %}>
+  <li class="{{ 'hecha' if o.respondidas >= o.preguntas | length else 'actual' if fase == 1 else '' }}"><a href="#preguntas"><b>1</b><span>Tus datos y tus redes<small>{{ o.respondidas }} de {{ o.preguntas | length }}</small></span></a></li>
+  <li class="{{ 'hecha' if o.aplicado else 'actual' if fase == 2 else '' }}"><a href="#llamadas"><b>2</b><span>Llamadas, ficha y Kit<small>{% if o.aplicado %}Aplicado{% elif o.extraccion and o.extraccion_al_dia %}Para revisar{% elif o.listas %}{{ o.listas | length }} {{ "llamada subida" if o.listas | length == 1 else "llamadas subidas" }}{% else %}Pendiente{% endif %}</small></span></a></li>
+  <li class="{{ 'actual' if fase == 3 else '' }}"><a href="#kit-visual"><b>3</b><span>Kit visual<small>Paleta, tipografía y movimiento</small></span></a></li>
+</ol>
+
+{# ---------------------------------------------------------------- 1. Tus datos y tus redes #}
+<section class="panel ob-paso" id="preguntas">
+  <div class="panel-cabecera"><div><h2>1 · Tus datos y tus redes</h2><p class="tenue">Lo básico para que el equipo encuentre tu negocio y sepa a qué ritmo publicar.</p></div>
+    <span class="cx-estado {{ 'on' if o.respondidas >= o.preguntas | length }}">{{ o.respondidas }}/{{ o.preguntas | length }}</span></div>
+  <form method="post" action="/negocios/{{ negocio.id }}/onboarding/preguntas">
+    {% for p in o.preguntas %}
+    <fieldset class="panel-cuerpo campos ob-pregunta">
+      <legend>{{ p.pregunta }}</legend>
+      {% for c in p.campos %}{{ campo(c) }}{% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="form-pie"><button class="btn btn-primario" type="submit">Guardar</button></div>
+  </form>
+</section>
+
+{# ---------------------------------------------------------------- 2. Las llamadas, la ficha y el Kit #}
+<section class="panel ob-paso" id="llamadas">
+  <div class="panel-cabecera"><div><h2>2 · Las llamadas</h2><p class="tenue">Sube hasta {{ o.max_llamadas }} llamadas, en el orden que quieras: la grabación o la transcripción. Cuando estén, prepara la ficha y el Kit con todas.</p></div></div>
+  <div class="panel-cuerpo ob-llamadas">
+    {% for n, ll in o.llamadas.items() %}
+    <div class="ob-llamada" id="llamada{{ n }}">
+      <div class="ob-llamada-cab"><h3>Llamada {{ n }}{% if n == 3 %} <span class="hy-etiqueta">Opcional</span>{% endif %}</h3>
+        <span class="cx-estado {{ 'on' if ll.estado == 'lista' }}">{{ "Subida" if ll.estado == "lista" else "Transcribiendo" if ll.estado == "transcribiendo" else "Error" if ll.estado == "error" else "Sin subir" }}</span></div>
+      {{ estado_llamada(ll) }}
+      {% if ll.estado == "lista" %}<details class="ob-otra"><summary>Volver a subir la llamada {{ n }}</summary>{{ subir(n, ll) }}</details>
+      {% elif ll.estado != "transcribiendo" %}{{ subir(n, ll) }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="panel-cuerpo ob-final" id="extraer">
+    {% if o.extraccion_estado == "preparando" %}
+    <p class="ob-trabajando"><i class="hero-vivo"></i>Preparando tu ficha y tu Kit con {{ "la llamada" if o.listas | length == 1 else "las " ~ (o.listas | length) ~ " llamadas" }}. La página se actualiza sola.</p>
+    {% else %}
+      {% if o.extraccion_estado and o.extraccion_estado.startswith("error") %}
+      <div class="aviso aviso-error">{{ icono("alerta") }}<div>{{ o.extraccion_estado[6:].strip(" :") or "No se pudo preparar la ficha." }}</div></div>
+      {% endif %}
+      {% if o.aplicado %}
+      <p><b>Ficha y Kit aplicados.</b> Ya los usa todo el equipo: <a href="{{ base_n }}/kit">Kit de marca</a>.</p>
+      {% elif o.aprobacion_id and o.extraccion_al_dia %}
+      <p><b>Ficha y Kit listos para revisar.</b>{% if o.extraccion and o.extraccion.pendiente %} Quedan {{ o.extraccion.pendiente | length }} cosas por completar.{% endif %}</p>
+      <a class="btn btn-primario btn-peque" href="{{ base_n }}/aprobaciones#ap-{{ o.aprobacion_id }}">{{ icono("check") }} Revisar en Aprobaciones</a>
+      {% elif not o.listas %}
+      <p class="tenue">Sube al menos una llamada para preparar la ficha y el Kit.</p>
+      {% endif %}
+      {% if o.listas and not (o.extraccion_al_dia and (o.aprobacion_id or o.aplicado)) %}
+      <form method="post" action="/negocios/{{ negocio.id }}/onboarding/extraer">
+        <button class="btn {{ 'btn-secundario' if o.extraccion else 'btn-primario' }}" type="submit" {{ 'disabled' if not ia }}>{{ icono("chispa") }} {{ "Volver a preparar con todas las llamadas" if o.extraccion and not o.extraccion_al_dia else "Preparar la ficha y el Kit" }}</button>
+      </form>
+      {% if o.extraccion and not o.extraccion_al_dia %}<p class="tenue">Has subido otra llamada después de preparar la ficha: vuelve a prepararla para que la tenga en cuenta.</p>{% endif %}
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+
+{# ---------------------------------------------------------------- 3. Kit visual #}
+<section class="panel ob-paso ob-kit-visual" id="kit-visual">
+  <div class="panel-cabecera"><div><h2>3 · Kit visual</h2><p class="tenue">Cómo se ven tus vídeos: la paleta, la tipografía, el logo y el movimiento de los textos. Monti lo usa en cada edición.</p></div></div>
+  <div class="panel-cuerpo ob-kv">
+    <ul class="ob-kv-lista"><li>Paleta</li><li>Tipografía</li><li>Logo</li><li>Movimiento</li></ul>
+    <a class="btn btn-primario" href="{{ base_n }}/kit#identidad">Abrir el Kit visual</a>
+  </div>
+</section>
+
+<script>
+  // Mientras algo se está transcribiendo o preparando, la página se actualiza sola cuando cambia.
+  (function () {
+    var nodo = document.querySelector("[data-ob-estado]");
+    if (!nodo) return;
+    var antes = null;
+    setInterval(function () {
+      fetch(nodo.dataset.obEstado, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+        var ahora = JSON.stringify(d);
+        if (antes === null) { antes = ahora; return; }
+        if (ahora !== antes) location.reload();
+      }).catch(function () {});
+    }, 5000);
+  })();
+</script>
+{% endblock %}

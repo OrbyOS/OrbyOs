@@ -1,0 +1,7 @@
+{
+  "name": "generacion-videos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vídeos explicativos sin cámara: voz en off, ilustraciones animadas y subtítulos -> 1080x1920",
+  "scripts": {"studio": "remotion studio src/index.ts", "typecheck": "tsc --noEmit"}
+}

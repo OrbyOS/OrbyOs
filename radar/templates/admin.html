@@ -1,0 +1,114 @@
+{% extends "app.html" %}
+{% from "_ui.html" import icono, estado, enlace, campo, etapa_chip, avisos, lectura, tarjeta_video, mini_ref, cabecera_vertical, progreso, matriz, barras_etapas %}
+{% block titulo %}Administración · {{ APP }}{% endblock %}
+{% block contenido %}
+<header class="vertical-cabecera">
+  <div><h1>Administración</h1><p class="sub">Clientes, gasto por cliente y cuentas del proyecto. Solo lo ves tú.</p></div>
+  <div class="vertical-acciones">
+    <a class="btn btn-secundario btn-peque" href="/registro">{{ icono("mas") }} Nueva cuenta</a>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-valor">{{ usuarios | length }}</div><div class="stat-etiqueta">Usuarios</div></div>
+  <div class="stat"><div class="stat-valor">{{ todos | length }}</div><div class="stat-etiqueta">Negocios</div></div>
+  <div class="stat"><div class="stat-valor">{{ total.mes | dolares }}</div><div class="stat-etiqueta">Gasto este mes</div></div>
+  <div class="stat"><div class="stat-valor">{{ total.claude | dolares }}</div><div class="stat-etiqueta">Claude, total</div></div>
+  <div class="stat"><div class="stat-valor">{{ total.apify | dolares }}</div><div class="stat-etiqueta">Apify, total (estimado)</div></div>
+</div>
+
+{# Las solicitudes de implementación que llegan desde la landing. #}
+{% set nuevas = (solicitudes or []) | selectattr("estado", "equalto", "nueva") | list %}
+<section class="panel" id="solicitudes">
+  <div class="panel-cabecera"><div><h2>Solicitudes de implementación {% if nuevas %}<span class="cx-estado on">{{ nuevas | length }} nueva{{ "s" if nuevas | length != 1 }}</span>{% endif %}</h2>
+    <p class="tenue">Lo que llega desde «Solicitar implementación» en la landing. Cambia el estado según avance y apunta lo que hablas.</p></div></div>
+  {% if solicitudes %}
+  <ul class="kit-lista sl-lista">
+    {% for s in solicitudes %}{% set d = s.datos or {} %}
+    <li class="sl-{{ s.estado }}">
+      <div class="sl-datos">
+        <strong>{{ d.nombre or "Sin nombre" }}</strong>{% if d.negocio %} · {{ d.negocio }}{% endif %}
+        <p class="kit-meta"><a href="mailto:{{ d.email }}">{{ d.email }}</a>{% if d.web %} · <a href="{{ d.web if d.web.startswith('http') else 'https://' ~ d.web }}" target="_blank" rel="noopener">{{ d.web | host if d.web.startswith('http') else d.web }}</a>{% endif %} · {{ s.creado | fecha }}</p>
+        {% if d.redes %}<p class="kit-meta">Redes: {{ d.redes }}</p>{% endif %}
+        {% if d.mensaje %}<p class="sl-mensaje">«{{ d.mensaje }}»</p>{% endif %}
+      </div>
+      <form class="sl-form" method="post" action="/admin/solicitudes/{{ s.id }}">
+        <select name="estado" aria-label="Estado">{% for k, n in ESTADOS_SOLICITUD.items() %}<option value="{{ k }}" {{ 'selected' if s.estado == k }}>{{ n }}</option>{% endfor %}</select>
+        <textarea name="notas" rows="2" placeholder="Notas: qué habéis hablado, cuándo es la llamada…" aria-label="Notas">{{ s.notas or "" }}</textarea>
+        <button class="btn btn-secundario btn-peque" type="submit">Guardar</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="vacio"><p>Aún no ha llegado ninguna solicitud. Saldrán aquí en cuanto alguien rellene el formulario de la landing.</p></div>
+  {% endif %}
+</section>
+
+<section class="panel" id="usuarios">
+  <div class="panel-cabecera"><div><h2>Cuentas</h2><p class="tenue">Quién usa esta instalación, su uso del mes y lo que cuesta.</p></div></div>
+  <div class="tabla-envoltorio sin-borde">
+    <table>
+      <thead><tr><th>Usuario</th><th>Negocios</th><th>Vídeos (mes)</th><th>Gasto mes</th><th>Gasto total</th><th>Plan y acceso</th></tr></thead>
+      <tbody>
+      {% for u in usuarios %}
+        <tr>
+          <td class="fuerte">{{ u.nombre or "—" }} <span class="badge badge-sin-punto">{{ TIPOS_CUENTA.get(u.tipo, "Negocio") }}</span><br><span class="tenue">{{ u.email }} · desde {{ u.creado | fecha }}</span></td>
+          <td class="num">{{ u.negocios }}</td>
+          <td class="num">{{ u.ediciones_mes }}</td>
+          <td class="num">{{ u.gasto_mes | dolares }}</td>
+          <td class="num">{{ u.gasto_total | dolares }}</td>
+          <td>
+            <form class="fila-form" method="post" action="/admin/usuarios/{{ u.id }}">
+              <select name="plan">{% for clave, p in planes.items() %}<option value="{{ clave }}" {{ 'selected' if u.plan == clave }}>{{ p.nombre }} ({{ p.negocios if p.negocios < 999 else "∞" }} neg.)</option>{% endfor %}</select>
+              <label><input type="checkbox" name="es_admin" value="1" {{ 'checked' if u.es_admin }}> Admin</label>
+              <label><input type="checkbox" name="activo" value="1" {{ 'checked' if u.activo }}> Activo</label>
+              <button class="btn btn-secundario btn-peque" type="submit">Guardar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Últimos gastos</h2><p class="tenue">Lo que hace cada agente, con su coste de Claude y Apify.</p></div></div>
+  <div class="tabla-envoltorio sin-borde">
+    <table>
+      <thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Qué</th><th>Claude</th><th>Apify</th></tr></thead>
+      <tbody>
+      {% for g in gastos %}
+        <tr><td class="num">{{ g.creado | fecha }}</td><td>{{ g.email or "—" }}</td><td>{{ g.negocio or "—" }}</td>
+            <td>{{ g.concepto | replace("actualizar:", "Actualizar ") | replace("_fallido", " (falló)") | replace("analisis", "Análisis") | replace("edicion", "Edición") | replace("estilo", "Estilo de edición") }}</td>
+            <td class="num">{{ g.coste_claude | dolares }}</td><td class="num">{{ g.coste_apify | dolares }}</td></tr>
+      {% else %}<tr><td colspan="6" class="tenue">Aún no hay gastos.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" id="conectores">
+  <div class="panel-cabecera"><div><h2>Cuentas del proyecto</h2><p class="tenue">Las claves se pegan en Conectores y se guardan en esta instalación. La dirección pública y los presupuestos, en «Ajustes de la instalación».</p></div>
+    <span class="kit-linea">{% if negocio %}<a class="btn btn-primario btn-peque" href="{{ base_n }}/conectores">Conectores</a>{% endif %}<a class="btn btn-secundario btn-peque" href="/admin/claves">Ajustes de la instalación</a></span></div>
+  {% for c in conectores %}
+  <div class="conector">
+    <div class="conector-estado"><span class="punto {{ 'on' if c.activo }}"></span></div>
+    <div><strong>{{ c.nombre }}</strong><p>{{ c.para_que }}</p>{% if not c.activo %}<div class="pasos-activar">{{ c.como_activarlo }}</div>{% endif %}</div>
+    <span class="badge {{ 'badge-ok' if c.activo else 'badge-sin_datos' }}">{{ "Conectado" if c.activo else "Sin conectar" }}</span>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="panel">
+  <div class="panel-cabecera"><div><h2>Todos los negocios</h2></div></div>
+  {% for n in todos %}
+  <a class="fila-negocio" href="/negocios/{{ n.id }}">
+    <div class="negocio-id"><div class="avatar">{{ n.nombre[:1] | upper }}</div><div><strong>{{ n.nombre }}</strong><span>{{ n.ficha.que_vende }}</span></div></div>
+    {{ icono("flecha") }}
+  </a>
+  {% endfor %}
+</section>
+{% endblock %}
